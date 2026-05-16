@@ -1,0 +1,24 @@
+{
+  "name": "forum-keeper",
+  "version": "0.0.1",
+  "description": "Reference V2-SDK-native paper-mode market-making keeper for Polymarket V2, settling operator state on Arc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "smoke": "node --enable-source-maps dist/smoke.js"
+  },
+  "dependencies": {
+    "@polymarket/clob-client-v2": "^1.0.6",
+    "viem": "^2.47.0",
+    "dotenv": "^17.0.0",
+    "solc": "^0.8.30"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "vitest": "^4.0.0"
+  },
+  "license": "MIT"
+}
