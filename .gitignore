@@ -1,0 +1,32 @@
+# Foundry
+cache/
+out/
+broadcast/
+lib/
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.eggs/
+*.egg-info/
+build/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
