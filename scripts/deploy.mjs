@@ -12,8 +12,16 @@
 // Run from forum/ root:  node scripts/deploy.mjs
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+
+// Resolve repo root from this script's location so deploy.mjs works
+// whether invoked from forum/ or from forum/keeper/ (where node_modules lives).
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dirname, '..');
+process.chdir(REPO_ROOT);
+
 import solc from 'solc';
 import {
   createPublicClient,
