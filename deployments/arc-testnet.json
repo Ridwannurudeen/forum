@@ -1,0 +1,29 @@
+{
+  "chainId": 5042002,
+  "rpc": "https://rpc.testnet.arc.network",
+  "deployer": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+  "deployedAt": "2026-05-16T19:43:14.903Z",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "contracts": {
+    "BuilderCodeRegistry": {
+      "address": "0x730825299821d411146c503915553e37ebdc750c",
+      "txHash": "0xe9a1d78355c3e5c9a0c932f2341d0973ad4c37ceb976406985deeedc8fe82d85",
+      "block": "42553657"
+    },
+    "KeeperConfig": {
+      "address": "0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26",
+      "txHash": "0x44bd05f84a475734107fea1b5dfa3cecdbc20350b7b3a0b881294c078b4ab58b",
+      "block": "42553664"
+    },
+    "TrackRecord": {
+      "address": "0xaace70a50573cb077f65d601cd19103afc4aef9d",
+      "txHash": "0xb02fa1c0a60ea56d492d3cd28eb95cb72970ecb58f7815d21db531f96102a15a",
+      "block": "42553669"
+    },
+    "FeeDistributor": {
+      "address": "0x0574257629e8221d560cf4aace0f3cd7226be2a0",
+      "txHash": "0x4d8edd8cc03d1f26388612b857aae8f16233f25720abd7cb226300a4a88efb11",
+      "block": "42553679"
+    }
+  }
+}

@@ -23,10 +23,10 @@ Nobody has built that layer. Forum does, on Arc.
 
 | Contract | Address |
 |---|---|
-| `BuilderCodeRegistry` | _filled after D1/D5 deploy_ |
-| `KeeperConfig` | _filled after D5 deploy_ |
-| `TrackRecord` | _filled after D5 deploy_ |
-| `FeeDistributor` | _filled after D5 deploy_ |
+| `BuilderCodeRegistry` | [`0x730825299821d411146c503915553e37ebdc750c`](https://testnet.arcscan.app/address/0x730825299821d411146c503915553e37ebdc750c) |
+| `KeeperConfig` | [`0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26`](https://testnet.arcscan.app/address/0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26) |
+| `TrackRecord` | [`0xaace70a50573cb077f65d601cd19103afc4aef9d`](https://testnet.arcscan.app/address/0xaace70a50573cb077f65d601cd19103afc4aef9d) |
+| `FeeDistributor` | [`0x0574257629e8221d560cf4aace0f3cd7226be2a0`](https://testnet.arcscan.app/address/0x0574257629e8221d560cf4aace0f3cd7226be2a0) |
 
 ## Develop
 
