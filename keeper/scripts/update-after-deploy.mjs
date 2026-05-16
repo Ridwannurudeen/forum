@@ -12,7 +12,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+const REPO_ROOT = resolve(__dirname, '..', '..');
 process.chdir(REPO_ROOT);
 
 const DEPLOY_PATH = 'deployments/arc-testnet.json';
