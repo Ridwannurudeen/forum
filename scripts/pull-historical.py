@@ -28,13 +28,19 @@ DATA_API = "https://data-api.polymarket.com"
 OUT = pathlib.Path("data/historical")
 
 
+UA = "forum-arc/0.0.1 (+https://github.com/Ridwannurudeen/forum) python-urllib"
+
+
 def _get(url: str, params: dict[str, Any] | None = None, retries: int = 3) -> Any:
     if params:
         qs = "&".join(f"{k}={v}" for k, v in params.items())
         url = f"{url}?{qs}"
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": UA, "Accept": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except (urllib.error.URLError, TimeoutError):
             if attempt == retries - 1:

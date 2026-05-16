@@ -4,6 +4,9 @@ out/
 broadcast/
 lib/
 
+# Historical market dumps (regenerable via scripts/pull-historical.py)
+data/historical/
+
 # Node
 node_modules/
 dist/
