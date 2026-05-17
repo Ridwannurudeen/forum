@@ -13,7 +13,7 @@
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { keccak256, toHex } from 'viem';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -87,6 +87,37 @@ async function main() {
   const llm = args.provider === 'anthropic' ? new AnthropicProvider() : new MockLlmProvider();
   let seq = (await bridge.lastSeq()) + 1;
   let prevHash = await bridge.lastRecordHash();
+
+  // ----------------------------------------------------------------------
+  // Covenant Account integration — only quote/publish while vault is ACTIVE.
+  // ----------------------------------------------------------------------
+  const covenantAddr = JSON.parse(
+    readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, 'utf8'),
+  ).contracts?.CovenantVault?.address;
+  const riskKernelAddr = JSON.parse(
+    readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, 'utf8'),
+  ).contracts?.RiskKernel?.address;
+  const STATE_ABI = [{ type: 'function', name: 'state', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] }];
+  const ENFORCE_ABI = [{ type: 'function', name: 'enforce', stateMutability: 'nonpayable', inputs: [{ name: 'vault', type: 'address' }], outputs: [] }];
+  async function readVaultState() {
+    if (!covenantAddr) return 0;
+    try {
+      return Number(await bridge.publicClient.readContract({ address: covenantAddr, abi: STATE_ABI, functionName: 'state' }));
+    } catch { return 0; } // 0 == ACTIVE on read failure to avoid false-pause
+  }
+  async function nudgeRiskKernel() {
+    if (!covenantAddr || !riskKernelAddr) return;
+    try {
+      await bridge.walletClient.writeContract({
+        address: riskKernelAddr, abi: ENFORCE_ABI, functionName: 'enforce',
+        args: [covenantAddr], chain: bridge.publicClient.chain,
+      });
+    } catch { /* enforce reverts if state unchanged; that's fine */ }
+  }
+  if (covenantAddr) {
+    console.log('  bound to vault:  ', covenantAddr);
+    console.log('  risk kernel:     ', riskKernelAddr);
+  }
   console.log(`  starting seq:    `, seq);
   console.log(`  prev record hash:`, prevHash);
 
@@ -147,6 +178,17 @@ async function main() {
     }
 
     if (tick % args.publishEvery === 0) {
+      // Covenant gate: skip publish if vault is PAUSED. Always nudge kernel.
+      await nudgeRiskKernel();
+      const vaultState = await readVaultState();
+      if (vaultState !== 0) {
+        console.log(`COVENANT-PAUSED state=${vaultState} skipping publish for seq=${seq}`);
+        cycleBookSnapshots = [];
+        cycleFills = [];
+        cycleDecisions = [];
+        await new Promise((r) => setTimeout(r, args.intervalSec * 1000));
+        continue;
+      }
       try {
         const periodEndTs = Math.floor(Date.now() / 1000);
         // Aggregate trace hashes into a single decisionTrace.traceHash by hashing
