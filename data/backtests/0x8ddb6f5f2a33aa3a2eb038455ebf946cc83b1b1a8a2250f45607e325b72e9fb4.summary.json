@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x8ddb6f5f2a33aa3a2eb038455ebf946cc83b1b1a8a2250f45607e325b72e9fb4",
+  "slug": "will-the-democratic-party-win-the-tx-17-house-seat",
+  "summary": {
+    "ticks": 10059,
+    "fills": 0,
+    "finalInventory": 0,
+    "finalPnlUsdc": 0,
+    "meanReturn": 0,
+    "stddev": 0,
+    "sharpe": 0,
+    "maxDrawdown": 0,
+    "hitRate": 0,
+    "inventoryTurnover": 0
+  }
+}

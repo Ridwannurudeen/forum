@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x44957f52fcf787edfd7e5e76ec846347f0bbe6c1f34205bd6f4f4bbc04c87a02",
+  "slug": "citrea-fdv-above-100m-one-day-after-launch",
+  "summary": {
+    "ticks": 10059,
+    "fills": 2,
+    "finalInventory": 0,
+    "finalPnlUsdc": -3.865,
+    "meanReturn": -0.0003842712268840724,
+    "stddev": 0.03659834935987742,
+    "sharpe": -7.612092318884932,
+    "maxDrawdown": 3.865,
+    "hitRate": 0,
+    "inventoryTurnover": 17.967455172413793
+  }
+}

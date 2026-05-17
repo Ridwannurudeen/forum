@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x6ed39e8c839b02236a0380c125eb496084662185ae1455bebcdc48398e8d47d4",
+  "slug": "will-mrbeasts-next-video-get-between-35-and-40-million-views-on-day-1-221",
+  "summary": {
+    "ticks": 7813,
+    "fills": 21,
+    "finalInventory": -5,
+    "finalPnlUsdc": -26.784999999999993,
+    "meanReturn": -0.003428699436763952,
+    "stddev": 0.13081044207528833,
+    "sharpe": -19.002672386144216,
+    "maxDrawdown": 29.59499999999999,
+    "hitRate": 0,
+    "inventoryTurnover": 7.171879079214626
+  }
+}

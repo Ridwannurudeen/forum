@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x1fad72fae204143ff1c3035e99e7c0f65ea8d5cd9bd1070987bd1a3316f772be",
+  "slug": "new-rhianna-album-before-gta-vi-926",
+  "summary": {
+    "ticks": 10059,
+    "fills": 22,
+    "finalInventory": 0,
+    "finalPnlUsdc": -25.53,
+    "meanReturn": -0.0025382779876715056,
+    "stddev": 0.0774028098004124,
+    "sharpe": -23.774431210868915,
+    "maxDrawdown": 25.68,
+    "hitRate": 0,
+    "inventoryTurnover": 36.01516470588236
+  }
+}

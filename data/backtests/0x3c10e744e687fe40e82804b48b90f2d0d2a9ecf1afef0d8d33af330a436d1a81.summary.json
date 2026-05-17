@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x3c10e744e687fe40e82804b48b90f2d0d2a9ecf1afef0d8d33af330a436d1a81",
+  "slug": "highest-temperature-in-mexico-city-on-may-18-2026-22c",
+  "summary": {
+    "ticks": 1742,
+    "fills": 0,
+    "finalInventory": 0,
+    "finalPnlUsdc": 0,
+    "meanReturn": 0,
+    "stddev": 0,
+    "sharpe": 0,
+    "maxDrawdown": 0,
+    "hitRate": 0,
+    "inventoryTurnover": 0
+  }
+}

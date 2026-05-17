@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x274cec202608757e62a0cf64ec63a3a814a6cc23a1bff1819b437362c5c16732",
+  "slug": "will-lebanon-recognize-israel-by-june-30",
+  "summary": {
+    "ticks": 10059,
+    "fills": 2,
+    "finalInventory": 0,
+    "finalPnlUsdc": -4.63,
+    "meanReturn": -0.00046033008550407637,
+    "stddev": 0.04692406069999556,
+    "sharpe": -7.112158883779214,
+    "maxDrawdown": 4.695,
+    "hitRate": 0,
+    "inventoryTurnover": 5.924861538461538
+  }
+}

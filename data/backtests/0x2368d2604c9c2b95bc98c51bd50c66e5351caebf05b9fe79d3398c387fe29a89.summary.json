@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x2368d2604c9c2b95bc98c51bd50c66e5351caebf05b9fe79d3398c387fe29a89",
+  "slug": "will-7-fed-rate-cuts-happen-in-2026",
+  "summary": {
+    "ticks": 10059,
+    "fills": 0,
+    "finalInventory": 0,
+    "finalPnlUsdc": 0,
+    "meanReturn": 0,
+    "stddev": 0,
+    "sharpe": 0,
+    "maxDrawdown": 0,
+    "hitRate": 0,
+    "inventoryTurnover": 0
+  }
+}

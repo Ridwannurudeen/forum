@@ -1,0 +1,16 @@
+{
+  "conditionId": "0x1cf2449dad53485515a44f2d76813500e78202f2c8e951943434794181fcdb03",
+  "slug": "will-the-republican-party-win-the-fl-03-house-seat",
+  "summary": {
+    "ticks": 10059,
+    "fills": 2,
+    "finalInventory": 0,
+    "finalPnlUsdc": -0.6950000000000001,
+    "meanReturn": -0.00006909922449791212,
+    "stddev": 0.006415845081953046,
+    "sharpe": -7.808129052522358,
+    "maxDrawdown": 0.6950000000000001,
+    "hitRate": 0,
+    "inventoryTurnover": 20.21587135135135
+  }
+}

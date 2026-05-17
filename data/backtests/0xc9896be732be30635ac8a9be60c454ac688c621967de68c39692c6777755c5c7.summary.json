@@ -1,0 +1,16 @@
+{
+  "conditionId": "0xc9896be732be30635ac8a9be60c454ac688c621967de68c39692c6777755c5c7",
+  "slug": "bra2-rec-crb-2026-05-17-crb",
+  "summary": {
+    "ticks": 10059,
+    "fills": 4,
+    "finalInventory": 0,
+    "finalPnlUsdc": -7.015,
+    "meanReturn": -0.0006974547623782064,
+    "stddev": 0.050565099707465554,
+    "sharpe": -9.999835468028285,
+    "maxDrawdown": 7.1899999999999995,
+    "hitRate": 0,
+    "inventoryTurnover": 51.6494792079208
+  }
+}
