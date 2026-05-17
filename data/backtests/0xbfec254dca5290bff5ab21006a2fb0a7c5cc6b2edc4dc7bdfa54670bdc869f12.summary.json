@@ -5,11 +5,11 @@
     "ticks": 9631,
     "fills": 4,
     "finalInventory": 0,
-    "finalPnlUsdc": -9.415000000000001,
-    "meanReturn": -0.000977673935617861,
-    "stddev": 0.1303033391481565,
-    "sharpe": -5.439590046648265,
-    "maxDrawdown": 9.602500000000001,
+    "finalPnlUsdc": -9.335,
+    "meanReturn": -0.0009693665628245069,
+    "stddev": 0.13010671042469035,
+    "sharpe": -5.401520354626279,
+    "maxDrawdown": 9.5425,
     "hitRate": 0,
     "inventoryTurnover": 2.7448712886209496
   }

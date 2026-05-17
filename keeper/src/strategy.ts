@@ -39,6 +39,8 @@ export interface AvellanedaStoikovConfig {
   maxQuotingVariance: number;
   /** Number of warmup ticks before quoting (let the variance estimator stabilise). */
   warmupTicks: number;
+  /** Maker rebate paid per filled order, in USDC (rough proxy for Polymarket V2 rewards). */
+  makerRebateUsdcPerFill: number;
 }
 
 export const DEFAULT_AS_CONFIG: AvellanedaStoikovConfig = {
@@ -51,6 +53,7 @@ export const DEFAULT_AS_CONFIG: AvellanedaStoikovConfig = {
   maxHalfSpread: 0.03, // 300bps cap — keep fills happening on real moves
   maxQuotingVariance: 0.0005, // pull quotes when σ² exceeds (e.g., during news)
   warmupTicks: 30, // skip first N ticks while variance estimator stabilises
+  makerRebateUsdcPerFill: 0.02, // ~2c/fill — order-of-magnitude proxy for Polymarket V2 maker rewards
 };
 
 export interface ASQuote {

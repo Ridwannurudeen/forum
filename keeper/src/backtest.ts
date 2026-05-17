@@ -86,6 +86,7 @@ export function runBacktest(p: BacktestParams): BacktestResult {
   const log: PerTickLog[] = [];
   const pnlSeriesUsdc: number[] = [];
   let profitableFills = 0;
+  let makerRebatesUsdc = 0;
 
   // Directional momentum EWMA on first-differences. Used to pull the side
   // that's getting hit by a trend. Half-life ~15 ticks (15min).
@@ -143,7 +144,10 @@ export function runBacktest(p: BacktestParams): BacktestResult {
       };
       const before = inventory.totalPnlAt(next.p);
       inventory.apply(fill);
-      const after = inventory.totalPnlAt(next.p);
+      // Maker rebate is added directly to realized PnL via a synthetic
+      // credit on the inventory tracker.
+      makerRebatesUsdc += cfg.makerRebateUsdcPerFill;
+      const after = inventory.totalPnlAt(next.p) + makerRebatesUsdc;
       if (after > before) profitableFills += 1;
       fillSide = "BUY";
       fillPrice = quotes.bid.price;
@@ -159,13 +163,14 @@ export function runBacktest(p: BacktestParams): BacktestResult {
       };
       const before = inventory.totalPnlAt(next.p);
       inventory.apply(fill);
-      const after = inventory.totalPnlAt(next.p);
+      makerRebatesUsdc += cfg.makerRebateUsdcPerFill;
+      const after = inventory.totalPnlAt(next.p) + makerRebatesUsdc;
       if (after > before) profitableFills += 1;
       fillSide = "SELL";
       fillPrice = quotes.ask.price;
     }
 
-    const pnl = inventory.totalPnlAt(next.p);
+    const pnl = inventory.totalPnlAt(next.p) + makerRebatesUsdc;
     pnlSeriesUsdc.push(pnl);
     log.push({
       t: tick.t,
