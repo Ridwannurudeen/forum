@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Forum — Arc operator plane for prediction-market bots</title>
-  <meta name="description" content="Arc-native operator and settlement plane for prediction-market bots." />
+  <meta name="description" content="Arc-native operator and settlement plane for prediction-market bots — registry, config, track record, fee distribution. Built for the Agora Agents Hackathon." />
   <link rel="preconnect" href="https://rsms.me/" />
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -15,16 +15,9 @@
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
           colors: {
             forum: {
-              bg: '#06080d',
-              panel: '#0c1018',
-              ink: '#d6dae3',
-              dim: '#8b94a8',
-              accent: '#a06bff',
-              accent2: '#5dd6c3',
-              line: '#1c2230',
-              ok: '#4ade80',
-              warn: '#f59e0b',
-              err: '#f87171',
+              bg: '#06080d', panel: '#0c1018', ink: '#d6dae3', dim: '#8b94a8',
+              accent: '#a06bff', accent2: '#5dd6c3', line: '#1c2230',
+              ok: '#4ade80', warn: '#f59e0b', err: '#f87171',
             },
           },
         },
@@ -45,53 +38,82 @@
     .mono { font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
     a { transition: color 120ms ease; }
     a:hover { color: #c4a4ff; }
+    .sparkline { width: 120px; height: 28px; }
+    .pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
   </style>
 </head>
 <body class="glow">
   <div class="dots min-h-screen">
-    <main class="mx-auto max-w-5xl px-6 py-12">
+    <main class="mx-auto max-w-6xl px-6 py-12">
+
       <!-- Header -->
-      <header class="mb-12">
+      <header class="mb-10">
         <div class="flex items-baseline justify-between gap-6 flex-wrap">
           <div>
-            <h1 class="text-4xl font-medium tracking-tight">Forum</h1>
+            <div class="flex items-center gap-3">
+              <h1 class="text-4xl font-medium tracking-tight">Forum</h1>
+              <span class="text-xs uppercase tracking-widest text-forum-accent2 border border-forum-accent2/40 rounded-full px-2 py-0.5">live · testnet</span>
+            </div>
             <p class="mt-2 text-forum-dim">
               Arc-native operator and settlement plane for prediction-market bots.
             </p>
           </div>
           <div class="text-xs text-forum-dim text-right space-y-0.5">
-            <div>Built for the <a class="text-forum-accent" href="https://agora.thecanteenapp.com/" target="_blank" rel="noopener">Agora Agents Hackathon</a></div>
+            <div><a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener">github.com/Ridwannurudeen/forum</a></div>
+            <div>Built for <a class="text-forum-accent" href="https://agora.thecanteenapp.com/" target="_blank" rel="noopener">Agora Agents Hackathon</a></div>
             <div>Canteen × Circle × Arc · May 11–25 2026</div>
           </div>
         </div>
       </header>
 
+      <!-- Hero metrics strip -->
+      <section class="mb-10 grid gap-3 grid-cols-2 md:grid-cols-4">
+        <div class="rounded-xl border border-forum-line bg-forum-panel/60 p-4">
+          <div class="text-xs uppercase tracking-widest text-forum-dim">Bots registered</div>
+          <div id="metric-bots" class="mt-2 text-2xl font-medium text-forum-ink">…</div>
+        </div>
+        <div class="rounded-xl border border-forum-line bg-forum-panel/60 p-4">
+          <div class="text-xs uppercase tracking-widest text-forum-dim">TrackRecord publishes</div>
+          <div id="metric-records" class="mt-2 text-2xl font-medium text-forum-ink">…</div>
+        </div>
+        <div class="rounded-xl border border-forum-line bg-forum-panel/60 p-4">
+          <div class="text-xs uppercase tracking-widest text-forum-dim">Latest publish</div>
+          <div id="metric-latest" class="mt-2 text-2xl font-medium text-forum-ink">…</div>
+        </div>
+        <div class="rounded-xl border border-forum-line bg-forum-panel/60 p-4">
+          <div class="text-xs uppercase tracking-widest text-forum-dim">Arc block</div>
+          <div id="metric-block" class="mt-2 text-2xl font-medium text-forum-ink">…</div>
+        </div>
+      </section>
+
       <!-- Pitch -->
-      <section class="mb-12 rounded-2xl border border-forum-line bg-forum-panel/60 p-8 backdrop-blur-sm">
+      <section class="mb-10 rounded-2xl border border-forum-line bg-forum-panel/60 p-8 backdrop-blur-sm">
         <p class="text-lg leading-relaxed text-forum-ink">
-          Polymarket V2 launched April 28 2026 with new contracts, <span class="text-forum-accent">pUSD</span> collateral,
-          and a <span class="mono text-forum-accent2">bytes32</span> builder-attribution field on every signed order. A wave of new bots
-          followed — directional pickers, market-makers, arbitrage agents. Every one needs the same operator infrastructure:
-          a way to <span class="text-forum-ink">claim</span> a builder code, <span class="text-forum-ink">tune live params</span>, publish a
-          <span class="text-forum-ink">verifiable track record</span>, and <span class="text-forum-ink">split USDC fees</span>.
+          Polymarket V2 launched April 28 with <span class="text-forum-accent">bytes32</span> builder-attribution on every signed order. A wave of new bots followed — and every one needs the same operator infrastructure: a way to <span class="text-forum-ink">claim a code</span>, <span class="text-forum-ink">tune live params</span>, publish a <span class="text-forum-ink">verifiable track record</span>, and <span class="text-forum-ink">split USDC fees</span>.
         </p>
         <p class="mt-4 text-lg leading-relaxed text-forum-dim">
-          Nobody built that layer. Forum does — on Arc.
+          Forum is that layer, on Arc — built on the exact lane <a class="text-forum-accent" href="https://agora.thecanteenapp.com/" target="_blank" rel="noopener">Canteen Research Hack #02</a> named in writing 10 days before the hackathon launched.
         </p>
       </section>
 
       <!-- Live deployment -->
-      <section class="mb-12">
-        <h2 class="mb-4 text-sm uppercase tracking-widest text-forum-dim">Live on Arc Testnet · chain 5042002</h2>
-        <div id="contracts" class="grid gap-3 sm:grid-cols-2">
-          <!-- Filled by JS -->
-        </div>
-        <div id="chain-status" class="mt-4 text-xs text-forum-dim">Loading chain state…</div>
+      <section class="mb-10">
+        <h2 class="mb-4 text-sm uppercase tracking-widest text-forum-dim">Immutable contracts · Arc Testnet chain 5042002</h2>
+        <div id="contracts" class="grid gap-3 sm:grid-cols-2"></div>
       </section>
 
       <!-- Registry browser -->
-      <section class="mb-12">
-        <h2 class="mb-4 text-sm uppercase tracking-widest text-forum-dim">Registered bots</h2>
+      <section class="mb-10">
+        <div class="flex items-baseline justify-between mb-4">
+          <h2 class="text-sm uppercase tracking-widest text-forum-dim">Registered bots</h2>
+          <span class="text-xs text-forum-dim"><span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>live · refreshes 30s</span>
+        </div>
         <div id="bots" class="overflow-x-auto rounded-xl border border-forum-line bg-forum-panel/40">
           <table class="w-full text-sm">
             <thead class="border-b border-forum-line text-left text-xs uppercase tracking-wider text-forum-dim">
@@ -100,22 +122,22 @@
                 <th class="px-4 py-3 font-normal">Kind</th>
                 <th class="px-4 py-3 font-normal">Signer</th>
                 <th class="px-4 py-3 font-normal text-right">Records</th>
-                <th class="px-4 py-3 font-normal text-right">Latest PnL (μUSDC)</th>
+                <th class="px-4 py-3 font-normal text-right">Last PnL (µUSDC)</th>
+                <th class="px-4 py-3 font-normal">PnL trend</th>
+                <th class="px-4 py-3 font-normal">Last publish</th>
               </tr>
             </thead>
             <tbody id="bots-body" class="mono text-xs">
-              <tr><td class="px-4 py-6 text-forum-dim" colspan="5">Loading…</td></tr>
+              <tr><td class="px-4 py-6 text-forum-dim" colspan="7">Loading…</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
       <!-- Fork & integrate -->
-      <section class="mb-12 rounded-2xl border border-forum-line bg-forum-panel/60 p-8">
-        <h2 class="mb-4 text-sm uppercase tracking-widest text-forum-dim">Integrate in 5 minutes</h2>
-        <p class="text-forum-dim mb-4">
-          Any prediction-market bot can plug in. TypeScript and Python clients ship with the same API.
-        </p>
+      <section class="mb-10 rounded-2xl border border-forum-line bg-forum-panel/60 p-8">
+        <h2 class="mb-4 text-sm uppercase tracking-widest text-forum-dim">Integrate any bot in 5 minutes</h2>
+        <p class="text-forum-dim mb-4">TypeScript and Python clients ship with the same API.</p>
         <div class="grid gap-4 md:grid-cols-2">
           <pre class="mono overflow-x-auto rounded-lg border border-forum-line bg-black/40 p-4 text-xs leading-relaxed"><span class="text-forum-dim">// TypeScript</span>
 import { ForumClient } from 'forum-arc-sdk';
@@ -127,8 +149,7 @@ const forum = new ForumClient({
   addresses: ARC_TESTNET_DEPLOYMENT,
 });
 await forum.registry.claim('0xabc…');
-await forum.trackRecord.publish(botId, record, sig);
-          </pre>
+await forum.trackRecord.publish(botId, record, sig);</pre>
           <pre class="mono overflow-x-auto rounded-lg border border-forum-line bg-black/40 p-4 text-xs leading-relaxed"><span class="text-forum-dim"># Python</span>
 from forum_arc import ForumClient
 from forum_arc.deployments import \
@@ -136,25 +157,41 @@ from forum_arc.deployments import \
 
 forum = ForumClient(w3, ARC_TESTNET_DEPLOYMENT, acct)
 forum.registry.claim(code)
-forum.track_record.publish(bot_id, record, sig)
-          </pre>
+forum.track_record.publish(bot_id, record, sig)</pre>
         </div>
       </section>
 
-      <!-- Footer -->
+      <!-- Honest backtest callout -->
+      <section class="mb-10 rounded-2xl border border-forum-warn/30 bg-forum-warn/5 p-8">
+        <h2 class="mb-3 text-sm uppercase tracking-widest text-forum-warn">Honest backtest · v1</h2>
+        <p class="text-forum-ink leading-relaxed">
+          Naive Avellaneda-Stoikov on 16 markets × 7 days × 1-min ticks: <strong class="text-forum-err">−$76.79 PnL</strong>, 5.62% hit rate, 57 fills, mean Sharpe −5.00. Exactly what the literature predicts for an MM without proper microstructure modelling.
+        </p>
+        <p class="mt-3 text-forum-dim leading-relaxed">
+          <strong class="text-forum-ink">This is the pitch.</strong> Forum's <code class="text-forum-accent2">TrackRecord</code> makes every operator's performance claims cryptographically falsifiable. Bad strategies (like our v1) self-disqualify on-chain. Capital flows to the proven ones. Numerai for autonomous agents, on the chain Circle raised $222M to build.
+        </p>
+        <p class="mt-3 text-xs text-forum-dim">
+          Reproduce: <code class="mono">node keeper/scripts/pull-prices.mjs --markets 20 --days 7 --fidelity 1</code> then <code class="mono">tsx scripts/run-backtest.mjs</code>. Full framing in <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md" target="_blank" rel="noopener">docs/backtest-notes.md</a>.
+        </p>
+      </section>
+
       <footer class="border-t border-forum-line pt-6 text-xs text-forum-dim">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            Repo: <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener">github.com/Ridwannurudeen/forum</a>
-          </div>
           <div>MIT · Paper-mode default · Arc testnet only · No financial advice</div>
+          <div>
+            <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener">repo</a>
+            ·
+            <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md" target="_blank" rel="noopener">pitch deck</a>
+            ·
+            <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum/blob/main/SUBMISSION.md" target="_blank" rel="noopener">submission</a>
+          </div>
         </div>
       </footer>
     </main>
   </div>
 
   <script type="module">
-    import { createPublicClient, http, defineChain, decodeEventLog, parseAbiItem } from 'https://esm.sh/viem@2.47.0';
+    import { createPublicClient, http, defineChain, parseAbiItem } from 'https://esm.sh/viem@2.47.0';
 
     const ARC_TESTNET = defineChain({
       id: 5042002, name: 'Arc Testnet',
@@ -170,10 +207,47 @@ forum.track_record.publish(bot_id, record, sig)
     };
 
     const KIND_NAMES = ['MAKER', 'TAKER', 'ARB', 'OTHER'];
+    const SPARK_LAST_N = 12;
+
+    const RECORD_COUNT_ABI = [{ type: 'function', name: 'recordCount', stateMutability: 'view',
+                                inputs: [{ name: 'botId', type: 'bytes32' }], outputs: [{ type: 'uint256' }] }];
+    const RECORD_AT_ABI = [{ type: 'function', name: 'recordAt', stateMutability: 'view',
+                             inputs: [{ name: 'botId', type: 'bytes32' }, { name: 'idx', type: 'uint256' }],
+                             outputs: [{ type: 'tuple', components: [
+                               { name: 'ts', type: 'uint64' }, { name: 'pnlMicros', type: 'int128' },
+                               { name: 'fills', type: 'uint64' }, { name: 'metaHash', type: 'bytes32' },
+                             ]}] }];
 
     function shortAddr(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
     function shortHash(h) { return h.slice(0, 10) + '…' + h.slice(-6); }
     function explorerAddr(a) { return `https://testnet.arcscan.app/address/${a}`; }
+    function ago(ts) {
+      const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts));
+      if (s < 60) return `${s}s ago`;
+      if (s < 3600) return `${Math.floor(s/60)}m ago`;
+      if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+      return `${Math.floor(s/86400)}d ago`;
+    }
+    function sparkSvg(values) {
+      if (values.length < 2) {
+        return `<svg class="sparkline"><text x="50%" y="55%" text-anchor="middle" font-size="10" fill="#8b94a8">—</text></svg>`;
+      }
+      const w = 120, h = 28, pad = 2;
+      const min = Math.min(...values), max = Math.max(...values);
+      const range = max - min || 1;
+      const stepX = (w - pad * 2) / (values.length - 1);
+      const points = values.map((v, i) => {
+        const x = pad + i * stepX;
+        const y = pad + (1 - (v - min) / range) * (h - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      const last = values[values.length - 1];
+      const first = values[0];
+      const color = last >= first ? '#4ade80' : '#f87171';
+      return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" />
+      </svg>`;
+    }
 
     function renderContracts() {
       const el = document.getElementById('contracts');
@@ -185,17 +259,14 @@ forum.track_record.publish(bot_id, record, sig)
         </a>`).join('');
     }
 
-    async function loadChainStatus(client) {
-      const el = document.getElementById('chain-status');
+    async function loadAll(client) {
       try {
-        const [chainId, block] = await Promise.all([client.getChainId(), client.getBlockNumber()]);
-        el.textContent = `Chain ${chainId} · block ${block} · RPC https://rpc.testnet.arc.network`;
+        const block = await client.getBlockNumber();
+        document.getElementById('metric-block').textContent = block.toLocaleString();
       } catch (e) {
-        el.innerHTML = `<span class="text-forum-err">RPC error: ${e.message}</span>`;
+        document.getElementById('metric-block').innerHTML = `<span class="text-forum-err text-sm">RPC err</span>`;
       }
-    }
 
-    async function loadBots(client) {
       const body = document.getElementById('bots-body');
       try {
         const logs = await client.getLogs({
@@ -203,55 +274,73 @@ forum.track_record.publish(bot_id, record, sig)
           event: parseAbiItem('event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)'),
           fromBlock: 0n,
         });
+
+        document.getElementById('metric-bots').textContent = String(logs.length);
+
         if (logs.length === 0) {
-          body.innerHTML = `<tr><td class="px-4 py-6 text-forum-dim" colspan="5">No bots registered yet. Be the first — fork the repo and publish.</td></tr>`;
+          body.innerHTML = `<tr><td class="px-4 py-6 text-forum-dim" colspan="7">No bots registered yet. Be the first.</td></tr>`;
+          document.getElementById('metric-records').textContent = '0';
+          document.getElementById('metric-latest').textContent = '—';
           return;
         }
+
         const rows = await Promise.all(logs.map(async (log) => {
           const botId = log.args.botId;
           const kind = KIND_NAMES[Number(log.args.kind)] || 'OTHER';
           const signer = log.args.signer;
           const count = await client.readContract({
-            address: ADDRESSES.trackRecord,
-            abi: [{ type: 'function', name: 'recordCount', stateMutability: 'view',
-                    inputs: [{ name: 'botId', type: 'bytes32' }], outputs: [{ type: 'uint256' }] }],
+            address: ADDRESSES.trackRecord, abi: RECORD_COUNT_ABI,
             functionName: 'recordCount', args: [botId],
           });
-          let latestPnl = '—';
-          if (count > 0n) {
-            const r = await client.readContract({
-              address: ADDRESSES.trackRecord,
-              abi: [{ type: 'function', name: 'recordAt', stateMutability: 'view',
-                      inputs: [{ name: 'botId', type: 'bytes32' }, { name: 'idx', type: 'uint256' }],
-                      outputs: [{ type: 'tuple', components: [
-                        { name: 'ts', type: 'uint64' }, { name: 'pnlMicros', type: 'int128' },
-                        { name: 'fills', type: 'uint64' }, { name: 'metaHash', type: 'bytes32' },
-                      ]}] }],
-              functionName: 'recordAt', args: [botId, count - 1n],
-            });
-            latestPnl = r.pnlMicros.toString();
+          const n = Number(count);
+          if (n === 0) {
+            return { botId, kind, signer, count: 0, latestPnl: '—', spark: '', lastTs: null };
           }
-          return { botId, kind, signer, count, latestPnl };
+          // Fetch last min(N, count) records for sparkline.
+          const start = n > SPARK_LAST_N ? n - SPARK_LAST_N : 0;
+          const idxs = [];
+          for (let i = start; i < n; i++) idxs.push(BigInt(i));
+          const records = await Promise.all(idxs.map((idx) =>
+            client.readContract({
+              address: ADDRESSES.trackRecord, abi: RECORD_AT_ABI,
+              functionName: 'recordAt', args: [botId, idx],
+            })
+          ));
+          const pnls = records.map((r) => Number(r.pnlMicros));
+          const last = records[records.length - 1];
+          return {
+            botId, kind, signer, count: n,
+            latestPnl: Number(last.pnlMicros).toLocaleString(),
+            spark: sparkSvg(pnls),
+            lastTs: Number(last.ts),
+          };
         }));
+
+        const totalRecords = rows.reduce((a, r) => a + r.count, 0);
+        document.getElementById('metric-records').textContent = totalRecords.toLocaleString();
+
+        const latestTs = rows.reduce((a, r) => r.lastTs && r.lastTs > a ? r.lastTs : a, 0);
+        document.getElementById('metric-latest').textContent = latestTs > 0 ? ago(latestTs) : '—';
+
         body.innerHTML = rows.map((r) => `
           <tr class="border-b border-forum-line/60 last:border-0 hover:bg-forum-panel/40">
             <td class="px-4 py-3"><span title="${r.botId}">${shortHash(r.botId)}</span></td>
-            <td class="px-4 py-3">${r.kind}</td>
+            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2">${r.kind}</span></td>
             <td class="px-4 py-3"><a class="text-forum-accent" href="${explorerAddr(r.signer)}" target="_blank" rel="noopener">${shortAddr(r.signer)}</a></td>
             <td class="px-4 py-3 text-right">${r.count}</td>
             <td class="px-4 py-3 text-right">${r.latestPnl}</td>
+            <td class="px-4 py-3">${r.spark}</td>
+            <td class="px-4 py-3 text-forum-dim">${r.lastTs ? ago(r.lastTs) : '—'}</td>
           </tr>`).join('');
       } catch (e) {
-        body.innerHTML = `<tr><td class="px-4 py-6 text-forum-err" colspan="5">Load error: ${e.message}</td></tr>`;
+        body.innerHTML = `<tr><td class="px-4 py-6 text-forum-err" colspan="7">Load error: ${e.message}</td></tr>`;
       }
     }
 
     const client = createPublicClient({ chain: ARC_TESTNET, transport: http() });
     renderContracts();
-    loadChainStatus(client);
-    loadBots(client);
-    setInterval(() => loadBots(client), 30_000);
-    setInterval(() => loadChainStatus(client), 15_000);
+    loadAll(client);
+    setInterval(() => loadAll(client), 30_000);
   </script>
 </body>
 </html>
