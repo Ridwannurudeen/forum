@@ -16,6 +16,8 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: forge install forge-std
         run: forge install foundry-rs/forge-std --no-git
