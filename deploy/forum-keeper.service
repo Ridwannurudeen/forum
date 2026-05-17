@@ -1,0 +1,18 @@
+[Unit]
+Description=Forum reference V2 market-making keeper (paper mode, multi-market)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/forum/keeper
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/src/index.ts --markets 5 --interval 60 --publish-every 10 --label forum-vps-keeper-v1
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forum-keeper
+
+[Install]
+WantedBy=multi-user.target
