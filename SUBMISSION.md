@@ -101,6 +101,10 @@ Forum is now SEVEN immutable contracts on Arc testnet plus TWO continuous keeper
 | `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | per-code attribution → pull-pattern USDC claim |
 | **`AgentPool`** | **`0x13855be80b6122187c0bcba007946f9fbaae3fae`** | **USDC deposits → operator pulls capital → 20%-above-HWM perf fee** |
 | **`SlashBond`** | **`0x66040fd1aea2c09dde83252114532b6cb9941482`** | **operator collateral, attestor-slashable → flows to AgentPool depositors** |
+| **`RiskKernel`** | **`0x041a79c214e9daf876b5f2e76d7870ef4359630a`** | **permissionless mandate enforcer — `enforce(vault)` callable by anyone** |
+| **`CovenantVault`** | **`0xd126e11b3e79e9af23b021d793097a5902aae3ef`** | **mandate-bounded USDC credit line — operator never owns funds, only execution rights** |
+
+**v1 integration caveat (honest):** `SlashBond.attestor` is the deployer wallet today, not `RiskKernel`. `RiskKernel.enforce()` can pause `CovenantVault` permissionlessly; automatic bond slashing requires the deployer to call `SlashBond.slash()` manually. v1.1 redeploys `SlashBond` with `attestor = RiskKernel` so the pause→slash flow is fully autonomous. The contracts compose in spirit today; the attestor-role plumbing is one redeploy away.
 
 Services on VPS (both active under systemd):
 - **`forum-keeper.service`** — v1 naive Avellaneda-Stoikov keeper publishing every ~10 min to TrackRecord v1
