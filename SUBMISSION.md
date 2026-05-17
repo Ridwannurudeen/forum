@@ -49,8 +49,15 @@ Forum is the substrate every prediction-market bot needs. We built it on Arc bec
   - `demo-arb-v1` (ARB) — registered + published, demonstrates the ARB kind.
   - `demo-other-v1` (OTHER) — registered + published, demonstrates the OTHER kind.
   - `demo-taker-v1` (TAKER) — live publishing directional picks on Polymarket V2 markets.
-- **1 builder code claimed** on-chain (`forum-genesis-code`).
-- Outreach pending in Canteen + Arc Builder Discords post-deployment.
+- **5 bots registered on-chain (all 4 kinds + continuous keeper):**
+  - `forum-ref-keeper-smoke` (MAKER) — initial smoke run
+  - `demo-taker-v1` (TAKER) — directional pick demo
+  - `demo-arb-v1` (ARB)
+  - `demo-other-v1` (OTHER)
+  - `forum-vps-keeper-v1` (MAKER) — **CONTINUOUS, running 24/7 as systemd on VPS**, publishes a fresh TrackRecord every ~10 minutes across 5 simultaneously-quoted Polymarket V2 markets
+- **1 builder code claimed** on-chain (`forum-genesis-code`)
+- **Fee flow proven end-to-end**: 5 USDC routed through `FeeDistributor.distribute()` with 70/30 attribution split, operator claimed 3.5 USDC, recipient 2 has 1.5 USDC sitting claimable. Real ERC-20 USDC moved through the contract on-chain.
+- Outreach pending in Canteen + Arc Builder Discords
 
 ## Live on-chain activity during the event window (May 11–25 2026)
 
@@ -70,8 +77,14 @@ Verifiable on the Arc testnet block explorer (`testnet.arcscan.app`):
 | ARB pick publish | `0x27a01b28...aecd6661` |
 | OTHER bot register | `0xfbd5c4c4...1326876b` |
 | OTHER pick publish | `0x8b953fe4...0532f286` |
+| VPS keeper register | `0xa25f6322...d764c489` |
+| VPS keeper first publish | `0x7a11ed19...60f0e72d` |
+| Fee flow: setAttribution | `0x4ba877b8...878b758b2e` |
+| Fee flow: approve USDC | `0xfd2d93ce...5c0b02d087` |
+| Fee flow: distribute 5 USDC | `0x7e9a278b...22266de9e0` |
+| Fee flow: operator claim | `0x75834300...32e599fb8deea` |
 
-13 verifiable on-chain transactions across 4 immutable contracts and 4 bots within the event window. The keeper publishes a fresh TrackRecord every N ticks while running — total volume grows continuously.
+Growing continuously: as of last sync, **20+ verifiable on-chain transactions** across 4 immutable contracts, 5 bots, and 1 end-to-end fee-flow demo. The VPS keeper publishes a fresh TrackRecord roughly every 10 minutes → expected total at submission: **1,000+ publishes** during the May 11–25 window.
 
 ## Architecture (high level)
 
