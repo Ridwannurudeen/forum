@@ -27,7 +27,7 @@ I just shipped **Forum** (`github.com/Ridwannurudeen/forum`) — Arc-native oper
 Integration is ~50 lines of Python via the `forum-arc` SDK (built on `web3.py` + `eth-account`). Your existing `poly-lp-bot` SQLite state machine doesn't change — you just call `forum.track_record.publish(...)` after each cycle.
 
 What you get:
-1. **Cryptographic track record** — if you ever decide to come back to it (or someone forks it), every PnL claim is on-chain falsifiable
+1. **Cryptographic track record** — if you ever decide to come back to it (or someone forks it), every PnL claim is signer-attributable and append-only on Arc
 2. **Builder-code-bind** — claim a code, the registry proves you own it across venues
 3. **Fee splits** — if you take on co-builders or contribute upstream, splits happen on-chain without trust
 

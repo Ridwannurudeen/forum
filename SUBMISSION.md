@@ -37,7 +37,7 @@ When Polymarket V2 launched April 28 2026, it broke every public market-making a
 
 1. **Claim and prove ownership of a `bytes32` builder code** — Polymarket V2 attributes fees via a signed `bytes32` field, but there's no on-chain registry of who owns which code. Without one, anyone can squat on your code, and you have no way to prove ownership cryptographically.
 2. **Tune live params without redeploying** — every MM tweaks spread, size, inventory caps daily. Today that means SSHing and editing config files. With Forum, operators write to `KeeperConfig` on Arc; bots poll the latest snapshot.
-3. **Publish a verifiable performance track record** — every trading agent claims great returns. There's no way to verify them. Forum's `TrackRecord` accepts EIP-712-signed PnL records that can't be backdated or fabricated.
+3. **Publish a verifiable performance track record** — every trading agent claims great returns. There's no shared, venue-neutral place to verify who signed each claim. Forum's `TrackRecord` accepts EIP-712-signed PnL records that are signer-attributable and append-only on Arc; the next receipt layer makes the underlying data recomputable.
 4. **Receive and split USDC fees** — Polymarket V2 builder fees arrive on Polygon as pUSD. Cross-chain split logic for builder-code owners (who often co-build with researchers, infra providers, etc.) doesn't exist anywhere. Forum's `FeeDistributor` takes a per-code recipient table and pull-pattern-pays everyone.
 
 Forum is the substrate every prediction-market bot needs. We built it on Arc because Polymarket lives on Polygon, so the operator state has to live somewhere else — and Arc's USDC-native gas + sub-second finality is the natural home.

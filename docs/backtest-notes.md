@@ -35,7 +35,7 @@
 
 Every prediction-market bot pitches its own backtest. Most are cherry-picked. Most aren't reproducible. Many use lookahead bias.
 
-Forum's `TrackRecord` contract makes this impossible at the protocol level: every published record is EIP-712-signed by the bot's registered Agent Wallet, append-only, and timestamped on-chain. **Anyone can verify, anyone can falsify.** That changes the game: bad strategies (like ours, today) get exposed; good strategies earn trust they can deploy capital against.
+Forum's `TrackRecord` contract is the first step: every published record is EIP-712-signed by the bot's registered Agent Wallet, append-only, and timestamped on-chain. The next receipt layer pins the source data needed to recompute each claim. That changes the game: bad strategies (like ours, today) get exposed; good strategies earn trust they can deploy capital against.
 
 That's the investor frame:
 > *Forum isn't the strategy. Forum is the verifiable performance layer that lets users distinguish good MMs from bad ones. Our reference keeper is intentionally naive — it loses money on naive defaults, exactly as the literature predicts. Bad strategies self-disqualify in a verifiable-track-record world. That's the network effect.*

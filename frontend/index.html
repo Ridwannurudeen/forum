@@ -168,7 +168,7 @@ forum.track_record.publish(bot_id, record, sig)</pre>
           Naive Avellaneda-Stoikov on 16 markets × 7 days × 1-min ticks: <strong class="text-forum-err">−$76.79 PnL</strong>, 5.62% hit rate, 57 fills, mean Sharpe −5.00. Exactly what the literature predicts for an MM without proper microstructure modelling.
         </p>
         <p class="mt-3 text-forum-dim leading-relaxed">
-          <strong class="text-forum-ink">This is the pitch.</strong> Forum's <code class="text-forum-accent2">TrackRecord</code> makes every operator's performance claims cryptographically falsifiable. Bad strategies (like our v1) self-disqualify on-chain. Capital flows to the proven ones. Numerai for autonomous agents, on the chain Circle raised $222M to build.
+          <strong class="text-forum-ink">This is the pitch.</strong> Forum's <code class="text-forum-accent2">TrackRecord</code> makes every operator's performance claims signer-attributable and append-only on Arc. The next hardening step is recomputable receipt data so weak strategies self-disqualify on-chain and capital flows to the proven ones.
         </p>
         <p class="mt-3 text-xs text-forum-dim">
           Reproduce: <code class="mono">node keeper/scripts/pull-prices.mjs --markets 20 --days 7 --fidelity 1</code> then <code class="mono">tsx scripts/run-backtest.mjs</code>. Full framing in <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md" target="_blank" rel="noopener">docs/backtest-notes.md</a>.
@@ -208,6 +208,8 @@ forum.track_record.publish(bot_id, record, sig)</pre>
 
     const KIND_NAMES = ['MAKER', 'TAKER', 'ARB', 'OTHER'];
     const SPARK_LAST_N = 12;
+    const TRACK_RECORD_DEPLOY_BLOCK = 42553669n;
+    const LOG_CHUNK_SIZE = 9500n;
 
     const RECORD_COUNT_ABI = [{ type: 'function', name: 'recordCount', stateMutability: 'view',
                                 inputs: [{ name: 'botId', type: 'bytes32' }], outputs: [{ type: 'uint256' }] }];
@@ -259,20 +261,41 @@ forum.track_record.publish(bot_id, record, sig)</pre>
         </a>`).join('');
     }
 
+    async function getLogsChunked(client, { address, event, fromBlock, toBlock }) {
+      const logs = [];
+      let cursor = fromBlock;
+      while (cursor <= toBlock) {
+        const chunkTo = cursor + LOG_CHUNK_SIZE - 1n > toBlock
+          ? toBlock
+          : cursor + LOG_CHUNK_SIZE - 1n;
+        logs.push(...await client.getLogs({
+          address,
+          event,
+          fromBlock: cursor,
+          toBlock: chunkTo,
+        }));
+        cursor = chunkTo + 1n;
+      }
+      return logs;
+    }
+
     async function loadAll(client) {
+      let currentBlock = null;
       try {
-        const block = await client.getBlockNumber();
-        document.getElementById('metric-block').textContent = block.toLocaleString();
+        currentBlock = await client.getBlockNumber();
+        document.getElementById('metric-block').textContent = currentBlock.toLocaleString();
       } catch (e) {
         document.getElementById('metric-block').innerHTML = `<span class="text-forum-err text-sm">RPC err</span>`;
       }
 
       const body = document.getElementById('bots-body');
       try {
-        const logs = await client.getLogs({
+        if (currentBlock === null) throw new Error('Arc RPC block number unavailable');
+        const logs = await getLogsChunked(client, {
           address: ADDRESSES.trackRecord,
           event: parseAbiItem('event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)'),
-          fromBlock: 0n,
+          fromBlock: TRACK_RECORD_DEPLOY_BLOCK,
+          toBlock: currentBlock,
         });
 
         document.getElementById('metric-bots').textContent = String(logs.length);

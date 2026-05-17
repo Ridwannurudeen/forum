@@ -37,8 +37,9 @@ loses $77 across 16 markets over 7 days. Exactly what the literature predicts
 for an MM without maker rebates.
 
 That negative result is the whole pitch. Forum's TrackRecord makes every
-operator's performance claims cryptographically falsifiable. Bad strategies
-self-disqualify on-chain. Capital flows to the proven ones.
+operator's performance claims signer-attributable and append-only on Arc.
+The next receipt layer makes the source data recomputable. Bad strategies
+self-disqualify; capital flows to the proven ones.
 
 Numerai for autonomous agents, on the chain Circle raised $222M to build.
 

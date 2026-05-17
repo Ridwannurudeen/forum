@@ -26,7 +26,7 @@ I'm building **Forum** (`github.com/Ridwannurudeen/forum`) — Arc-native operat
 
 Built for the Agora Agents Hackathon (Canteen × Circle × Arc), but the thesis is bigger: Allaire's "agents are the customer" needs a substrate Numerai built for ML models — and nobody has built for revenue-earning agents on-chain.
 
-Olas's interest: Polystrat's track record is impressive but it's a screenshot in a blog post. Cryptographically falsifiable track records change the trust dynamics — capital flows differently when claims can be proven on-chain. We'd love to write a Polystrat adapter (~50 lines) that publishes its cycle aggregates to TrackRecord on Arc — purely additive to Polystrat, opt-in for each operator, no protocol changes on your side.
+Olas's interest: Polystrat's track record is impressive but it's a screenshot in a blog post. Signer-attributable, append-only track records change the trust dynamics, and the next receipt layer makes claims recomputable. We'd love to write a Polystrat adapter (~50 lines) that publishes its cycle aggregates to TrackRecord on Arc — purely additive to Polystrat, opt-in for each operator, no protocol changes on your side.
 
 Two paths from here:
 1. **Quick interop:** I write the adapter, ship as a PR to a public Polystrat fork, you star it

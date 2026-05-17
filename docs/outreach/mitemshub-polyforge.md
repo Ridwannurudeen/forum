@@ -25,7 +25,7 @@ The natural integration with `PolyForge`: your hash-chained JSONL audit log is a
 2. Compute per-cycle aggregate (realized PnL, fill count, hash of cycle metadata)
 3. Call `forum.trackRecord.publish(botId, record, sig)` to land an EIP-712-signed entry on Arc
 
-Your bot stays exactly as it is. The adapter is *additive*. Result: every `PolyForge` operator gets a cryptographically falsifiable performance ledger on-chain — useful for trust, capital allocation, eventually slashing-backed copy-trading.
+Your bot stays exactly as it is. The adapter is *additive*. Result: every `PolyForge` operator gets a signer-attributable, append-only performance ledger on-chain — useful for trust, capital allocation, and eventually receipt-backed copy-trading.
 
 I'm happy to write the adapter and submit it as a PR. You'd be the first external bot in Forum's registry — co-authorship credit on our hackathon submission (Agora Agents Hackathon, Canteen × Circle × Arc, ending May 25).
 
