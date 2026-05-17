@@ -36,6 +36,16 @@
       "block": "42662376",
       "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
       "botId": "0xf8081c2ef55bef260ec50cc1b9960eba359efc879e338439f129a97b338ed014"
+    },
+    "SlashBond": {
+      "address": "0x66040fd1aea2c09dde83252114532b6cb9941482",
+      "txHash": "0x1c2f5199ff570de37cae7380582c72e0365237bf09e3345ce7b268d64d93462e",
+      "block": "42663822",
+      "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "attestor": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "recipient": "0x13855be80b6122187c0bcba007946f9fbaae3fae",
+      "botId": "0xf8081c2ef55bef260ec50cc1b9960eba359efc879e338439f129a97b338ed014",
+      "unbondDelaySeconds": 86400
     }
   }
 }

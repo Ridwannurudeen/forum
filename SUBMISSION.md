@@ -9,7 +9,7 @@ Forum
 
 ## One-line description
 
-Arc-native operator and settlement plane for prediction-market bots — registry, live config, on-chain track record, USDC fee distribution. Built on the lane Canteen explicitly named as missing in writing.
+Stripe Connect + Numerai for autonomous market agents — identity, recomputable receipts, fee routing, and capital allocation, settled in USDC on Arc. Built on the lane Canteen explicitly named in writing (Research Hack #02) and the primitive a16z just funded Catena Labs $18M pre-product to build (KYA for general agent commerce — Forum is the trading-agent vertical).
 
 ## Project URL (live demo)
 
@@ -85,6 +85,36 @@ Verifiable on the Arc testnet block explorer (`testnet.arcscan.app`):
 | Fee flow: operator claim | `0x75834300...32e599fb8deea` |
 
 Growing continuously: as of last sync, **20+ verifiable on-chain transactions** across 4 immutable contracts, 5 bots, and 1 end-to-end fee-flow demo. The VPS keeper publishes a fresh TrackRecord roughly every 10 minutes → expected total at submission: **1,000+ publishes** during the May 11–25 window.
+
+
+
+## v3 architecture — what's live as of D21
+
+Forum is now SEVEN immutable contracts on Arc testnet plus TWO continuous keeper services, with cryptographically recomputable receipts served from the open internet:
+
+| Contract | Address | Role |
+|---|---|---|
+| `BuilderCodeRegistry` | `0x730825299821d411146c503915553e37ebdc750c` | first-claim-wins identity for `bytes32` builder codes |
+| `KeeperConfig` | `0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26` | per-bot append-only config history |
+| `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | v1 signer-attributable PnL records |
+| **`TrackRecordV2`** | **`0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66`** | **strict seq + monotonic time + prev-hash chain + replay rejection + evidence URI commitment** |
+| `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | per-code attribution → pull-pattern USDC claim |
+| **`AgentPool`** | **`0x13855be80b6122187c0bcba007946f9fbaae3fae`** | **USDC deposits → operator pulls capital → 20%-above-HWM perf fee** |
+| **`SlashBond`** | **`0x66040fd1aea2c09dde83252114532b6cb9941482`** | **operator collateral, attestor-slashable → flows to AgentPool depositors** |
+
+Services on VPS (both active under systemd):
+- **`forum-keeper.service`** — v1 naive Avellaneda-Stoikov keeper publishing every ~10 min to TrackRecord v1
+- **`forum-agora-mind.service`** — **AI-driven keeper** (AgoraMind LLM with Mock/Anthropic providers) publishing to TrackRecordV2 with hash-pinned reasoning traces + receipt JSON pinned to `/opt/forum/web/receipts/<bot>/<seq>.json`
+
+Live receipt example (anyone can fetch + recompute):
+- https://forum.gudman.xyz/receipts/0d3f2c5df1ac/000001.json (HTTP 200, 2597 bytes)
+- keccak256(canonical(json)) verifiable against on-chain `TrackRecordV2.evidenceHash`
+- `keeper/src/receipt.ts` ships `verifyReceipt()`; 8 vitest tests pass
+
+Closest comp anchors:
+- a16z funded **Catena Labs \$18M pre-product** in May 2025 for KYA in general agent commerce. Forum is the trading-agent vertical equivalent.
+- Circle just raised **\$222M at \$3B FDV** for Arc (BlackRock + Apollo + ICE + Janus Henderson + a16z) on the agent-economy substrate thesis.
+- Polymarket builder-code economy: **\$32–60M/yr attributable fee pool today** (modelled from disclosed builder volume). Hyperliquid: **\$40M+ paid YTD in builder codes**, Phantom alone earned **\$20M in <1 year**.
 
 ## Architecture (high level)
 

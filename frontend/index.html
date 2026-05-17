@@ -161,6 +161,43 @@ forum.track_record.publish(bot_id, record, sig)</pre>
         </div>
       </section>
 
+      <!-- Recomputable receipts -->
+      <section class="mb-10 rounded-2xl border border-forum-accent2/30 bg-forum-accent2/5 p-8">
+        <h2 class="mb-3 text-sm uppercase tracking-widest text-forum-accent2">Recomputable receipts · TrackRecordV2 + Receipts module</h2>
+        <p class="text-forum-ink leading-relaxed">
+          Every <code class="text-forum-accent2">TrackRecordV2</code> record commits to an <code class="text-forum-accent2">evidenceUri</code> + <code class="text-forum-accent2">evidenceHash</code>. The URI serves a canonical JSON receipt with order-book snapshots, fills, inventory, PnL inputs, strategy config hash, and (for the AI agent) decision-trace hash. <strong class="text-forum-ink">Any third party can fetch, keccak, and verify.</strong>
+        </p>
+        <p class="mt-3 text-forum-dim leading-relaxed">
+          The contract enforces strict-sequence + monotonic-time + prev-hash chain + replay rejection. Bots cannot rewrite history. The reference verifier ships in <code class="text-forum-accent">keeper/src/receipt.ts</code> (8 vitest tests, all green).
+        </p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <a href="https://forum.gudman.xyz/receipts/0d3f2c5df1ac/000001.json" target="_blank" rel="noopener"
+             class="block rounded-lg border border-forum-line bg-forum-panel/60 p-3 hover:border-forum-accent2">
+            <div class="text-xs uppercase tracking-wider text-forum-dim">Smoke receipt (V2 seq 1)</div>
+            <div class="mono mt-1 text-xs text-forum-ink truncate">/receipts/0d3f2c5df1ac/000001.json</div>
+          </a>
+          <a href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/src/receipt.ts" target="_blank" rel="noopener"
+             class="block rounded-lg border border-forum-line bg-forum-panel/60 p-3 hover:border-forum-accent2">
+            <div class="text-xs uppercase tracking-wider text-forum-dim">verifyReceipt() source</div>
+            <div class="mono mt-1 text-xs text-forum-ink truncate">keeper/src/receipt.ts</div>
+          </a>
+        </div>
+      </section>
+
+      <!-- AI agent + Capital allocation -->
+      <section class="mb-10 rounded-2xl border border-forum-accent/30 bg-forum-accent/5 p-8">
+        <h2 class="mb-3 text-sm uppercase tracking-widest text-forum-accent">AgoraMind LLM agent · AgentPool · SlashBond</h2>
+        <p class="text-forum-ink leading-relaxed">
+          <strong class="text-forum-ink">AgoraMind</strong> is the keeper's pluggable decision engine — Mock or Anthropic Claude — that publishes the reasoning trace hash with every record. The continuous service <code class="text-forum-accent">forum-agora-mind.service</code> runs 24/7 on the VPS, producing AI-driven trades + receipts every 10 minutes.
+        </p>
+        <p class="mt-3 text-forum-dim leading-relaxed">
+          <strong class="text-forum-ink">AgentPool</strong> is the active capital-allocation primitive. Anyone deposits USDC; the operator (bot owner) pulls capital to trade; PnL distributes pro-rata to depositors; a 20%-above-high-water-mark performance fee accrues to the operator on <code class="text-forum-accent">crystalliseFee()</code>. <strong class="text-forum-ink">SlashBond</strong> is the operator's USDC collateral that the attestor can slash if performance falls below benchmark — slashed funds flow to the AgentPool depositors. This implements Canteen Research Hack #06 end-to-end on-chain.
+        </p>
+        <p class="mt-3 text-xs text-forum-dim">
+          Closest startup comp: <a class="text-forum-accent" href="https://fortune.com/crypto/2025/05/20/sean-neville-catena-labs-18-million-a16z-breyer-circle-coinbase-tom-brady/" target="_blank" rel="noopener">Catena Labs $18M pre-product from a16z</a> for KYA in general agent commerce. Forum is the equivalent for the trading-agent vertical, on the chain Circle <a class="text-forum-accent" href="https://www.cnbc.com/2026/05/11/circle-closes-222-million-from-blackrock-apollo-for-arc-blockchain.html" target="_blank" rel="noopener">just raised $222M at $3B FDV</a> to build.
+        </p>
+      </section>
+
       <!-- Honest backtest callout -->
       <section class="mb-10 rounded-2xl border border-forum-warn/30 bg-forum-warn/5 p-8">
         <h2 class="mb-3 text-sm uppercase tracking-widest text-forum-warn">Honest backtest · v1</h2>
@@ -203,7 +240,10 @@ forum.track_record.publish(bot_id, record, sig)</pre>
       registry:       '0x730825299821d411146c503915553e37ebdc750c',
       config:         '0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26',
       trackRecord:    '0xaace70a50573cb077f65d601cd19103afc4aef9d',
+      trackRecordV2:  '0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66',
       feeDistributor: '0x0574257629e8221d560cf4aace0f3cd7226be2a0',
+      agentPool:      '0x13855be80b6122187c0bcba007946f9fbaae3fae',
+      slashBond:      '0x66040fd1aea2c09dde83252114532b6cb9941482',
     };
 
     const KIND_NAMES = ['MAKER', 'TAKER', 'ARB', 'OTHER'];
