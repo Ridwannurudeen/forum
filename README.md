@@ -53,14 +53,26 @@ Forum is the operator-plane primitive that wrapper sits on top of.
 | **`SlashBond`** | `0x66040fd1aea2c09dde83252114532b6cb9941482` | operator collateral, attestor-slashable → AgentPool depositors |
 | **`RiskKernel`** | `0x041a79c214e9daf876b5f2e76d7870ef4359630a` | permissionless mandate enforcer — `enforce(vault)` callable by anyone |
 | **`CovenantVault`** | `0xd126e11b3e79e9af23b021d793097a5902aae3ef` | mandate-bounded USDC credit line — operator never owns funds, only execution rights |
+| **`RiskKernelV2`** | `0x0af356f280af1d8b7a43f0746c581614feec4055` | v1.1 — same `enforce(vault)` interface, but ALSO calls `SlashBond.slash()` in the same tx on operator-fault violations |
+| **`SlashBondV1.1`** | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | `attestor = RiskKernelV2`, so pause→slash is fully autonomous — no manual operator call |
+| **`CovenantVaultV1.2`** | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | v1.1 demo vault bound to live AgoraMind botId, new kernel + bond — proves the autonomous flow end-to-end |
 
 Browse on the [Arc testnet explorer](https://testnet.arcscan.app/). Live frontend: **https://forum.gudman.xyz/**
 
 **Verifiable on-chain proofs**:
 - Genesis builder code claim — tx `0x35b7c33...e519b6`
 - First TrackRecord published by reference keeper — tx `0x095906f7...d5a5`
+- **First autonomous pause+slash (v1.1)** — tx `0x2c8e79a5...05d13` — `RiskKernelV2.enforce(CovenantVaultV1.2)` flipped state ACTIVE→PAUSED **and** transferred 1.25 USDC out of the bond to the recipient, both in a single 162,960-gas tx, triggered by a real stale-receipt violation (no choreography)
 
-(Open `https://testnet.arcscan.app/tx/<full-hash>` for either.)
+(Open `https://testnet.arcscan.app/tx/<full-hash>` for any of them.)
+
+### Try the autonomous-slash demo yourself
+
+```bash
+node keeper/scripts/demo-violation.mjs
+```
+
+Reads the v1.2 vault, the bound AgoraMind bot's last receipt, and the current freshness window. If the vault is currently in violation, calls `RiskKernelV2.enforce(vault)` and prints the before/after state + slashed amount. If not, prints what would happen and how to wait it out.
 
 ## Components
 

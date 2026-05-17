@@ -68,6 +68,56 @@
         "riskKernel": "0x041a79c214e9daf876b5f2e76d7870ef4359630a",
         "trackRecordV2": "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66"
       }
+    },
+    "RiskKernelV2": {
+      "address": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+      "txHash": "0x866dfa7322a39f742ad3431263aa96c22ad7ed73920ae17bff4773c35ddc4a41",
+      "block": "42680773"
+    },
+    "SlashBondV1_1": {
+      "address": "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+      "txHash": "0x410bcd3928b5ef9cbeb27cb5c07713819bd848b63a4b4e277535e94bc5943747",
+      "block": "42680777",
+      "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "attestor": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+      "recipient": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "botId": "0xf8081c2ef55bef260ec50cc1b9960eba359efc879e338439f129a97b338ed014",
+      "unbondDelaySeconds": 86400
+    },
+    "CovenantVaultV1_1": {
+      "address": "0x6d8914b844be1964563adb1e679e5a27e976d1f1",
+      "txHash": "0xa12c61a7c74142b5dca65c0fefd89ba5a75c59b04b5dbae8604377eb92a5ed98",
+      "block": "42680789",
+      "mandate": {
+        "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+        "botId": "0xf8081c2ef55bef260ec50cc1b9960eba359efc879e338439f129a97b338ed014",
+        "budgetUsdc": "200000000",
+        "maxDrawdownBps": 500,
+        "receiptFreshnessSec": 1800,
+        "expiry": "0",
+        "perfFeeBps": 2000,
+        "bondContract": "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+        "riskKernel": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+        "trackRecordV2": "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66"
+      }
+    },
+    "CovenantVaultV1_2": {
+      "address": "0x80384963c0c93414ff16e018c6618a64bc94df6d",
+      "txHash": "0x08843812c93acf7b9a89d2b8000913afcbea409abe53892571d8d79dbbd26742",
+      "block": "42681210",
+      "mandate": {
+        "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+        "botId": "0x201c8909dca1eaccb80f2a11a49b98ad6ae27e3bade9383f2b508587971b4ff9",
+        "budgetUsdc": "200000000",
+        "maxDrawdownBps": 500,
+        "receiptFreshnessSec": 1800,
+        "expiry": "0",
+        "perfFeeBps": 2000,
+        "bondContract": "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+        "riskKernel": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+        "trackRecordV2": "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66"
+      },
+      "note": "v1.1 vault was bound to a stale botId — v1.2 fixes by binding to live AgoraMind botId 0x201c..."
     }
   }
 }
