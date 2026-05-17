@@ -49,6 +49,10 @@ Forum is the operator-plane primitive that wrapper sits on top of.
 | `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | 4,718 bytes |
 | `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | 6,694 bytes |
 | **`TrackRecordV2`** | `0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66` | strict seq + monotonic ts + prev-hash chain + replay rejection + evidence URI |
+| **`AgentPool`** | `0x13855be80b6122187c0bcba007946f9fbaae3fae` | permissionless deposit + operator pull + 20%-above-HWM perf fee |
+| **`SlashBond`** | `0x66040fd1aea2c09dde83252114532b6cb9941482` | operator collateral, attestor-slashable → AgentPool depositors |
+| **`RiskKernel`** | `0x041a79c214e9daf876b5f2e76d7870ef4359630a` | permissionless mandate enforcer — `enforce(vault)` callable by anyone |
+| **`CovenantVault`** | `0xd126e11b3e79e9af23b021d793097a5902aae3ef` | mandate-bounded USDC credit line — operator never owns funds, only execution rights |
 
 Browse on the [Arc testnet explorer](https://testnet.arcscan.app/). Live frontend: **https://forum.gudman.xyz/**
 

@@ -198,6 +198,54 @@ forum.track_record.publish(bot_id, record, sig)</pre>
         </p>
       </section>
 
+      <!-- Covenant Account live state -->
+      <section class="mb-10 rounded-2xl border border-forum-accent/40 bg-forum-accent/5 p-8">
+        <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
+          <h2 class="text-sm uppercase tracking-widest text-forum-accent">Covenant Account · live mandate</h2>
+          <span class="text-xs text-forum-dim"><span id="covenant-state-dot" class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span><span id="covenant-state-label">ACTIVE</span></span>
+        </div>
+        <p class="text-forum-ink leading-relaxed">
+          <strong class="text-forum-ink">Programmable USDC credit line for an AI agent.</strong> Anyone can deposit USDC. The operator (AgoraMind keeper bot) can only draw capital up to the mandate budget — never owns the funds. Anyone can call <code class="text-forum-accent2">RiskKernel.enforce(vault)</code> to verify mandate adherence + pause if violated.
+        </p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-4 text-xs">
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Budget</div>
+            <div class="mt-1 text-forum-ink text-base">200 USDC</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Max drawdown</div>
+            <div class="mt-1 text-forum-ink text-base">5%</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Receipt freshness</div>
+            <div class="mt-1 text-forum-ink text-base">30 min</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Perf fee</div>
+            <div class="mt-1 text-forum-ink text-base">20% above HWM</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Vault TVL</div>
+            <div id="covenant-tvl" class="mt-1 text-forum-ink mono text-base">—</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Idle USDC</div>
+            <div id="covenant-idle" class="mt-1 text-forum-ink mono text-base">—</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">Operator outstanding</div>
+            <div id="covenant-outstanding" class="mt-1 text-forum-ink mono text-base">—</div>
+          </div>
+          <div class="rounded-lg border border-forum-line bg-forum-panel/60 p-3">
+            <div class="uppercase tracking-wider text-forum-dim">USYC ready on Arc</div>
+            <div id="usyc-supply" class="mt-1 text-forum-ink mono text-base">—</div>
+          </div>
+        </div>
+        <p class="mt-4 text-xs text-forum-dim">
+          Vault <code class="text-forum-accent2">0xd126e11b…aae3ef</code> · Kernel <code class="text-forum-accent2">0x041a79c2…59630a</code> · Bond <code class="text-forum-accent2">0x66040fd1…941482</code> · Bot <code class="text-forum-accent2">forum-agora-mind-prod-v1</code>
+        </p>
+      </section>
+
       <!-- Honest backtest callout -->
       <section class="mb-10 rounded-2xl border border-forum-warn/30 bg-forum-warn/5 p-8">
         <h2 class="mb-3 text-sm uppercase tracking-widest text-forum-warn">Honest backtest · v1</h2>
@@ -319,11 +367,49 @@ forum.track_record.publish(bot_id, record, sig)</pre>
       return logs;
     }
 
+    const USYC_ADDR = '0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C';
+    const COVENANT_VAULT = '0xd126e11b3e79e9af23b021d793097a5902aae3ef';
+    const STATE_ABI    = [{ type: 'function', name: 'state', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] }];
+    const IDLE_ABI     = [{ type: 'function', name: 'depositTotalIdle', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }];
+    const OUTSTND_ABI  = [{ type: 'function', name: 'operatorOutstanding', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }];
+    const SUPPLY_ABI   = [{ type: 'function', name: 'totalSupply', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }];
+
+    function fmtUsdc(microsBig) {
+      const n = Number(microsBig) / 1_000_000;
+      return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' USDC';
+    }
+
+    async function loadCovenant(client) {
+      try {
+        const [state, idle, outstanding, usycSupply] = await Promise.all([
+          client.readContract({ address: COVENANT_VAULT, abi: STATE_ABI, functionName: 'state' }),
+          client.readContract({ address: COVENANT_VAULT, abi: IDLE_ABI, functionName: 'depositTotalIdle' }),
+          client.readContract({ address: COVENANT_VAULT, abi: OUTSTND_ABI, functionName: 'operatorOutstanding' }),
+          client.readContract({ address: USYC_ADDR, abi: SUPPLY_ABI, functionName: 'totalSupply' }),
+        ]);
+        const stateNum = Number(state);
+        const label = ['ACTIVE', 'PAUSED'][stateNum] ?? `S${stateNum}`;
+        document.getElementById('covenant-state-label').textContent = label;
+        const dot = document.getElementById('covenant-state-dot');
+        dot.classList.remove('bg-forum-ok', 'bg-forum-err', 'bg-forum-warn');
+        dot.classList.add(stateNum === 0 ? 'bg-forum-ok' : 'bg-forum-err');
+        const tvl = BigInt(idle) + BigInt(outstanding);
+        document.getElementById('covenant-tvl').textContent = fmtUsdc(tvl);
+        document.getElementById('covenant-idle').textContent = fmtUsdc(idle);
+        document.getElementById('covenant-outstanding').textContent = fmtUsdc(outstanding);
+        document.getElementById('usyc-supply').textContent =
+          (Number(usycSupply) / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' USYC';
+      } catch (e) {
+        document.getElementById('covenant-state-label').textContent = 'READ-ERR';
+      }
+    }
+
     async function loadAll(client) {
       let currentBlock = null;
       try {
         currentBlock = await client.getBlockNumber();
         document.getElementById('metric-block').textContent = currentBlock.toLocaleString();
+        loadCovenant(client); // fire-and-forget, refreshes alongside main load
       } catch (e) {
         document.getElementById('metric-block').innerHTML = `<span class="text-forum-err text-sm">RPC err</span>`;
       }
