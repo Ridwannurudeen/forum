@@ -24,6 +24,11 @@
       "address": "0x0574257629e8221d560cf4aace0f3cd7226be2a0",
       "txHash": "0x4d8edd8cc03d1f26388612b857aae8f16233f25720abd7cb226300a4a88efb11",
       "block": "42553679"
+    },
+    "TrackRecordV2": {
+      "address": "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66",
+      "txHash": "0x505cced6d127b983c1853c379e815dfb04a84858764ef60b39ec751d45b840a7",
+      "block": "42661961"
     }
   }
 }
