@@ -232,7 +232,10 @@ async function main() {
         console.log(`RECEIPT seq=${seq} hash=${hash} ${localPath}`);
 
         const metaHash = keccak256(toHex(`seq=${seq};markets=${markets.map((mm) => mm.slug).join(',')}`));
-        const txHash = await bridge.publishRecord({
+        // publishRecordAwait waits for the tx to mine + returns the digest the contract
+        // stored as lastRecordHash. Using the returned digest as the next prevHash avoids
+        // the read-after-write race that previously stalled the keeper at BadHashChain.
+        const { txHash, recordHash } = await bridge.publishRecordAwait({
           seq,
           periodStart: periodStartTs,
           periodEnd: periodEndTs,
@@ -244,7 +247,7 @@ async function main() {
           prevRecordHash: prevHash,
         });
         console.log(`PUBLISH-V2 tx=${txHash} seq=${seq} evidenceUri=${uri}`);
-        prevHash = await bridge.lastRecordHash();
+        prevHash = recordHash;
         seq += 1;
 
         // reset cycle accumulators

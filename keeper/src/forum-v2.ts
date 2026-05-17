@@ -318,6 +318,98 @@ export class ForumV2Bridge {
       chain: ARC_TESTNET,
     });
   }
+
+  /// Wait for the publish tx to mine. Returns the receipt so callers can check status.
+  /// On success, the contract's `lastRecordHash[botId]` is guaranteed to equal `digest`
+  /// (`= keccak256(0x1901 || domainSeparator || structHash)`), so callers should advance
+  /// their local `prevHash` to the digest they computed in `publishRecord`'s body.
+  ///
+  /// To avoid a read-after-write race against chain finality, `publishRecordAwait` does both:
+  ///   - submits the tx
+  ///   - waits for the receipt
+  ///   - returns the recordHash that's now stored on-chain
+  async publishRecordAwait(
+    rec: {
+      seq: number;
+      periodStart: number;
+      periodEnd: number;
+      pnlMicros: bigint;
+      fills: number;
+      metaHash: Hex;
+      evidenceUri: string;
+      evidenceHash: Hex;
+      prevRecordHash: Hex;
+    },
+    kind: number = 0,
+  ): Promise<{ txHash: Hex; recordHash: Hex }> {
+    const domainSeparator = await this.getDomainSeparator();
+    const evidenceUriHash = keccak256(toHex(rec.evidenceUri));
+    const structHash = keccak256(
+      encodeAbiParameters(
+        [
+          { type: "bytes32" },
+          { type: "bytes32" },
+          { type: "uint8" },
+          { type: "uint64" },
+          { type: "uint64" },
+          { type: "uint64" },
+          { type: "int128" },
+          { type: "uint64" },
+          { type: "bytes32" },
+          { type: "bytes32" },
+          { type: "bytes32" },
+          { type: "bytes32" },
+        ],
+        [
+          RECORD_TYPEHASH,
+          this.botId,
+          kind,
+          BigInt(rec.seq),
+          BigInt(rec.periodStart),
+          BigInt(rec.periodEnd),
+          rec.pnlMicros,
+          BigInt(rec.fills),
+          rec.metaHash,
+          evidenceUriHash,
+          rec.evidenceHash,
+          rec.prevRecordHash,
+        ],
+      ),
+    );
+    const digest = keccak256(
+      `0x1901${domainSeparator.slice(2)}${structHash.slice(2)}` as Hex,
+    );
+    const signature = await this.account.sign({ hash: digest });
+
+    const txHash = await this.walletClient.writeContract({
+      address: this.v2Address,
+      abi: PUBLISH_V2_ABI,
+      functionName: "publish",
+      args: [
+        this.botId,
+        {
+          seq: BigInt(rec.seq),
+          periodStart: BigInt(rec.periodStart),
+          periodEnd: BigInt(rec.periodEnd),
+          pnlMicros: rec.pnlMicros,
+          fills: BigInt(rec.fills),
+          metaHash: rec.metaHash,
+          evidenceUri: rec.evidenceUri,
+          evidenceHash: rec.evidenceHash,
+          prevRecordHash: rec.prevRecordHash,
+        },
+        signature,
+      ],
+      account: this.account,
+      chain: ARC_TESTNET,
+    });
+    const rcpt = await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    });
+    if (rcpt.status !== "success")
+      throw new Error(`publish reverted: ${txHash}`);
+    return { txHash, recordHash: digest };
+  }
 }
 
 // Helper to compute the path to deployments JSON.
