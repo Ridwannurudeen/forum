@@ -49,7 +49,7 @@ Forum is the operator-plane primitive that wrapper sits on top of.
 | `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | 4,718 bytes |
 | `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | 6,694 bytes |
 
-Browse on the [Arc testnet explorer](https://testnet.arcscan.app/).
+Browse on the [Arc testnet explorer](https://testnet.arcscan.app/). Live frontend: **https://forum.gudman.xyz/**
 
 **Verifiable on-chain proofs**:
 - Genesis builder code claim — tx `0x35b7c33...e519b6`

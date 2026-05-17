@@ -13,7 +13,7 @@ Arc-native operator and settlement plane for prediction-market bots — registry
 
 ## Project URL (live demo)
 
-- Frontend dashboard: **https://forum.gudman.xyz/** _(deploys once user adds DNS A record for `forum` → 75.119.153.252 and runs `/opt/forum/enable-nginx.sh`)_
+- Frontend dashboard: **https://forum.gudman.xyz/** — LIVE (HTTPS, certbot-issued cert, security headers, single-file HTML reading state from Arc testnet RPC every 30s)
 - Repo: **https://github.com/Ridwannurudeen/forum** (public)
 - Block explorer (anyone can verify): **https://testnet.arcscan.app/address/0x730825299821d411146c503915553e37ebdc750c**
 
