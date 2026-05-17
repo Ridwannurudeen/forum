@@ -44,8 +44,10 @@ Forum is the substrate every prediction-market bot needs. We built it on Arc bec
 
 ## How many users have you onboarded?
 
-- **2 bots registered on-chain (3 kinds active):** MAKER + TAKER (with ARB + OTHER ready to use).
+- **4 bots registered on-chain (all 4 kinds active: MAKER/TAKER/ARB/OTHER):** MAKER + TAKER (with ARB + OTHER ready to use).
   - `forum-ref-keeper-smoke` (MAKER) — live publishing TrackRecord from real Polymarket V2 book reader.
+  - `demo-arb-v1` (ARB) — registered + published, demonstrates the ARB kind.
+  - `demo-other-v1` (OTHER) — registered + published, demonstrates the OTHER kind.
   - `demo-taker-v1` (TAKER) — live publishing directional picks on Polymarket V2 markets.
 - **1 builder code claimed** on-chain (`forum-genesis-code`).
 - Outreach pending in Canteen + Arc Builder Discords post-deployment.
@@ -64,8 +66,12 @@ Verifiable on the Arc testnet block explorer (`testnet.arcscan.app`):
 | MAKER first TrackRecord publish | `0x095906f7...d5a5` |
 | TAKER bot register | `0x31bf492b...c1c60dc` |
 | TAKER pick publish | `0xa7ff3c2d...20f93716` |
+| ARB bot register | `0x0f74c177...12fe73c5` |
+| ARB pick publish | `0x27a01b28...aecd6661` |
+| OTHER bot register | `0xfbd5c4c4...1326876b` |
+| OTHER pick publish | `0x8b953fe4...0532f286` |
 
-8 verifiable on-chain transactions across 4 immutable contracts and 2 bots within the event window. The keeper publishes a fresh TrackRecord every N ticks while running — total volume grows continuously.
+13 verifiable on-chain transactions across 4 immutable contracts and 4 bots within the event window. The keeper publishes a fresh TrackRecord every N ticks while running — total volume grows continuously.
 
 ## Architecture (high level)
 
