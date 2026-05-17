@@ -87,6 +87,19 @@ export function asQuotes(
   timeToResolution: number,
   cfg: AvellanedaStoikovConfig,
 ): ASQuoteSet {
+  // Domain guard: prediction-market prices ∈ (0, 1). At the edges, the LMSR
+  // is essentially resolved and there's no meaningful spread to quote.
+  if (midprice <= 0 || midprice >= 1) {
+    return {
+      midprice,
+      fairValue: midprice,
+      reservationPrice: midprice,
+      halfSpread: 0,
+      bid: null,
+      ask: null,
+    };
+  }
+
   // Skew toward unloading inventory.
   const inventoryPenalty = inventory * cfg.gamma * variance * timeToResolution;
   const reservationPrice = midprice - inventoryPenalty;
@@ -164,6 +177,12 @@ export class VarianceEstimator {
 
   get value(): number {
     return this.ema;
+  }
+
+  /** Reset all state (variance and last-log). For regime breaks / halts. */
+  reset(): void {
+    this.ema = 0;
+    this.prevLog = null;
   }
 }
 

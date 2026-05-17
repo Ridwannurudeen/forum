@@ -44,6 +44,25 @@ jobs:
       - run: npm install
       - run: npx tsc --noEmit
 
+  keeper:
+    name: keeper typecheck + vitest (strategy + inventory)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: keeper
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: keeper/package.json
+
+      - run: npm install
+      - run: npx tsc --noEmit
+      - run: npx vitest run --reporter=default
+
   sdk-py:
     name: forum-arc Python import check
     runs-on: ubuntu-latest
