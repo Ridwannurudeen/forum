@@ -9,67 +9,125 @@ Polymarket V2 launched April 28 2026 with new contracts, new pUSD collateral, an
 
 Nobody has built that layer. Forum does, on Arc.
 
+## Validation — Canteen asked for this in writing
+
+From the hackathon's own [Research section, Hack #02](https://agora.thecanteenapp.com/):
+
+> *"a thin 'agent-as-builder' wrapper that registers any agent framework as a Polymarket V2 builder, exposes its structured outputs as a signed feed, and earns USDC builder fees per fill — Arc's ~$0.01 fees make per-pick economics work at retail size."*
+
+Forum is the operator-plane primitive that wrapper sits on top of.
+
+## Architecture
+
+```
+┌───────────────────────────── Arc Testnet (5042002) ─────────────────────────────┐
+│                                                                                 │
+│   BuilderCodeRegistry      KeeperConfig       TrackRecord       FeeDistributor  │
+│   bytes32 → owner          (op, bot) → cfg    bot → signed PnL  code → splits   │
+│         │                       │                   ▲                   ▲       │
+│         └───────────────────────┼───────────────────┘                   │       │
+│                                 │                                       │       │
+└─────────────────────────────────┼───────────────────────────────────────┼───────┘
+                                  │  forum-arc-sdk (TS) / forum-arc (Py)  │
+                                  ▼                                       │
+                ┌──────────────────────────────────┐         ┌────────────┴────────────┐
+                │  reference keeper (paper mode)   │         │   Polygon mainnet       │
+                │  poly-lp-bot adapter (Python)    │ ──────► │   Polymarket V2 (pUSD)  │
+                │  polyforge adapter (TypeScript)  │  trade  │                         │
+                │  ... any third-party bot         │ ◄────── │   fees (via CCTP V2)    │
+                └──────────────────────────────────┘  fees   └─────────────────────────┘
+```
+
+## Live deployment (Arc testnet, chain 5042002)
+
+| Contract | Address | Bytecode |
+|---|---|---|
+| `BuilderCodeRegistry` | `0x730825299821d411146c503915553e37ebdc750c` | 3,436 bytes |
+| `KeeperConfig` | `0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26` | 4,020 bytes |
+| `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | 4,718 bytes |
+| `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | 6,694 bytes |
+
+Browse on the [Arc testnet explorer](https://testnet.arcscan.app/).
+
+**Verifiable on-chain proofs**:
+- Genesis builder code claim — tx `0x35b7c33...e519b6`
+- First TrackRecord published by reference keeper — tx `0x095906f7...d5a5`
+
+(Open `https://testnet.arcscan.app/tx/<full-hash>` for either.)
+
 ## Components
 
 - **`BuilderCodeRegistry`** — first-claim-wins binding from a `bytes32` code to an owner address
 - **`KeeperConfig`** — per-bot, append-only config history operators write and bots read
-- **`TrackRecord`** — append-only EIP-712-signed PnL records with bot-kind taxonomy (MAKER / TAKER / ARB / OTHER)
+- **`TrackRecord`** — append-only EIP-712-signed PnL records with bot-kind taxonomy (`MAKER` / `TAKER` / `ARB` / `OTHER`)
 - **`FeeDistributor`** — pull-pattern USDC distribution per code's attribution table
-- **`forum-arc-sdk`** (TypeScript, npm) and **`forum-arc`** (Python, PyPI) — one-line integrations
-- **Reference keeper** — V2-SDK-native, paper-mode, two-sided quoter (canonical demo, lands D2–D4)
-- **Adapters** — `adapter-poly-lp-bot` (Python) and `adapter-polyforge` (TypeScript), showing the operator plane integrates with any architecture
+- **`forum-arc-sdk`** (TypeScript, npm) and **`forum-arc`** (Python, PyPI) — symmetric one-line integrations
+- **Reference keeper** at `keeper/` — V2-SDK-native, paper-mode, two-sided quoter consuming `@polymarket/clob-client-v2`
+- **Frontend dashboard** at `frontend/index.html` — single-file viem+CDN, reads bots/records live from Arc
+- **Adapters** — `adapter-poly-lp-bot` (Python) and `adapter-polyforge` (TypeScript) — third-party bot integrations
 
-## Live deployment (Arc testnet, chain 5042002)
-
-| Contract | Address |
-|---|---|
-| `BuilderCodeRegistry` | [`0x730825299821d411146c503915553e37ebdc750c`](https://testnet.arcscan.app/address/0x730825299821d411146c503915553e37ebdc750c) |
-| `KeeperConfig` | [`0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26`](https://testnet.arcscan.app/address/0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26) |
-| `TrackRecord` | [`0xaace70a50573cb077f65d601cd19103afc4aef9d`](https://testnet.arcscan.app/address/0xaace70a50573cb077f65d601cd19103afc4aef9d) |
-| `FeeDistributor` | [`0x0574257629e8221d560cf4aace0f3cd7226be2a0`](https://testnet.arcscan.app/address/0x0574257629e8221d560cf4aace0f3cd7226be2a0) |
-
-## Develop
-
-Prerequisites:
-- [Foundry](https://book.getfoundry.sh/) (`foundryup`)
-- Node 22+
-- Python 3.10+
-
-```bash
-git clone https://github.com/Ridwannurudeen/forum.git
-cd forum
-forge install foundry-rs/forge-std --no-git
-forge build
-forge test -vv
-```
-
-To deploy to Arc testnet (after setting `.env`):
-
-```bash
-forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast --legacy
-```
-
-## SDK quickstart
+## 5-minute integration
 
 ```typescript
 // TypeScript
-import { ARC_TESTNET, BOT_KIND_ENUM } from 'forum-arc-sdk';
-// Full ForumClient lands D2.
+import { ForumClient } from 'forum-arc-sdk';
+import { ARC_TESTNET_DEPLOYMENT } from 'forum-arc-sdk/deployments';
+
+const forum = new ForumClient({ publicClient, walletClient, addresses: ARC_TESTNET_DEPLOYMENT });
+await forum.registry.claim(code);
+await forum.trackRecord.registerBot(botId, 'MAKER', signerAddress);
+await forum.trackRecord.publish(botId, record, signature);
 ```
 
 ```python
 # Python
-from forum_arc import ARC_TESTNET, BOT_KIND_ENUM
-# Full client lands D3.
+from forum_arc import ForumClient
+from forum_arc.deployments import ARC_TESTNET_DEPLOYMENT
+
+forum = ForumClient(w3, ARC_TESTNET_DEPLOYMENT, account)
+forum.registry.claim(code)
+forum.track_record.register_bot(bot_id, 'MAKER', signer_address)
+forum.track_record.publish(bot_id, record, signature)
 ```
+
+## Develop
+
+Prerequisites: Node 22+, Python 3.10+. Optional: [Foundry](https://book.getfoundry.sh/) for contract tests.
+
+```bash
+git clone https://github.com/Ridwannurudeen/forum.git
+cd forum
+cd keeper && npm install && cd ..       # installs solc, viem, clob-client-v2, dotenv
+```
+
+Run the reference keeper (paper mode, no money at risk):
+```bash
+cd keeper
+./node_modules/.bin/tsx src/index.ts --markets 1 --interval 30 --publish-every 10
+```
+
+Deploy your own copy of the contracts:
+```bash
+# 1. Put your testnet key at ~/.forum-keys/deployer.key (raw 0x-hex)
+# 2. Fund via faucet.circle.com
+# 3. Compile + deploy + propagate addresses:
+node keeper/scripts/deploy.mjs && node keeper/scripts/update-after-deploy.mjs
+```
+
+Run contract tests (requires Foundry):
+```bash
+forge install foundry-rs/forge-std --no-git
+forge build && forge test -vv
+```
+(Or just push to GitHub — CI runs `forge build + test` automatically.)
 
 ## Honest scope
 
-- v1 ships in 9 days for the Agora Agents Hackathon
-- All contracts are immutable. No admin keys. No upgradability.
-- Paper-mode default for the reference keeper — no money at risk
-- Polymarket V2 only (no HIP-3, no Pump.fun, no Kalshi in v1)
-- Arc testnet only until mainnet beta (Summer 2026)
+- All contracts are **immutable** — no admin keys, no upgradability, no pauser
+- **Paper-mode default** for the reference keeper — no real Polymarket orders submitted
+- **Polymarket V2 only** (no HIP-3, no Pump.fun, no Kalshi in v1)
+- **Arc testnet only** until mainnet beta (Summer 2026)
+- Not financial advice. Use at your own risk.
 
 ## License
 
