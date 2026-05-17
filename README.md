@@ -48,6 +48,7 @@ Forum is the operator-plane primitive that wrapper sits on top of.
 | `KeeperConfig` | `0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26` | 4,020 bytes |
 | `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | 4,718 bytes |
 | `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | 6,694 bytes |
+| **`TrackRecordV2`** | `0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66` | strict seq + monotonic ts + prev-hash chain + replay rejection + evidence URI |
 
 Browse on the [Arc testnet explorer](https://testnet.arcscan.app/). Live frontend: **https://forum.gudman.xyz/**
 
