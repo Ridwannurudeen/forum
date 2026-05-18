@@ -77,7 +77,9 @@ Self-serve UI:
 
 Adapter template:
 
-- `adapters/template/{adapter.ts, adapter.py}`: fork-this scaffolds for wrapping any existing bot — minimal `runBot()` placeholder + the publish-loop boilerplate (registration, EIP-712 signing, hash chaining, on-chain publish). Reference real-world implementation: `keeper/scripts/agora-mind-keeper.mjs` (live on VPS, publishing every ~10 min since 2026-05-17).
+- `adapters/template/{adapter.ts, adapter.py}`: fork-this scaffolds for wrapping any existing bot — minimal `runBot()` placeholder + the publish-loop boilerplate (registration, EIP-712 signing, hash chaining, on-chain publish).
+- `adapters/poly-v2-reference/bot.ts`: **complete runnable reference Polymarket V2 bot**. Verified 2026-05-18 that no public V2 trading-bot repo exists to wrap (py-clob-client archived, no example bots in Polymarket org), so this is the canonical Phase 2 starter — discovers 3 markets, paper-trades a simple picker, publishes receipts via `ForumV2Bridge`. Third-party operators clone the repo and only customise `pickDirection()`.
+- Reference real-world implementation: `keeper/scripts/agora-mind-keeper.mjs` (live on VPS, publishing every ~10 min since 2026-05-17).
 
 ## Verifiable Demo Proofs
 
