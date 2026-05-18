@@ -2,88 +2,119 @@
 
 [![CI](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml/badge.svg)](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Arc-native operator and settlement plane for prediction-market bots.
+> **Covenant Accounts — programmable USDC credit lines for AI trading agents.**
+> Stripe Connect plus Numerai for autonomous market agents, settled on Arc.
 > Built for the [Agora Agents Hackathon](https://agora.thecanteenapp.com/) (Canteen × Circle × Arc, May 11–25 2026).
 
 ## What this is
 
-Polymarket V2 launched April 28 2026 with new contracts, new pUSD collateral, and a `bytes32` builder-attribution field on every signed order. A wave of new bots followed — directional pickers, market-makers, arbitrage agents. Every one of them needs the same operator infrastructure: a way to claim and prove ownership of a builder code, a way to tune the bot's live parameters, a way to publish a verifiable performance track record, and a way to receive and split USDC fees.
+Today, capital can't trust an AI trading agent. Three options exist and none compose:
 
-Nobody has built that layer. Forum does, on Arc.
+1. Hand over a private key — operator can run with the money.
+2. Use a regulated managed account — KYC, multi-day onboarding, custody, monthly NAV statements. Incompatible with bots that act in milliseconds.
+3. Build your own audit pipeline — every quant team rebuilds the same mandate enforcement, drawdown gates, perf-fee crystallisation, slashing-on-breach logic.
 
-## Validation — Canteen asked for this in writing
+So capital sits out, and every "12% APY MM bot" pitch is unverifiable marketing.
 
-From the hackathon's own [Research section, Hack #02](https://agora.thecanteenapp.com/):
+A **Covenant Account** is one immutable contract on Arc that holds depositors' USDC. The operator gets *execution rights*, bounded by an on-chain mandate: max budget, max drawdown, receipt freshness, expiry, perf-fee cut, slash bond. They never custody the funds. Any third party can call `RiskKernelV2.enforce(vault)` — one tx flips the vault to PAUSED **and** moves slash funds out of the bond. Permissionless. No operator click required.
 
-> *"a thin 'agent-as-builder' wrapper that registers any agent framework as a Polymarket V2 builder, exposes its structured outputs as a signed feed, and earns USDC builder fees per fill — Arc's ~$0.01 fees make per-pick economics work at retail size."*
+**Live proof on Arc testnet** (tx `0x2c8e79a5...05d13`): the first autonomous on-chain slash settled 1.25 USDC in 162,960 gas, triggered organically by a stale receipt.
 
-Forum is the operator-plane primitive that wrapper sits on top of.
+## Validation — Canteen named the lane in writing
+
+From the hackathon page's [Research section](https://agora.thecanteenapp.com/):
+
+> **Hack #02** — *"a thin 'agent-as-builder' wrapper that registers any agent framework as a Polymarket V2 builder, exposes its structured outputs as a signed feed, and earns USDC builder fees per fill — Arc's ~$0.01 fees make per-pick economics work at retail size."*
+
+Forum's `BuilderCodeRegistry` + `TrackRecord` + `FeeDistributor` + `KeeperConfig` are that infrastructure layer.
+
+> **Hack #06** — *"a USDC performance bond on Arc for a given whale that users can stake alongside. A smart contract reads… via oracle; if the leader falls below a defined threshold, the bond slashes proportionally and the slash settles in under a second."*
+
+Forum's `SlashBond` + `RiskKernelV2` + `CovenantVault` are that primitive — same shape (USDC bond on Arc, automatic proportional slash, sub-second settle), but the signal source is the agent's own published receipts (`TrackRecordV2`), not an external leaderboard oracle.
 
 ## Architecture
 
 ```
-┌───────────────────────────── Arc Testnet (5042002) ─────────────────────────────┐
-│                                                                                 │
-│   BuilderCodeRegistry      KeeperConfig       TrackRecord       FeeDistributor  │
-│   bytes32 → owner          (op, bot) → cfg    bot → signed PnL  code → splits   │
-│         │                       │                   ▲                   ▲       │
-│         └───────────────────────┼───────────────────┘                   │       │
-│                                 │                                       │       │
-└─────────────────────────────────┼───────────────────────────────────────┼───────┘
-                                  │  forum-arc-sdk (TS) / forum-arc (Py)  │
-                                  ▼                                       │
-                ┌──────────────────────────────────┐         ┌────────────┴────────────┐
-                │  reference keeper (paper mode)   │         │   Polygon mainnet       │
-                │  poly-lp-bot adapter (Python)    │ ──────► │   Polymarket V2 (pUSD)  │
-                │  polyforge adapter (TypeScript)  │  trade  │                         │
-                │  ... any third-party bot         │ ◄────── │   fees (via CCTP V2)    │
-                └──────────────────────────────────┘  fees   └─────────────────────────┘
+┌─────────────── Arc Testnet (5042002) — 13 immutable contracts ────────────────┐
+│                                                                               │
+│  Identity & attribution            Reputation & receipts                      │
+│  ─────────────────────             ─────────────────────                      │
+│  BuilderCodeRegistry               TrackRecord                                │
+│  KeeperConfig                      TrackRecordV2                              │
+│                                       │                                       │
+│                                       ▼ (read by)                             │
+│  Mandate & autonomous risk         Capital & distribution                     │
+│  ─────────────────────────         ──────────────────────                     │
+│  CovenantVault   ◄── enforce()     AgentPool                                  │
+│  CovenantVaultV1.1                 FeeDistributor                             │
+│  CovenantVaultV1.2 (live demo)                                                │
+│                                                                               │
+│  RiskKernel ──┐                                                               │
+│  RiskKernelV2 ┤── attestor of ──► SlashBond                                   │
+│  (one tx: pause AND slash)                       SlashBondV1.1                │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼ forum-arc-sdk (TS) / forum-arc (Py)
+            ┌──────────────────────────────────────────────────────┐
+            │  AgoraMind keeper (LLM)  — live on VPS                │
+            │  publishes recomputable receipts every ~10 min        │
+            │  evidenceUri: forum.gudman.xyz/receipts/<bot>/<seq>   │
+            │  nudges RiskKernelV2.enforce(CovenantVaultV1.2) each  │
+            │  cycle → vault enforces itself                        │
+            └──────────────────────────────────────────────────────┘
 ```
 
 ## Live deployment (Arc testnet, chain 5042002)
 
-| Contract | Address | Bytecode |
+| Contract | Address | Role |
 |---|---|---|
-| `BuilderCodeRegistry` | `0x730825299821d411146c503915553e37ebdc750c` | 3,436 bytes |
-| `KeeperConfig` | `0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26` | 4,020 bytes |
-| `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | 4,718 bytes |
-| `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | 6,694 bytes |
+| `BuilderCodeRegistry` | `0x730825299821d411146c503915553e37ebdc750c` | first-claim-wins `bytes32` → owner |
+| `KeeperConfig` | `0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26` | per-bot append-only config history |
+| `TrackRecord` | `0xaace70a50573cb077f65d601cd19103afc4aef9d` | v1 signer-attributable PnL records |
 | **`TrackRecordV2`** | `0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66` | strict seq + monotonic ts + prev-hash chain + replay rejection + evidence URI |
-| **`AgentPool`** | `0x13855be80b6122187c0bcba007946f9fbaae3fae` | permissionless deposit + operator pull + 20%-above-HWM perf fee |
-| **`SlashBond`** | `0x66040fd1aea2c09dde83252114532b6cb9941482` | operator collateral, attestor-slashable → AgentPool depositors |
-| **`RiskKernel`** | `0x041a79c214e9daf876b5f2e76d7870ef4359630a` | permissionless mandate enforcer — `enforce(vault)` callable by anyone |
-| **`CovenantVault`** | `0xd126e11b3e79e9af23b021d793097a5902aae3ef` | mandate-bounded USDC credit line — operator never owns funds, only execution rights |
-| **`RiskKernelV2`** | `0x0af356f280af1d8b7a43f0746c581614feec4055` | v1.1 — same `enforce(vault)` interface, but ALSO calls `SlashBond.slash()` in the same tx on operator-fault violations |
-| **`SlashBondV1.1`** | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | `attestor = RiskKernelV2`, so pause→slash is fully autonomous — no manual operator call |
-| **`CovenantVaultV1.2`** | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | v1.1 demo vault bound to live AgoraMind botId, new kernel + bond — proves the autonomous flow end-to-end |
+| `FeeDistributor` | `0x0574257629e8221d560cf4aace0f3cd7226be2a0` | per-code attribution → pull-pattern USDC |
+| **`AgentPool`** | `0x13855be80b6122187c0bcba007946f9fbaae3fae` | permissionless deposit, 20%/HWM perf fee |
+| `SlashBond` (v1) | `0x66040fd1aea2c09dde83252114532b6cb9941482` | operator collateral, attestor = deployer |
+| **`SlashBondV1.1`** | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | `attestor = RiskKernelV2` — fully autonomous |
+| `RiskKernel` (v1) | `0x041a79c214e9daf876b5f2e76d7870ef4359630a` | permissionless mandate enforcer (pause-only) |
+| **`RiskKernelV2`** | `0x0af356f280af1d8b7a43f0746c581614feec4055` | `enforce(vault)` flips state AND slashes 25% of bond in one tx |
+| `CovenantVault` (v1) | `0xd126e11b3e79e9af23b021d793097a5902aae3ef` | mandate-bounded USDC credit line |
+| `CovenantVaultV1.1` | `0x6d8914b844be1964563adb1e679e5a27e976d1f1` | initial v1.1 vault (orphan: stale botId binding) |
+| **`CovenantVaultV1.2`** | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | live demo vault, bound to AgoraMind bot — proves autonomous flow end-to-end |
 
 Browse on the [Arc testnet explorer](https://testnet.arcscan.app/). Live frontend: **https://forum.gudman.xyz/**
 
 **Verifiable on-chain proofs**:
 - Genesis builder code claim — tx `0x35b7c33...e519b6`
-- First TrackRecord published by reference keeper — tx `0x095906f7...d5a5`
-- **First autonomous pause+slash (v1.1)** — tx `0x2c8e79a5...05d13` — `RiskKernelV2.enforce(CovenantVaultV1.2)` flipped state ACTIVE→PAUSED **and** transferred 1.25 USDC out of the bond to the recipient, both in a single 162,960-gas tx, triggered by a real stale-receipt violation (no choreography)
+- First TrackRecord publish — tx `0x095906f7...d5a5`
+- **First autonomous pause+slash (v1.1)** — tx `0x2c8e79a5...05d13` — `RiskKernelV2.enforce()` flipped state ACTIVE→PAUSED **and** transferred 1.25 USDC out of the bond, atomic, 162,960 gas
+- End-to-end fee flow — 5 USDC routed through `FeeDistributor` with 70/30 split
 
-(Open `https://testnet.arcscan.app/tx/<full-hash>` for any of them.)
+(Full tx hashes in `deployments/arc-testnet.json`. Open `https://testnet.arcscan.app/tx/<full-hash>` for any of them.)
 
 ### Try the autonomous-slash demo yourself
 
 ```bash
-node keeper/scripts/demo-violation.mjs
+git clone https://github.com/Ridwannurudeen/forum.git && cd forum
+node keeper/scripts/seed-tvl-and-bond.mjs       # one-time: deposit + operator bond
+node keeper/scripts/demo-violation.mjs           # reads vault state; triggers if in violation
 ```
 
-Reads the v1.2 vault, the bound AgoraMind bot's last receipt, and the current freshness window. If the vault is currently in violation, calls `RiskKernelV2.enforce(vault)` and prints the before/after state + slashed amount. If not, prints what would happen and how to wait it out.
+The demo script reads the live `CovenantVaultV1.2` state, the bound AgoraMind bot's last receipt, and the current freshness window. If the vault is in violation, it calls `RiskKernelV2.enforce(vault)` and prints the before/after state + slashed amount. If not, it prints what would happen and how to wait it out.
 
 ## Components
 
-- **`BuilderCodeRegistry`** — first-claim-wins binding from a `bytes32` code to an owner address
-- **`KeeperConfig`** — per-bot, append-only config history operators write and bots read
-- **`TrackRecord`** — append-only EIP-712-signed PnL records with bot-kind taxonomy (`MAKER` / `TAKER` / `ARB` / `OTHER`)
-- **`FeeDistributor`** — pull-pattern USDC distribution per code's attribution table
-- **`forum-arc-sdk`** (TypeScript, npm) and **`forum-arc`** (Python, PyPI) — symmetric one-line integrations
-- **Reference keeper** at `keeper/` — V2-SDK-native, paper-mode, two-sided quoter consuming `@polymarket/clob-client-v2`
-- **Frontend dashboard** at `frontend/index.html` — single-file viem+CDN, reads bots/records live from Arc
-- **Adapters** — `adapter-poly-lp-bot` (Python) and `adapter-polyforge` (TypeScript) — third-party bot integrations
+| Layer | Files |
+|---|---|
+| Contracts | `src/*.sol` (10 distinct Solidity contracts, 13 deployed instances incl. version bumps) |
+| Foundry tests | `test/*.t.sol` (10 suites, 85 tests, green on CI) |
+| SDKs | `forum-arc-sdk` (TypeScript, npm) and `forum-arc` (Python, PyPI) |
+| Reference keeper | `keeper/src/*.ts` — V2-SDK-native, paper-mode, two-sided quoter |
+| AI agent | `keeper/scripts/agora-mind-keeper.mjs` — LLM-driven keeper (Mock + Anthropic providers) publishing to `TrackRecordV2` with hash-pinned reasoning traces |
+| Frontend | `frontend/index.html` — single-file `viem` + Tailwind CDN, reads live state from Arc |
+| Ops scripts | `keeper/scripts/{deploy-v11,deploy-v12-vault,seed-tvl-and-bond,demo-violation,revive-and-seed-v12}.mjs` |
+| Docs | `docs/{pitch-deck,multibillion-plan,demo-script,backtest-notes,x-post}.md`, `SUBMISSION.md` |
 
 ## 5-minute integration
 
@@ -108,6 +139,8 @@ forum.registry.claim(code)
 forum.track_record.register_bot(bot_id, 'MAKER', signer_address)
 forum.track_record.publish(bot_id, record, signature)
 ```
+
+(Covenant Account client surfaces are not yet in the published SDKs — only the original four-contract surface. Use `viem` directly against the addresses above for now.)
 
 ## Develop
 
@@ -136,16 +169,21 @@ node keeper/scripts/deploy.mjs && node keeper/scripts/update-after-deploy.mjs
 Run contract tests (requires Foundry):
 ```bash
 forge install foundry-rs/forge-std --no-git
-forge build && forge test -vv
+forge build && forge test -vv      # 85 tests across 10 suites
 ```
 (Or just push to GitHub — CI runs `forge build + test` automatically.)
 
 ## Honest scope
 
-- All contracts are **immutable** — no admin keys, no upgradability, no pauser
-- **Paper-mode default** for the reference keeper — no real Polymarket orders submitted
-- **Polymarket V2 only** (no HIP-3, no Pump.fun, no Kalshi in v1)
-- **Arc testnet only** until mainnet beta (Summer 2026)
+- All contracts are **immutable** — no admin keys, no upgradability, no pauser.
+- `SlashBondV1.1.recipient = deployer` for the demo (operator self-slash). For real depositor protection, the recipient should be the vault itself or the `AgentPool`. One-line constructor change for redeploy.
+- **Paper-mode default** for the reference keeper — no real Polymarket orders submitted. Real trading + fee capture not yet demonstrated.
+- AgoraMind decisions are LLM-generated; quality of decisions is not the product — the **verifiability** of decisions is.
+- **Polymarket V2 only** (no HIP-3, no Pump.fun, no Kalshi in v1).
+- **Arc testnet only** until mainnet beta (Summer 2026).
+- **No external audit.** Hackathon-scope security review only.
+- `RiskKernelV2._trySlash` catches slash failures rather than reverting (intentional — don't block the pause) — means a silently-broken bond doesn't surface as a revert.
+- Frontend is single-file HTML. Production-grade Next.js + indexer is roadmap.
 - Not financial advice. Use at your own risk.
 
 ## License
