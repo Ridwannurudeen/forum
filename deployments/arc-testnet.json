@@ -146,6 +146,17 @@
         "setTx": "0xb6b78ebab14d2928716762dbea3d3788195a1cfe8d4ea7399c933de0431df7e9"
       },
       "note": "Phase 5 allocator product. Pools USDC, routes to target vaults per strategist-set weights. Permissionless rebalance()."
+    },
+    "SlashMarket": {
+      "address": "0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76",
+      "txHash": "0x68d3501bd84462814b4c5a942044a95dd3357641f4668fa2c6af68905740c1e1",
+      "block": "42844338",
+      "initialMarket": {
+        "bond": "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+        "expiryAt": 1779195599,
+        "createTx": "0x6189256f1d142d10b1ca11da7f21b54beb0a4cf25b82b2eaab2ed6b81ecbc738"
+      },
+      "note": "Phase 9 Risk Markets v0. Per-bond binary prediction market: \"will this SlashBond have a slash event before expiry?\" Oracle-free: reads SlashBond.totalSlashed delta at settle."
     }
   },
   "circle": {

@@ -63,6 +63,7 @@ Live contracts on Arc testnet:
 | `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP V2 bridge-friendly deposit wrapper; deposits incoming USDC into a vault for a designated recipient |
 | `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | self-serve vault creation — anyone calls `createVault(mandate)` to launch a fresh Covenant Account; emits `VaultCreated` for indexer auto-discovery |
 | `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator product. Pools depositor USDC and routes across strategist-whitelisted `CovenantVault` instances per weight table. Permissionless `rebalance()` enforces targets. Initial strategy: 100% → CovenantVaultV1.2. |
+| `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Per-bond binary prediction market: "will this `SlashBond` have a slash event before expiry?" Oracle-free settlement: reads `SlashBond.totalSlashed` delta at expiry; winners get stake + pro-rata share of losers' pool. Initial 24h market live vs SlashBondV1.1. |
 
 Live services:
 
