@@ -1128,6 +1128,33 @@ node keeper/scripts/demo-violation.mjs</pre>
           <p class="mt-4 text-[10px] text-forum-dim2 leading-relaxed">
             v0 score: 100 - max(40, drawdownBps/100) - max(30, (secondsStale-1800)/60) - 15×slashEventCount + (bond ? 10 : 0). Source in <code class="mono">keeper/scripts/forum-indexer.mjs</code>. Will be hardened with per-vault bond attribution, longest-uninterrupted-streak, and verified-fill PnL recompute in v1.
           </p>
+
+          <!-- Agent inspector + one-click enforce -->
+          <div id="agent-inspector" class="mt-6 rounded-2xl ring-soft bg-forum-panel p-6 hidden">
+            <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
+              <div>
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Agent detail</div>
+                <h3 id="ins-title" class="mt-1 text-lg mono text-forum-ink">—</h3>
+              </div>
+              <button id="ins-close-btn" class="text-xs text-forum-dim hover:text-forum-ink">close ✕</button>
+            </div>
+
+            <div id="ins-score-grid" class="grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-xl overflow-hidden ring-soft mb-5">
+              <!-- score tiles injected by JS -->
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6">
+              <div>
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Linked vaults — one-click enforce</div>
+                <div id="ins-vaults" class="space-y-2 text-xs">—</div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Last 10 records (TrackRecord v1)</div>
+                <div id="ins-records" class="space-y-1 text-xs mono">—</div>
+              </div>
+            </div>
+            <div id="ins-status" class="mt-4 text-xs hidden"></div>
+          </div>
         </section>
 
         <section id="architecture" class="pb-24">
@@ -2423,7 +2450,7 @@ verdict = forum.risk_kernel.evaluate(
           }
           body.innerHTML = list.map((a) => {
             const scoreColour = a.scoreV0 >= 80 ? "text-forum-ok" : a.scoreV0 >= 50 ? "text-forum-warn" : "text-forum-err";
-            return `<tr class="border-b border-forum-line2 last:border-0 row-hover">
+            return `<tr class="border-b border-forum-line2 last:border-0 row-hover cursor-pointer" data-botid="${a.botId}">
               <td class="px-5 py-3"><span title="${a.botId}" class="text-forum-ink">${shortHash(a.botId)}</span></td>
               <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${a.kind}</span></td>
               <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${a.scoreV0}</td>
@@ -2433,12 +2460,130 @@ verdict = forum.risk_kernel.evaluate(
               <td class="px-5 py-3 text-forum-dim2">${a.lastReceiptAt > 0 ? ago(a.lastReceiptAt) : "—"}</td>
             </tr>`;
           }).join("");
+          // wire row clicks → open inspector
+          body.querySelectorAll("tr[data-botid]").forEach((row) => {
+            row.addEventListener("click", () => openAgentInspector(row.dataset.botid));
+          });
         } catch (e) {
           body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">load error: ${e.message}</td></tr>`;
         }
       }
       loadAgents();
       setInterval(loadAgents, 30_000);
+
+      // ============================================================
+      // Agent inspector — opens on row-click in the AgentScore leaderboard.
+      // Renders score breakdown + linked vaults (with one-click enforce) +
+      // last 10 records pulled live from /api/bots/:botId/records.
+      // ============================================================
+      const KERNEL_ENFORCE_ABI = [{
+        type: "function", name: "enforce", stateMutability: "nonpayable",
+        inputs: [{ name: "vault", type: "address" }], outputs: [],
+      }];
+
+      function fmtUsdcMicros(micros) {
+        const n = Number(micros) / 1e6;
+        return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " USDC";
+      }
+      function setInsStatus(html, kind = "info") {
+        const el = document.getElementById("ins-status");
+        const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
+        el.className = "mt-4 text-xs " + colour;
+        el.innerHTML = html;
+      }
+
+      async function openAgentInspector(botId) {
+        const panel = document.getElementById("agent-inspector");
+        panel.classList.remove("hidden");
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        document.getElementById("ins-title").textContent = shortHash(botId);
+        document.getElementById("ins-title").title = botId;
+        document.getElementById("ins-vaults").innerHTML = "loading...";
+        document.getElementById("ins-records").innerHTML = "loading...";
+        document.getElementById("ins-score-grid").innerHTML = "";
+        document.getElementById("ins-status").className = "hidden";
+
+        try {
+          const [scoreRes, recRes] = await Promise.all([
+            fetch(`/api/agents/${botId}`).then((r) => r.json()),
+            fetch(`/api/bots/${botId}/records?limit=10`).then((r) => r.json()),
+          ]);
+
+          // Score tiles
+          const tiles = [
+            ["Score (v0)", scoreRes.scoreV0, scoreRes.scoreV0 >= 80 ? "text-forum-ok" : scoreRes.scoreV0 >= 50 ? "text-forum-warn" : "text-forum-err"],
+            ["Records", scoreRes.recordCount, "text-forum-ink"],
+            ["DD bps", scoreRes.drawdownBps, "text-forum-dim"],
+            ["Slashes", scoreRes.slashEventCount, scoreRes.slashEventCount > 0 ? "text-forum-err" : "text-forum-dim"],
+          ];
+          document.getElementById("ins-score-grid").innerHTML = tiles.map(([label, val, colour]) => `
+            <div class="bg-forum-panel2 p-4">
+              <div class="text-[10px] uppercase tracking-widest text-forum-dim2">${label}</div>
+              <div class="mt-1 text-xl mono tnum ${colour}">${val}</div>
+            </div>`).join("");
+
+          // Linked vaults with enforce button
+          const vaultsEl = document.getElementById("ins-vaults");
+          if (!scoreRes.linkedVaults || scoreRes.linkedVaults.length === 0) {
+            vaultsEl.innerHTML = `<div class="text-forum-dim2">no vaults bound to this bot</div>`;
+          } else {
+            vaultsEl.innerHTML = scoreRes.linkedVaults.map((v) => `
+              <div class="flex items-center justify-between gap-2 rounded-lg border border-forum-line bg-forum-panel2 p-3">
+                <div class="min-w-0">
+                  <a target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent truncate block" href="https://testnet.arcscan.app/address/${v.address}">${shortAddr(v.address)}</a>
+                  <div class="text-[10px] text-forum-dim2 mt-0.5">${v.label} · state ${v.state}</div>
+                </div>
+                <button data-vault="${v.address}" class="ins-enforce-btn text-[10px] mono rounded border border-forum-accent/40 bg-forum-accent/10 text-forum-accent px-2 py-1 hover:bg-forum-accent/20">
+                  enforce
+                </button>
+              </div>`).join("");
+            vaultsEl.querySelectorAll(".ins-enforce-btn").forEach((b) => {
+              b.addEventListener("click", () => oneClickEnforce(b.dataset.vault));
+            });
+          }
+
+          // Records
+          const recordsEl = document.getElementById("ins-records");
+          if (!Array.isArray(recRes) || recRes.length === 0) {
+            recordsEl.innerHTML = `<div class="text-forum-dim2">no records yet</div>`;
+          } else {
+            recordsEl.innerHTML = recRes.slice().reverse().map((r) => `
+              <div class="flex justify-between text-forum-dim">
+                <span class="text-forum-dim2">#${r.seq}</span>
+                <span class="text-forum-ink tnum">${Number(r.pnlMicros).toLocaleString()} µ</span>
+                <span class="text-forum-dim2">${ago(r.ts)}</span>
+              </div>`).join("");
+          }
+        } catch (e) {
+          document.getElementById("ins-vaults").innerHTML = `<div class="text-forum-err">load error: ${e.message}</div>`;
+        }
+      }
+
+      async function oneClickEnforce(vaultAddr) {
+        if (!walletClient) {
+          setInsStatus("Connect a wallet first (Create section).", "err");
+          return;
+        }
+        setInsStatus(`Calling RiskKernelV2.enforce(${shortAddr(vaultAddr)}) ...`, "info");
+        try {
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: RISK_KERNEL_V2,
+            data: encodeFunctionData({ abi: KERNEL_ENFORCE_ABI, functionName: "enforce", args: [vaultAddr] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") {
+            setInsStatus(`enforce reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+            return;
+          }
+          setInsStatus(`<strong class="text-forum-ok">enforce landed.</strong> ${rcpt.gasUsed} gas. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a> — state change (if any) reflects within 30s via /api/slash-events.`, "ok");
+        } catch (e) {
+          setInsStatus("Failed: " + (e.shortMessage || e.message || e), "err");
+        }
+      }
+
+      document.getElementById("ins-close-btn").addEventListener("click", () => {
+        document.getElementById("agent-inspector").classList.add("hidden");
+      });
     </script>
   </body>
 </html>
