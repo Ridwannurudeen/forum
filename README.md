@@ -114,7 +114,7 @@ Polled Arc-state cache live at `https://forum.gudman.xyz/api/*`:
 
 Source: `keeper/scripts/forum-indexer.mjs`. Systemd + nginx templates in `deploy/`.
 
-Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (AgentScore v0 leaderboard), `GET /api/agents/:botId` (single agent with linked vaults + slash history). Indexer subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes.
+Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (AgentScore v0 leaderboard), `GET /api/agents/:botId` (single agent with linked vaults + slash history), `GET /api/fees` (FeeRouterV1 splits + per-recipient claimable). Indexer subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes.
 
 ## Self-Serve UI
 
@@ -123,6 +123,7 @@ Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (Agen
 - <https://forum.gudman.xyz/#agents>: AgentScore leaderboard with row-click inspector + one-click `RiskKernelV2.enforce(vault)` per linked vault.
 - <https://forum.gudman.xyz/#markets>: SlashMarket YES/NO staking UI per market.
 - <https://forum.gudman.xyz/#router>: CapitalRouter pool — deposit/withdraw + permissionless `rebalance()` against the strategist weight table.
+- <https://forum.gudman.xyz/#fees>: FeeRouterV1 — list active splits, pay any split, claim per-recipient accruals.
 
 ## Adapter Template
 

@@ -255,6 +255,11 @@
               >Router</a
             >
             <a
+              href="#fees"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Fees</a
+            >
+            <a
               href="#integrate"
               class="hidden md:inline text-forum-dim hover:text-forum-ink"
               >Integrate</a
@@ -1145,6 +1150,49 @@ node keeper/scripts/demo-violation.mjs</pre>
               </div>
               <div id="router-status" class="mt-3 text-xs hidden"></div>
             </div>
+          </div>
+        </section>
+
+        <section id="fees" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Fee Router · Phase 6 revenue loop</div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">USDC fee splits across operator / researcher / referrer.</h2>
+              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
+                Operator (or anyone) creates a <code class="mono text-forum-accent2">FeeRouterV1</code> split with up to N (recipient, bps) tuples summing to 10000. Permissionless <code class="mono text-forum-accent2">pay(splitId, amount)</code> moves USDC in + allocates per recipient (rounding dust folded into the first slot). Each recipient pulls via <code class="mono text-forum-accent2">claim()</code> across every split they're in. No admin keys, immutable per split.
+              </p>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
+              live · refreshes 30s
+            </span>
+          </div>
+
+          <div class="grid lg:grid-cols-3 gap-4 mb-4">
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6 lg:col-span-2">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Active splits</div>
+              <div id="fees-splits-list" class="text-sm text-forum-dim">loading…</div>
+            </div>
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Your claimable</div>
+              <div id="fees-my-claimable" class="mono text-lg text-forum-ink">connect wallet</div>
+              <button id="fees-claim-btn" class="btn btn-primary w-full mt-4 justify-center text-xs" disabled>claim all splits</button>
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mt-6 mb-2">Totals</div>
+              <div class="text-xs text-forum-dim">splits: <span id="fees-split-count" class="mono text-forum-ink">…</span></div>
+              <div class="text-xs text-forum-dim">routed: <span id="fees-total-routed" class="mono text-forum-ink">…</span> USDC</div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Create a split</div>
+            <p class="text-xs text-forum-dim2 mb-4">Add up to 3 (recipient, bps) rows below. bps must sum to exactly 10000.</p>
+            <div id="fees-split-rows" class="space-y-2 mb-3">
+              <div class="flex gap-2"><input data-fees-recipient="0" class="mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" placeholder="0x recipient #1" /><input data-fees-bps="0" type="number" min="1" max="10000" value="6000" class="mono w-24 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" placeholder="bps" /></div>
+              <div class="flex gap-2"><input data-fees-recipient="1" class="mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" placeholder="0x recipient #2" /><input data-fees-bps="1" type="number" min="0" max="10000" value="3000" class="mono w-24 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" placeholder="bps" /></div>
+              <div class="flex gap-2"><input data-fees-recipient="2" class="mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" placeholder="0x recipient #3 (optional)" /><input data-fees-bps="2" type="number" min="0" max="10000" value="1000" class="mono w-24 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" placeholder="bps" /></div>
+            </div>
+            <button id="fees-create-btn" class="btn btn-primary text-xs">createSplit()</button>
+            <div id="fees-status" class="mt-3 text-xs hidden"></div>
           </div>
         </section>
 
@@ -2958,6 +3006,138 @@ verdict = forum.risk_kernel.evaluate(
       document.getElementById("router-rebalance-btn").addEventListener("click", routerRebalance);
       loadRouter();
       setInterval(loadRouter, 30_000);
+
+      // ── Phase 6 · Fee Router ─────────────────────────────────────────
+      async function loadFees() {
+        try {
+          const r = await fetch("/api/fees");
+          if (!r.ok) {
+            document.getElementById("fees-splits-list").textContent = "indexer not ready";
+            return;
+          }
+          const data = await r.json();
+          document.getElementById("fees-split-count").textContent = data.splitCount;
+          document.getElementById("fees-total-routed").textContent = (Number(data.totalRoutedMicros) / 1e6).toFixed(6);
+
+          if (data.splits.length === 0) {
+            document.getElementById("fees-splits-list").innerHTML = `<div class="text-forum-dim2">no splits yet — create one below.</div>`;
+          } else {
+            document.getElementById("fees-splits-list").innerHTML = data.splits.map((s) => `
+              <div class="rounded-xl bg-forum-panel2 p-4 mb-3">
+                <div class="flex justify-between items-baseline mb-2">
+                  <div class="text-xs uppercase tracking-wider text-forum-dim2">split #${s.splitId} · creator <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${s.creator}">${shortAddr(s.creator)}</a></div>
+                  <div class="text-xs mono text-forum-dim">routed ${(Number(s.totalRoutedMicros) / 1e6).toFixed(6)} USDC</div>
+                </div>
+                <div class="space-y-1 mb-3">
+                  ${s.recipients.map((rcpt, i) => `
+                    <div class="flex justify-between text-xs">
+                      <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${rcpt}">${shortAddr(rcpt)}</a>
+                      <span class="mono text-forum-dim">${(s.bps[i] / 100).toFixed(2)}%</span>
+                    </div>`).join("")}
+                </div>
+                <div class="flex gap-2 items-center">
+                  <input data-fees-pay-id="${s.splitId}" class="fees-pay-amount mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs" type="number" min="1" step="1" placeholder="USDC amount" />
+                  <button data-fees-pay-id="${s.splitId}" class="fees-pay-btn px-3 py-2 rounded-lg text-xs mono bg-forum-accent/15 text-forum-accent border border-forum-accent/40 hover:bg-forum-accent/25">pay</button>
+                </div>
+              </div>`).join("");
+            document.querySelectorAll(".fees-pay-btn").forEach((btn) => {
+              btn.addEventListener("click", () => {
+                const id = Number(btn.dataset.feesPayId);
+                const input = document.querySelector(`.fees-pay-amount[data-fees-pay-id="${id}"]`);
+                if (!input.value || Number(input.value) <= 0) return setFeesStatus("Enter an amount > 0", "err");
+                feesPay(id, input.value);
+              });
+            });
+          }
+
+          if (connectedAddr) {
+            const mine = data.recipientClaimableMicros[connectedAddr] ?? "0";
+            document.getElementById("fees-my-claimable").textContent = `${(Number(mine) / 1e6).toFixed(6)} USDC`;
+            document.getElementById("fees-claim-btn").disabled = BigInt(mine) === 0n;
+          }
+        } catch (e) {
+          document.getElementById("fees-splits-list").innerHTML = `<div class="text-forum-err">load error: ${e.message}</div>`;
+        }
+      }
+
+      const FEE_ROUTER = "0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59";
+      const FEE_ROUTER_CREATE_ABI = [{ type: "function", name: "createSplit", stateMutability: "nonpayable", inputs: [{ name: "recipients", type: "address[]" }, { name: "bps", type: "uint16[]" }], outputs: [{ type: "uint256" }] }];
+      const FEE_ROUTER_PAY_ABI    = [{ type: "function", name: "pay",          stateMutability: "nonpayable", inputs: [{ name: "splitId", type: "uint256" }, { name: "amount", type: "uint256" }], outputs: [] }];
+      const FEE_ROUTER_CLAIM_ABI  = [{ type: "function", name: "claim",        stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] }];
+
+      function setFeesStatus(html, kind = "info") {
+        const el = document.getElementById("fees-status");
+        const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
+        el.className = "mt-3 text-xs " + colour;
+        el.innerHTML = html;
+      }
+      async function feesCreate() {
+        if (!walletClient) return setFeesStatus("Connect a wallet first (Create section).", "err");
+        const rows = [0, 1, 2].map((i) => ({
+          recipient: document.querySelector(`[data-fees-recipient="${i}"]`).value.trim(),
+          bps: Number(document.querySelector(`[data-fees-bps="${i}"]`).value),
+        })).filter((r) => r.recipient && r.bps > 0);
+        if (rows.length === 0) return setFeesStatus("Add at least 1 recipient", "err");
+        if (rows.reduce((a, r) => a + r.bps, 0) !== 10_000) return setFeesStatus("bps must sum to exactly 10000", "err");
+        const recipients = rows.map((r) => r.recipient);
+        const bps = rows.map((r) => r.bps);
+        try {
+          setFeesStatus(`createSplit(${recipients.length} recipients) ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: FEE_ROUTER,
+            data: encodeFunctionData({ abi: FEE_ROUTER_CREATE_ABI, functionName: "createSplit", args: [recipients, bps] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setFeesStatus(`createSplit reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setFeesStatus(`<strong class="text-forum-ok">split created.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadFees();
+        } catch (e) {
+          setFeesStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      async function feesPay(splitId, amountWhole) {
+        if (!walletClient) return setFeesStatus("Connect a wallet first.", "err");
+        try {
+          const amountMicros = BigInt(amountWhole) * 1_000_000n;
+          setFeesStatus(`1/2 approve USDC for FeeRouter ...`, "info");
+          const approveTx = await walletClient.sendTransaction({
+            account: connectedAddr, to: USDC_ADDR,
+            data: encodeFunctionData({ abi: USDC_APPROVE_ABI, functionName: "approve", args: [FEE_ROUTER, amountMicros] }),
+          });
+          await client.waitForTransactionReceipt({ hash: approveTx });
+          setFeesStatus(`2/2 pay(${splitId}, ${amountWhole}) ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: FEE_ROUTER,
+            data: encodeFunctionData({ abi: FEE_ROUTER_PAY_ABI, functionName: "pay", args: [BigInt(splitId), amountMicros] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setFeesStatus(`pay reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setFeesStatus(`<strong class="text-forum-ok">paid.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadFees();
+        } catch (e) {
+          setFeesStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      async function feesClaim() {
+        if (!walletClient) return setFeesStatus("Connect a wallet first.", "err");
+        try {
+          setFeesStatus(`claim() ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: FEE_ROUTER,
+            data: encodeFunctionData({ abi: FEE_ROUTER_CLAIM_ABI, functionName: "claim", args: [] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setFeesStatus(`claim reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setFeesStatus(`<strong class="text-forum-ok">claimed.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadFees();
+        } catch (e) {
+          setFeesStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      document.getElementById("fees-create-btn").addEventListener("click", feesCreate);
+      document.getElementById("fees-claim-btn").addEventListener("click", feesClaim);
+      loadFees();
+      setInterval(loadFees, 30_000);
     </script>
   </body>
 </html>

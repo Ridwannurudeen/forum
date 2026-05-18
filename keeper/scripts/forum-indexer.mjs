@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.4.0'; // AgentScore v1: streak + sharpe + per-vault bond
+const VERSION = 'forum-indexer/0.5.0'; // + /api/fees (FeeRouterV1 splits + claimable)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -59,6 +59,7 @@ const VAULTS = {
 };
 const BOND_V11 = deployment.contracts.SlashBondV1_1?.address;
 const FACTORY = deployment.contracts.CovenantVaultFactory?.address;
+const FEE_ROUTER = deployment.contracts.FeeRouterV1?.address;
 const FACTORY_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactory?.block
   ? BigInt(deployment.contracts.CovenantVaultFactory.block)
   : null;
@@ -94,6 +95,25 @@ const BOND_ABI = parseAbi([
   'function bondBalance() view returns (uint256)',
   'function totalSlashed() view returns (uint256)',
 ]);
+const FEE_ROUTER_READ_ABI = parseAbi([
+  'function splitCount() view returns (uint256)',
+  'function totalClaimableOf(address) view returns (uint256)',
+]);
+// viem human-readable parseAbi rejects inline tuple outputs; use JSON ABI.
+const FEE_ROUTER_SPLIT_ABI = [{
+  type: 'function', name: 'splitAt', stateMutability: 'view',
+  inputs: [{ name: 'splitId', type: 'uint256' }],
+  outputs: [{
+    type: 'tuple',
+    components: [
+      { name: 'creator', type: 'address' },
+      { name: 'recipients', type: 'address[]' },
+      { name: 'bps', type: 'uint16[]' },
+      { name: 'totalRouted', type: 'uint256' },
+      { name: 'createdAt', type: 'uint64' },
+    ],
+  }],
+}];
 
 const BOT_REGISTERED_EVENT = parseAbiItem(
   'event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)',
@@ -459,6 +479,52 @@ const server = createServer((req, res) => {
   if (path === '/slash-events' || path === '/slash-events/') {
     const limit = Math.min(Number(url.searchParams.get('limit') || 20), 200);
     return jsonReply(res, 200, state.slashEvents.slice(0, limit));
+  }
+
+  if (path === '/fees' || path === '/fees/') {
+    if (!FEE_ROUTER) return jsonReply(res, 404, { error: 'FeeRouterV1 not deployed' });
+    (async () => {
+      try {
+        const count = await pub.readContract({
+          address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'splitCount',
+        });
+        const n = Number(count);
+        const ids = Array.from({ length: n }, (_, i) => BigInt(i));
+        const splits = await Promise.all(ids.map(async (id) => {
+          const s = await pub.readContract({
+            address: FEE_ROUTER, abi: FEE_ROUTER_SPLIT_ABI, functionName: 'splitAt', args: [id],
+          });
+          return {
+            splitId: Number(id),
+            creator: s.creator,
+            recipients: [...s.recipients],
+            bps: s.bps.map((b) => Number(b)),
+            totalRoutedMicros: s.totalRouted.toString(),
+            createdAt: Number(s.createdAt),
+          };
+        }));
+        // De-dupe recipients, then fetch totalClaimable for each.
+        const uniqRecipients = [...new Set(splits.flatMap((s) => s.recipients))];
+        const claimable = {};
+        await Promise.all(uniqRecipients.map(async (r) => {
+          const t = await pub.readContract({
+            address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'totalClaimableOf', args: [r],
+          });
+          claimable[r] = t.toString();
+        }));
+        const totalRoutedAllSplits = splits.reduce((a, s) => a + BigInt(s.totalRoutedMicros), 0n);
+        jsonReply(res, 200, {
+          feeRouter: FEE_ROUTER,
+          splitCount: n,
+          totalRoutedMicros: totalRoutedAllSplits.toString(),
+          splits,
+          recipientClaimableMicros: claimable,
+        });
+      } catch (e) {
+        jsonReply(res, 500, { error: e.message });
+      }
+    })();
+    return;
   }
 
   if (path === '/factory-vaults' || path === '/factory-vaults/') {
