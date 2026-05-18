@@ -225,39 +225,14 @@
               >Live proof</a
             >
             <a
+              href="#app"
+              class="hidden md:inline text-forum-accent hover:text-forum-ink"
+              >App</a
+            >
+            <a
               href="#architecture"
               class="hidden md:inline text-forum-dim hover:text-forum-ink"
               >Architecture</a
-            >
-            <a
-              href="#create"
-              class="hidden md:inline text-forum-accent hover:text-forum-ink"
-              >Create</a
-            >
-            <a
-              href="#manage"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Manage</a
-            >
-            <a
-              href="#agents"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Agents</a
-            >
-            <a
-              href="#markets"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Markets</a
-            >
-            <a
-              href="#router"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Router</a
-            >
-            <a
-              href="#fees"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Fees</a
             >
             <a
               href="#integrate"
@@ -834,7 +809,25 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
         </section>
 
-        <section id="create" class="pb-24">
+        <section id="app" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">App console · all live on Arc testnet</div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">Six surfaces, one wallet.</h2>
+              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
+                Every interactive flow lives below. Switch tabs to move between creating a Covenant Account, managing bonds and withdrawals, browsing agents, trading risk markets, allocating capital, and splitting fees.
+              </p>
+            </div>
+          </div>
+          <div id="app-tabs" class="flex flex-wrap gap-1 mb-6 border-b border-forum-line" role="tablist">
+            <button data-app-tab="create"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">Create</button>
+            <button data-app-tab="manage"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Manage</button>
+            <button data-app-tab="agents"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Agents</button>
+            <button data-app-tab="markets" class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Markets</button>
+            <button data-app-tab="router"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Router</button>
+            <button data-app-tab="fees"    class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Fees</button>
+          </div>
+          <div data-tab="create" class="app-tab-panel">
           <div class="mb-10">
             <div class="text-[11px] uppercase tracking-widest text-forum-accent">Launch your own · permissionless</div>
             <h2 class="mt-1 text-3xl sm:text-4xl font-medium tracking-tight">Create a Covenant Account in one tx.</h2>
@@ -930,10 +923,10 @@ node keeper/scripts/demo-violation.mjs</pre>
               </p>
             </div>
           </div>
-        </section>
 
 
-        <section id="manage" class="pb-24">
+          </div>
+          <div data-tab="manage" class="app-tab-panel hidden">
           <div class="mb-10">
             <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Manage your vault · operator + depositor flows</div>
             <h2 class="mt-1 text-3xl font-medium tracking-tight">Bond, deposit, withdraw — same wallet.</h2>
@@ -1002,9 +995,9 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div id="withdraw-status" class="mt-3 text-xs hidden"></div>
             </div>
           </div>
-        </section>
 
-        <section id="agents" class="pb-24">
+          </div>
+          <div data-tab="agents" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v0 · live leaderboard</div>
@@ -1065,9 +1058,9 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
             <div id="ins-status" class="mt-4 text-xs hidden"></div>
           </div>
-        </section>
 
-        <section id="markets" class="pb-24">
+          </div>
+          <div data-tab="markets" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">Risk Markets · price agent failure on-chain</div>
@@ -1085,9 +1078,9 @@ node keeper/scripts/demo-violation.mjs</pre>
             <div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-dim text-sm">loading...</div>
           </div>
           <div id="markets-status" class="mt-4 text-xs hidden"></div>
-        </section>
 
-        <section id="router" class="pb-24">
+          </div>
+          <div data-tab="router" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">Capital Router · Phase 5 allocator</div>
@@ -1151,9 +1144,9 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div id="router-status" class="mt-3 text-xs hidden"></div>
             </div>
           </div>
-        </section>
 
-        <section id="fees" class="pb-24">
+          </div>
+          <div data-tab="fees" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">Fee Router · Phase 6 revenue loop</div>
@@ -1193,6 +1186,8 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
             <button id="fees-create-btn" class="btn btn-primary text-xs">createSplit()</button>
             <div id="fees-status" class="mt-3 text-xs hidden"></div>
+          </div>
+
           </div>
         </section>
 
@@ -3138,6 +3133,52 @@ verdict = forum.risk_kernel.evaluate(
       document.getElementById("fees-claim-btn").addEventListener("click", feesClaim);
       loadFees();
       setInterval(loadFees, 30_000);
+
+      // ── App console tab switcher ────────────────────────────────────
+      const APP_TABS = ["create", "manage", "agents", "markets", "router", "fees"];
+      function activateAppTab(name, opts = { updateHash: true, scroll: false }) {
+        if (!APP_TABS.includes(name)) name = "create";
+        document.querySelectorAll(".app-tab-panel").forEach((p) => {
+          if (p.dataset.tab === name) p.classList.remove("hidden");
+          else p.classList.add("hidden");
+        });
+        document.querySelectorAll(".app-tab-btn").forEach((b) => {
+          const active = b.dataset.appTab === name;
+          b.classList.toggle("border-forum-accent", active);
+          b.classList.toggle("text-forum-accent", active);
+          b.classList.toggle("border-transparent", !active);
+          b.classList.toggle("text-forum-dim", !active);
+        });
+        if (opts.updateHash) {
+          const target = "app=" + name;
+          if (location.hash.replace(/^#/, "") !== target) {
+            history.replaceState(null, "", "#" + target);
+          }
+        }
+        if (opts.scroll) {
+          document.getElementById("app").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+      document.querySelectorAll(".app-tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => activateAppTab(btn.dataset.appTab, { updateHash: true, scroll: false }));
+      });
+      // Deep-link via #app=<tab> or any old #create / #manage / etc.
+      function initialTabFromHash() {
+        const h = location.hash.replace(/^#/, "");
+        if (h.startsWith("app=")) return h.slice(4);
+        if (APP_TABS.includes(h)) {
+          // Legacy direct-link → rewrite to /#app=<tab> and scroll to app
+          history.replaceState(null, "", "#app=" + h);
+          setTimeout(() => document.getElementById("app").scrollIntoView({ behavior: "instant", block: "start" }), 0);
+          return h;
+        }
+        return "create";
+      }
+      activateAppTab(initialTabFromHash(), { updateHash: false, scroll: false });
+      window.addEventListener("hashchange", () => {
+        const h = location.hash.replace(/^#/, "");
+        if (h.startsWith("app=")) activateAppTab(h.slice(4), { updateHash: false });
+      });
     </script>
   </body>
 </html>
