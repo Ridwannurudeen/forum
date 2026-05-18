@@ -165,6 +165,12 @@
       "bond": "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
       "topUpRecipient": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
       "note": "Phase 9 continuous-premium insurance pool for SlashBondV1.1. notifySlash() reads bond.totalSlashed delta + pays delta to topUpRecipient. payPremium / withdrawPremium for funders."
+    },
+    "FeeRouterV1": {
+      "address": "0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59",
+      "txHash": "0xa41a75220adba822d55afb199fc29377c664b6a20aea62e9317ba8520ac90a69",
+      "block": "42854277",
+      "note": "Phase 6 fee router. createSplit(recipients, bps) → pay(splitId, amount) → recipient.claim(). Per-split allocation table immutable, pull-pattern claim across all splits."
     }
   },
   "circle": {

@@ -41,6 +41,7 @@ from .abi import (
     COVENANT_VAULT_ABI,
     COVENANT_VAULT_FACTORY_ABI,
     FEE_DISTRIBUTOR_ABI,
+    FEE_ROUTER_V1_ABI,
     KEEPER_CONFIG_ABI,
     RISK_KERNEL_V2_ABI,
     SLASH_BOND_ABI,
@@ -67,6 +68,7 @@ class ForumAddresses:
     capital_router: str | None = None
     slash_market: str | None = None
     slash_insurance: str | None = None
+    fee_router_v1: str | None = None
 
 
 # Bot kinds match Solidity enum order in TrackRecord.sol
@@ -655,6 +657,18 @@ class ForumClient:
             if addresses.slash_insurance
             else None
         )
+        self.fee_router_v1 = (
+            FeeRouterV1Client(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.fee_router_v1),
+                    abi=FEE_ROUTER_V1_ABI,
+                ),
+                account,
+            )
+            if addresses.fee_router_v1
+            else None
+        )
 
 
 class CovenantVaultFactoryClient(_SubClient):
@@ -904,3 +918,62 @@ class SlashInsuranceClient(_SubClient):
 
     def notify_slash(self) -> str:
         return self._send("notifySlash")
+
+
+@dataclass(frozen=True)
+class FeeRouterSplit:
+    creator: str
+    recipients: list[str]
+    bps: list[int]
+    total_routed: int
+    created_at: int
+
+
+class FeeRouterV1Client(_SubClient):
+    """Phase 6 fee router — create splits, route USDC, pull-claim per recipient."""
+
+    def split_count(self) -> int:
+        return int(self._c.functions.splitCount().call())
+
+    def split_at(self, split_id: int) -> FeeRouterSplit:
+        creator, recipients, bps, total_routed, created_at = self._c.functions.splitAt(
+            int(split_id)
+        ).call()
+        return FeeRouterSplit(
+            creator=creator,
+            recipients=[str(r) for r in recipients],
+            bps=[int(b) for b in bps],
+            total_routed=int(total_routed),
+            created_at=int(created_at),
+        )
+
+    def claimable_of(self, split_id: int, recipient: str) -> int:
+        return int(
+            self._c.functions.claimableOf(
+                int(split_id), Web3.to_checksum_address(recipient)
+            ).call()
+        )
+
+    def total_claimable_of(self, recipient: str) -> int:
+        return int(
+            self._c.functions.totalClaimableOf(
+                Web3.to_checksum_address(recipient)
+            ).call()
+        )
+
+    def create_split(self, recipients: list[str], bps: list[int]) -> str:
+        if len(recipients) != len(bps):
+            raise ValueError("recipients/bps length mismatch")
+        if sum(bps) != 10_000:
+            raise ValueError(f"bps must sum to 10000 (got {sum(bps)})")
+        return self._send(
+            "createSplit",
+            [Web3.to_checksum_address(r) for r in recipients],
+            bps,
+        )
+
+    def pay(self, split_id: int, amount: int) -> str:
+        return self._send("pay", int(split_id), int(amount))
+
+    def claim(self) -> str:
+        return self._send("claim")

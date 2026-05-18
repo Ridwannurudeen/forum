@@ -15,6 +15,7 @@ import {
   covenantInboxAbi,
   covenantVaultAbi,
   covenantVaultFactoryAbi,
+  feeRouterV1Abi,
   keeperConfigAbi,
   trackRecordAbi,
   feeDistributorAbi,
@@ -56,6 +57,7 @@ export class ForumClient {
   public readonly capitalRouter: CapitalRouterClient;
   public readonly slashMarket: SlashMarketClient;
   public readonly slashInsurance: SlashInsuranceClient;
+  public readonly feeRouterV1: FeeRouterV1Client;
 
   constructor(opts: ForumClientOptions) {
     this.registry = new RegistryClient(opts);
@@ -72,6 +74,7 @@ export class ForumClient {
     this.capitalRouter = new CapitalRouterClient(opts);
     this.slashMarket = new SlashMarketClient(opts);
     this.slashInsurance = new SlashInsuranceClient(opts);
+    this.feeRouterV1 = new FeeRouterV1Client(opts);
   }
 }
 
@@ -1311,6 +1314,102 @@ export class SlashInsuranceClient extends BaseSubClient {
       address: this.address(),
       abi: slashInsuranceAbi,
       functionName: "notifySlash",
+      args: [],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export interface FeeRouterSplit {
+  creator: Address;
+  recipients: Address[];
+  bps: number[];
+  totalRouted: bigint;
+  createdAt: bigint;
+}
+
+export class FeeRouterV1Client extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("feeRouterV1");
+  }
+  async splitCount(): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "splitCount",
+    })) as bigint;
+  }
+  async splitAt(splitId: bigint): Promise<FeeRouterSplit> {
+    const s = (await this.publicClient.readContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "splitAt",
+      args: [splitId],
+    })) as {
+      creator: Address;
+      recipients: readonly Address[];
+      bps: readonly number[];
+      totalRouted: bigint;
+      createdAt: bigint;
+    };
+    return {
+      creator: s.creator,
+      recipients: [...s.recipients],
+      bps: [...s.bps],
+      totalRouted: s.totalRouted,
+      createdAt: s.createdAt,
+    };
+  }
+  async claimableOf(splitId: bigint, recipient: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "claimableOf",
+      args: [splitId, recipient],
+    })) as bigint;
+  }
+  async totalClaimableOf(recipient: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "totalClaimableOf",
+      args: [recipient],
+    })) as bigint;
+  }
+  async createSplit(recipients: Address[], bps: number[]): Promise<Hex> {
+    if (recipients.length !== bps.length)
+      throw new Error("ForumClient: recipients/bps length mismatch");
+    const sum = bps.reduce((a, b) => a + b, 0);
+    if (sum !== 10_000)
+      throw new Error(`ForumClient: bps must sum to 10000 (got ${sum})`);
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "createSplit",
+      args: [recipients, bps],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async pay(splitId: bigint, amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "pay",
+      args: [splitId, amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async claim(): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: feeRouterV1Abi,
+      functionName: "claim",
       args: [],
       account: this.account(),
       chain: w.chain ?? null,

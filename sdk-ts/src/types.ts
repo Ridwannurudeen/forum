@@ -65,6 +65,7 @@ export interface ForumAddresses {
   capitalRouter?: Address;
   slashMarket?: Address;
   slashInsurance?: Address;
+  feeRouterV1?: Address;
 }
 
 export const ARC_TESTNET = {

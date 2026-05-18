@@ -42,6 +42,7 @@ Chain: Arc testnet `5042002`
 | `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator. Pools USDC, routes across strategist-whitelisted vaults per weight table, permissionless `rebalance()` |
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Binary YES/NO prediction market per `SlashBond` per time window. Oracle-free settle via `SlashBond.totalSlashed` delta. |
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Phase 9 continuous-premium insurance pool for `SlashBondV1.1`. `payPremium` funds the pool; permissionless `notifySlash` reads bond's `totalSlashed` delta and pays the delta out to the bond's `recipient`. |
+| `FeeRouterV1` | `0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59` | Phase 6 fee router. `createSplit(recipients, bps)` → permissionless `pay(splitId, amount)` allocates per-recipient → `claim()` pulls running total across every split. Closes the operator/researcher/referrer revenue loop. Off-chain reconciliation in `keeper/scripts/fee-reconcile.mjs`. |
 
 Deployment metadata is in `deployments/arc-testnet.json`.
 

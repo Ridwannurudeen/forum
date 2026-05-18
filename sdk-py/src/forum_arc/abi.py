@@ -1021,3 +1021,83 @@ SLASH_INSURANCE_ABI = [
         "outputs": [{"name": "paidOut", "type": "uint256"}],
     },
 ]
+
+
+FEE_ROUTER_V1_ABI = [
+    {
+        "type": "function",
+        "name": "usdc",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "splitCount",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "claimableOf",
+        "stateMutability": "view",
+        "inputs": [
+            {"name": "splitId", "type": "uint256"},
+            {"name": "recipient", "type": "address"},
+        ],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "totalClaimableOf",
+        "stateMutability": "view",
+        "inputs": [{"name": "recipient", "type": "address"}],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "createSplit",
+        "stateMutability": "nonpayable",
+        "inputs": [
+            {"name": "recipients", "type": "address[]"},
+            {"name": "bps", "type": "uint16[]"},
+        ],
+        "outputs": [{"name": "splitId", "type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "pay",
+        "stateMutability": "nonpayable",
+        "inputs": [
+            {"name": "splitId", "type": "uint256"},
+            {"name": "amount", "type": "uint256"},
+        ],
+        "outputs": [],
+    },
+    {
+        "type": "function",
+        "name": "claim",
+        "stateMutability": "nonpayable",
+        "inputs": [],
+        "outputs": [{"name": "amount", "type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "splitAt",
+        "stateMutability": "view",
+        "inputs": [{"name": "splitId", "type": "uint256"}],
+        "outputs": [
+            {
+                "type": "tuple",
+                "components": [
+                    {"name": "creator", "type": "address"},
+                    {"name": "recipients", "type": "address[]"},
+                    {"name": "bps", "type": "uint16[]"},
+                    {"name": "totalRouted", "type": "uint256"},
+                    {"name": "createdAt", "type": "uint64"},
+                ],
+            }
+        ],
+    },
+]

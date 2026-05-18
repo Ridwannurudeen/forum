@@ -65,6 +65,7 @@ Live contracts on Arc testnet:
 | `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator product. Pools depositor USDC and routes across strategist-whitelisted `CovenantVault` instances per weight table. Permissionless `rebalance()` enforces targets. Initial strategy: 100% → CovenantVaultV1.2. |
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Per-bond binary prediction market: "will this `SlashBond` have a slash event before expiry?" Oracle-free settlement: reads `SlashBond.totalSlashed` delta at expiry; winners get stake + pro-rata share of losers' pool. Initial 24h market live vs SlashBondV1.1. |
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Phase 9 continuous-premium insurance pool, complementary to the binary prediction market. Funders call `payPremium`; permissionless `notifySlash` reads bond's `totalSlashed` delta and transfers the delta out to the bond's `topUpRecipient`. Pro-rata burn-down on withdraw after partial payouts. |
+| `FeeRouterV1` | `0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59` | Phase 6 fee router. `createSplit(recipients, bps)` (immutable per split) → permissionless `pay(splitId, amount)` allocates per `bps` with rounding dust folded into the first recipient → recipient `claim()` aggregates across every split. Closes the operator/researcher/referrer revenue loop. Reconciler emits a JSON statement at `reports/fee-statement-<unix>.json`. |
 
 Live services:
 
