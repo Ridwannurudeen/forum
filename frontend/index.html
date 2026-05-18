@@ -9,7 +9,7 @@
     </title>
     <meta
       name="description"
-      content="Stripe Connect + Numerai for autonomous market agents. Mandate-bounded USDC credit lines, autonomous pause+slash, recomputable receipts. Live on Arc."
+      content="The settlement layer for autonomous market agents. Mandate-bounded USDC credit lines, on-chain pause + slash, recomputable EIP-712 receipts. 10 immutable contracts on Arc."
     />
     <meta property="og:title" content="Forum — Covenant Accounts" />
     <meta
@@ -271,25 +271,23 @@
               <span
                 class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent pulse"
               ></span>
-              Live on Arc · first autonomous on-chain slash settled 1.25 USDC in
-              162,960 gas
+              Live on Arc · 10 immutable contracts · autonomous pause + slash in one tx
               <span aria-hidden="true">→</span>
             </a>
             <h1
               class="mt-6 text-5xl sm:text-7xl font-semibold tracking-tight leading-[1.02]"
             >
-              <span class="grad-text">Covenant Accounts.</span><br />
-              <span class="text-forum-ink">Programmable USDC credit lines</span
-              ><br />
-              <span class="text-forum-dim">for AI trading agents.</span>
+              <span class="grad-text">Programmable credit</span><br />
+              <span class="text-forum-ink">for AI trading agents.</span>
             </h1>
             <p
               class="mt-7 text-lg sm:text-xl text-forum-dim max-w-2xl leading-relaxed"
             >
-              Stripe Connect plus Numerai for autonomous market agents.
-              Mandate-bounded vaults, autonomous pause and slash, receipt-backed
-              performance. Operators get bounded credit, not an unrestricted
-              wallet; depositors never trust a Sharpe screenshot.
+              The settlement layer for autonomous market agents. Depositors
+              fund a USDC vault bound by an on-chain mandate. Operators get
+              bounded credit, not your private key. A public risk kernel
+              pauses the vault and slashes the operator bond the moment the
+              mandate is breached — one transaction, no admin click.
             </p>
             <div class="mt-9 flex flex-wrap items-center gap-3">
               <a href="#proof" class="btn btn-primary">
@@ -306,28 +304,26 @@
                 </svg>
               </a>
               <a
-                href="https://github.com/Ridwannurudeen/forum"
+                href="https://github.com/Ridwannurudeen/forum/issues/new?labels=operator-interest&title=Operator+interest&body=Hi+%E2%80%94+I%27d+like+to+run+my+bot+under+a+Forum+Covenant+Account.%0A%0AStrategy%3A%0AVenue%3A%0AExpected+drawdown%3A%0AContact%3A"
                 target="_blank"
                 rel="noopener"
                 class="btn btn-ghost"
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"
-                  />
-                </svg>
-                github.com/Ridwannurudeen/forum
+                Become an operator
+                <span aria-hidden="true">→</span>
               </a>
+              <a
+                href="https://github.com/Ridwannurudeen/forum"
+                target="_blank"
+                rel="noopener"
+                class="text-sm text-forum-dim hover:text-forum-ink ml-1"
+                >GitHub</a
+              >
               <a
                 href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md"
                 target="_blank"
                 rel="noopener"
-                class="text-sm text-forum-dim hover:text-forum-ink ml-1"
+                class="text-sm text-forum-dim hover:text-forum-ink"
                 >Read the deck →</a
               >
             </div>
@@ -361,6 +357,23 @@
                 Chain
                 <span class="mono text-forum-dim">5042002</span>
               </span>
+            </div>
+
+            <div class="mt-12 pt-6 border-t border-forum-line/40">
+              <div class="text-[10px] uppercase tracking-[0.2em] text-forum-dim2 mb-3">Settles on</div>
+              <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+                <span class="mono text-forum-ink">Arc</span>
+                <span class="text-forum-line">·</span>
+                <span class="mono text-forum-ink">USDC</span>
+                <span class="text-forum-line">·</span>
+                <span class="mono text-forum-ink">CCTP V2</span>
+                <span class="text-forum-line">·</span>
+                <span class="mono text-forum-ink">Polymarket V2</span>
+                <span class="text-forum-line">·</span>
+                <span class="mono text-forum-ink">EIP-712 receipts</span>
+                <span class="text-forum-line">·</span>
+                <span class="mono text-forum-ink">10 immutable contracts</span>
+              </div>
             </div>
           </div>
         </section>
@@ -1393,32 +1406,33 @@ verdict = forum.risk_kernel.evaluate(
           <div
             class="rounded-2xl border border-forum-warn/20 bg-forum-warn/[0.04] p-10"
           >
-            <div class="text-[11px] uppercase tracking-widest text-forum-warn">
-              Honest backtest · the most important file in the repo
+            <div class="text-[11px] uppercase tracking-widest text-forum-accent2">
+              Trust layer · why receipts beat screenshots
             </div>
-            <h2 class="mt-2 text-2xl font-medium">
-              −$77.93 in 7 days, and that's the pitch.
+            <h2 class="mt-2 text-2xl font-medium text-forum-ink">
+              Forum isn't a strategy. Forum is the layer that makes any
+              strategy fundable.
             </h2>
             <div class="mt-6 grid lg:grid-cols-3 gap-6">
               <div
                 class="lg:col-span-2 text-forum-dim space-y-3 leading-relaxed"
               >
                 <p>
-                  Naive Avellaneda-Stoikov on 16 markets × 7 days × 1-min ticks:
-                  57 fills, mean Sharpe −5.05, total PnL −$77.93. Exactly what
-                  the literature predicts for an MM without maker rebates or
-                  microstructure tuning.
+                  Bad strategies self-disqualify on chain in 30 minutes —
+                  stale receipt, drawdown breach, oversubscription — and the
+                  same transaction slashes the operator bond. Good strategies
+                  prove themselves with signed, recomputable receipts.
+                  Allocators decide on cryptographic evidence, not Sharpe
+                  screenshots.
                 </p>
                 <p>
-                  <strong class="text-forum-ink"
-                    >Forum isn't the strategy. Forum is the trust layer that
-                    makes anyone's strategy fundable.</strong
-                  >
-                  With Covenant Accounts, a bad strategy (like our v1)
-                  self-disqualifies on chain in 30 minutes via stale receipt or
-                  drawdown breach. A good strategy proves itself through
-                  receipt-backed performance. Bad bots become visible quickly;
-                  capital can flow to provable ones.
+                  We tested it on ourselves. Our v1 keeper is a naive
+                  Avellaneda-Stoikov market maker on 16 Polymarket V2 books:
+                  57 fills over 7 days, mean Sharpe <span class="text-forum-err">−5.05</span>,
+                  total PnL <span class="text-forum-err">−$77.93</span>. Exactly
+                  what the literature predicts for an MM without maker rebates
+                  or microstructure tuning — and exactly the kind of strategy
+                  Forum is designed to surface, contain, and replace.
                 </p>
                 <p class="text-xs text-forum-dim2">
                   Reproduce:
