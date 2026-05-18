@@ -11,6 +11,7 @@ import {
 import {
   agentPoolAbi,
   builderCodeRegistryAbi,
+  capitalRouterAbi,
   covenantInboxAbi,
   covenantVaultAbi,
   covenantVaultFactoryAbi,
@@ -19,6 +20,8 @@ import {
   feeDistributorAbi,
   riskKernelV2Abi,
   slashBondAbi,
+  slashInsuranceAbi,
+  slashMarketAbi,
   trackRecordV2Abi,
 } from "./abi.js";
 import {
@@ -50,6 +53,9 @@ export class ForumClient {
   public readonly agentPool: AgentPoolClient;
   public readonly covenantVaultFactory: CovenantVaultFactoryClient;
   public readonly covenantInbox: CovenantInboxClient;
+  public readonly capitalRouter: CapitalRouterClient;
+  public readonly slashMarket: SlashMarketClient;
+  public readonly slashInsurance: SlashInsuranceClient;
 
   constructor(opts: ForumClientOptions) {
     this.registry = new RegistryClient(opts);
@@ -63,6 +69,9 @@ export class ForumClient {
     this.agentPool = new AgentPoolClient(opts);
     this.covenantVaultFactory = new CovenantVaultFactoryClient(opts);
     this.covenantInbox = new CovenantInboxClient(opts);
+    this.capitalRouter = new CapitalRouterClient(opts);
+    this.slashMarket = new SlashMarketClient(opts);
+    this.slashInsurance = new SlashInsuranceClient(opts);
   }
 }
 
@@ -967,7 +976,11 @@ export class CovenantInboxClient extends BaseSubClient {
     })) as bigint;
   }
 
-  async depositInto(vault: Address, recipient: Address, amount: bigint): Promise<Hex> {
+  async depositInto(
+    vault: Address,
+    recipient: Address,
+    amount: bigint,
+  ): Promise<Hex> {
     const w = this.requireWallet();
     return w.writeContract({
       address: this.address(),
@@ -986,6 +999,319 @@ export class CovenantInboxClient extends BaseSubClient {
       abi: covenantInboxAbi,
       functionName: "claim",
       args: [vault, shares],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export interface CapitalRouterSnapshot {
+  strategist: Address;
+  idleUsdc: bigint;
+  totalShares: bigint;
+  assets: bigint;
+  targets: Address[];
+  weights: number[];
+}
+
+export class CapitalRouterClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("capitalRouter");
+  }
+  async snapshot(): Promise<CapitalRouterSnapshot> {
+    const [strategist, idleUsdc, totalShares, assets, targets, weights] =
+      await Promise.all([
+        this.publicClient.readContract({
+          address: this.address(),
+          abi: capitalRouterAbi,
+          functionName: "strategist",
+        }) as Promise<Address>,
+        this.publicClient.readContract({
+          address: this.address(),
+          abi: capitalRouterAbi,
+          functionName: "idleUsdc",
+        }) as Promise<bigint>,
+        this.publicClient.readContract({
+          address: this.address(),
+          abi: capitalRouterAbi,
+          functionName: "totalShares",
+        }) as Promise<bigint>,
+        this.publicClient.readContract({
+          address: this.address(),
+          abi: capitalRouterAbi,
+          functionName: "assets",
+        }) as Promise<bigint>,
+        this.publicClient.readContract({
+          address: this.address(),
+          abi: capitalRouterAbi,
+          functionName: "targets",
+        }) as Promise<Address[]>,
+        this.publicClient.readContract({
+          address: this.address(),
+          abi: capitalRouterAbi,
+          functionName: "weights",
+        }) as Promise<readonly number[]>,
+      ]);
+    return {
+      strategist,
+      idleUsdc,
+      totalShares,
+      assets,
+      targets: [...targets],
+      weights: [...weights],
+    };
+  }
+  async sharesOf(user: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: capitalRouterAbi,
+      functionName: "sharesOf",
+      args: [user],
+    })) as bigint;
+  }
+  async setStrategy(vaults: Address[], weightsBps: number[]): Promise<Hex> {
+    if (vaults.length !== weightsBps.length)
+      throw new Error("ForumClient: vaults/weightsBps length mismatch");
+    const sum = weightsBps.reduce((a, b) => a + b, 0);
+    if (sum !== 10_000)
+      throw new Error(`ForumClient: weightsBps must sum to 10000 (got ${sum})`);
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: capitalRouterAbi,
+      functionName: "setStrategy",
+      args: [vaults, weightsBps],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async deposit(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: capitalRouterAbi,
+      functionName: "deposit",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async withdraw(shares: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: capitalRouterAbi,
+      functionName: "withdraw",
+      args: [shares],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async rebalance(): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: capitalRouterAbi,
+      functionName: "rebalance",
+      args: [],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export interface SlashMarketSnapshot {
+  bond: Address;
+  createdAt: bigint;
+  expiryAt: bigint;
+  slashedSnapshot: bigint;
+  yesStake: bigint;
+  noStake: bigint;
+  settled: boolean;
+  didSlash: boolean;
+  newSlashedAtSettle: bigint;
+}
+
+export class SlashMarketClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("slashMarket");
+  }
+  async marketCount(): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "marketCount",
+    })) as bigint;
+  }
+  async marketAt(id: bigint): Promise<SlashMarketSnapshot> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "marketAt",
+      args: [id],
+    })) as SlashMarketSnapshot;
+  }
+  async stakeOf(id: bigint, user: Address, yesSide: boolean): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "stakeOf",
+      args: [id, user, yesSide],
+    })) as bigint;
+  }
+  async claimed(id: bigint, user: Address): Promise<boolean> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "claimed",
+      args: [id, user],
+    })) as boolean;
+  }
+  async createMarket(bond: Address, expiryAt: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "createMarket",
+      args: [bond, expiryAt],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async stake(id: bigint, yesSide: boolean, amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "stake",
+      args: [id, yesSide, amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async settle(id: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "settle",
+      args: [id],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async claim(id: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashMarketAbi,
+      functionName: "claim",
+      args: [id],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export interface SlashInsuranceSnapshot {
+  bond: Address;
+  topUpRecipient: Address;
+  totalPremium: bigint;
+  totalPaidOut: bigint;
+  lastSlashedSnapshot: bigint;
+  poolBalance: bigint;
+}
+
+export class SlashInsuranceClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("slashInsurance");
+  }
+  async snapshot(): Promise<SlashInsuranceSnapshot> {
+    const [
+      bond,
+      topUpRecipient,
+      totalPremium,
+      totalPaidOut,
+      lastSlashedSnapshot,
+      poolBalance,
+    ] = await Promise.all([
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: slashInsuranceAbi,
+        functionName: "bond",
+      }) as Promise<Address>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: slashInsuranceAbi,
+        functionName: "topUpRecipient",
+      }) as Promise<Address>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: slashInsuranceAbi,
+        functionName: "totalPremium",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: slashInsuranceAbi,
+        functionName: "totalPaidOut",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: slashInsuranceAbi,
+        functionName: "lastSlashedSnapshot",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: slashInsuranceAbi,
+        functionName: "poolBalance",
+      }) as Promise<bigint>,
+    ]);
+    return {
+      bond,
+      topUpRecipient,
+      totalPremium,
+      totalPaidOut,
+      lastSlashedSnapshot,
+      poolBalance,
+    };
+  }
+  async contribOf(user: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashInsuranceAbi,
+      functionName: "contribOf",
+      args: [user],
+    })) as bigint;
+  }
+  async payPremium(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashInsuranceAbi,
+      functionName: "payPremium",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async withdrawPremium(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashInsuranceAbi,
+      functionName: "withdrawPremium",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+  async notifySlash(): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashInsuranceAbi,
+      functionName: "notifySlash",
+      args: [],
       account: this.account(),
       chain: w.chain ?? null,
     });

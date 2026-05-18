@@ -36,6 +36,7 @@ from web3.contract import Contract
 from .abi import (
     AGENT_POOL_ABI,
     BUILDER_CODE_REGISTRY_ABI,
+    CAPITAL_ROUTER_ABI,
     COVENANT_INBOX_ABI,
     COVENANT_VAULT_ABI,
     COVENANT_VAULT_FACTORY_ABI,
@@ -43,6 +44,8 @@ from .abi import (
     KEEPER_CONFIG_ABI,
     RISK_KERNEL_V2_ABI,
     SLASH_BOND_ABI,
+    SLASH_INSURANCE_ABI,
+    SLASH_MARKET_ABI,
     TRACK_RECORD_ABI,
     TRACK_RECORD_V2_ABI,
 )
@@ -61,6 +64,9 @@ class ForumAddresses:
     covenant_vault: str | None = None
     covenant_vault_factory: str | None = None
     covenant_inbox: str | None = None
+    capital_router: str | None = None
+    slash_market: str | None = None
+    slash_insurance: str | None = None
 
 
 # Bot kinds match Solidity enum order in TrackRecord.sol
@@ -613,6 +619,42 @@ class ForumClient:
             if addresses.covenant_inbox
             else None
         )
+        self.capital_router = (
+            CapitalRouterClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.capital_router),
+                    abi=CAPITAL_ROUTER_ABI,
+                ),
+                account,
+            )
+            if addresses.capital_router
+            else None
+        )
+        self.slash_market = (
+            SlashMarketClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.slash_market),
+                    abi=SLASH_MARKET_ABI,
+                ),
+                account,
+            )
+            if addresses.slash_market
+            else None
+        )
+        self.slash_insurance = (
+            SlashInsuranceClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.slash_insurance),
+                    abi=SLASH_INSURANCE_ABI,
+                ),
+                account,
+            )
+            if addresses.slash_insurance
+            else None
+        )
 
 
 class CovenantVaultFactoryClient(_SubClient):
@@ -707,3 +749,158 @@ class CovenantInboxClient(_SubClient):
         )
         signed = account.sign_transaction(tx)
         return self._w3.eth.send_raw_transaction(signed.raw_transaction).hex()
+
+
+@dataclass(frozen=True)
+class CapitalRouterSnapshot:
+    strategist: str
+    idle_usdc: int
+    total_shares: int
+    assets: int
+    targets: list[str]
+    weights: list[int]
+
+
+class CapitalRouterClient(_SubClient):
+    """Phase 5 pooled allocator across strategist-whitelisted CovenantVaults."""
+
+    def snapshot(self) -> CapitalRouterSnapshot:
+        return CapitalRouterSnapshot(
+            strategist=self._c.functions.strategist().call(),
+            idle_usdc=self._c.functions.idleUsdc().call(),
+            total_shares=self._c.functions.totalShares().call(),
+            assets=self._c.functions.assets().call(),
+            targets=[str(a) for a in self._c.functions.targets().call()],
+            weights=[int(b) for b in self._c.functions.weights().call()],
+        )
+
+    def shares_of(self, user: str) -> int:
+        return int(self._c.functions.sharesOf(Web3.to_checksum_address(user)).call())
+
+    def set_strategy(self, vaults: list[str], weights_bps: list[int]) -> str:
+        if len(vaults) != len(weights_bps):
+            raise ValueError("vaults/weights_bps length mismatch")
+        if sum(weights_bps) != 10_000:
+            raise ValueError(f"weights_bps must sum to 10000 (got {sum(weights_bps)})")
+        return self._send(
+            "setStrategy",
+            [Web3.to_checksum_address(v) for v in vaults],
+            weights_bps,
+        )
+
+    def deposit(self, amount: int) -> str:
+        return self._send("deposit", amount)
+
+    def withdraw(self, shares: int) -> str:
+        return self._send("withdraw", shares)
+
+    def rebalance(self) -> str:
+        return self._send("rebalance")
+
+
+@dataclass(frozen=True)
+class SlashMarketSnapshot:
+    bond: str
+    created_at: int
+    expiry_at: int
+    slashed_snapshot: int
+    yes_stake: int
+    no_stake: int
+    settled: bool
+    did_slash: bool
+    new_slashed_at_settle: int
+
+
+class SlashMarketClient(_SubClient):
+    """Phase 9 oracle-free binary YES/NO market per SlashBond per window."""
+
+    def market_count(self) -> int:
+        return int(self._c.functions.marketCount().call())
+
+    def market_at(self, market_id: int) -> SlashMarketSnapshot:
+        (
+            bond,
+            created_at,
+            expiry_at,
+            snap,
+            yes_stake,
+            no_stake,
+            settled,
+            did_slash,
+            new_slashed,
+        ) = self._c.functions.marketAt(int(market_id)).call()
+        return SlashMarketSnapshot(
+            bond=bond,
+            created_at=int(created_at),
+            expiry_at=int(expiry_at),
+            slashed_snapshot=int(snap),
+            yes_stake=int(yes_stake),
+            no_stake=int(no_stake),
+            settled=bool(settled),
+            did_slash=bool(did_slash),
+            new_slashed_at_settle=int(new_slashed),
+        )
+
+    def stake_of(self, market_id: int, user: str, yes_side: bool) -> int:
+        return int(
+            self._c.functions.stakeOf(
+                int(market_id), Web3.to_checksum_address(user), bool(yes_side)
+            ).call()
+        )
+
+    def claimed(self, market_id: int, user: str) -> bool:
+        return bool(
+            self._c.functions.claimed(
+                int(market_id), Web3.to_checksum_address(user)
+            ).call()
+        )
+
+    def create_market(self, bond: str, expiry_at: int) -> str:
+        return self._send(
+            "createMarket", Web3.to_checksum_address(bond), int(expiry_at)
+        )
+
+    def stake(self, market_id: int, yes_side: bool, amount: int) -> str:
+        return self._send("stake", int(market_id), bool(yes_side), int(amount))
+
+    def settle(self, market_id: int) -> str:
+        return self._send("settle", int(market_id))
+
+    def claim(self, market_id: int) -> str:
+        return self._send("claim", int(market_id))
+
+
+@dataclass(frozen=True)
+class SlashInsuranceSnapshot:
+    bond: str
+    top_up_recipient: str
+    total_premium: int
+    total_paid_out: int
+    last_slashed_snapshot: int
+    pool_balance: int
+
+
+class SlashInsuranceClient(_SubClient):
+    """Phase 9 continuous-premium insurance pool per SlashBond."""
+
+    def snapshot(self) -> SlashInsuranceSnapshot:
+        return SlashInsuranceSnapshot(
+            bond=self._c.functions.bond().call(),
+            top_up_recipient=self._c.functions.topUpRecipient().call(),
+            total_premium=int(self._c.functions.totalPremium().call()),
+            total_paid_out=int(self._c.functions.totalPaidOut().call()),
+            last_slashed_snapshot=int(self._c.functions.lastSlashedSnapshot().call()),
+            pool_balance=int(self._c.functions.poolBalance().call()),
+        )
+
+    def contrib_of(self, user: str) -> int:
+        return int(self._c.functions.contribOf(Web3.to_checksum_address(user)).call())
+
+    def pay_premium(self, amount: int) -> str:
+        return self._send("payPremium", int(amount))
+
+    def withdraw_premium(self, amount: int) -> str:
+        return self._send("withdrawPremium", int(amount))
+
+    def notify_slash(self) -> str:
+        return self._send("notifySlash")

@@ -41,6 +41,7 @@ Chain: Arc testnet `5042002`
 | `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | self-serve creation, anyone can call `createVault(mandate)` |
 | `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator. Pools USDC, routes across strategist-whitelisted vaults per weight table, permissionless `rebalance()` |
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Binary YES/NO prediction market per `SlashBond` per time window. Oracle-free settle via `SlashBond.totalSlashed` delta. |
+| `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Phase 9 continuous-premium insurance pool for `SlashBondV1.1`. `payPremium` funds the pool; permissionless `notifySlash` reads bond's `totalSlashed` delta and pays the delta out to the bond's `recipient`. |
 
 Deployment metadata is in `deployments/arc-testnet.json`.
 
@@ -119,6 +120,8 @@ Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (Agen
 - <https://forum.gudman.xyz/#create>: browser wallet + mandate form → factory.createVault in one tx.
 - <https://forum.gudman.xyz/#manage>: operator bond + depositor withdraw flows.
 - <https://forum.gudman.xyz/#agents>: AgentScore leaderboard with row-click inspector + one-click `RiskKernelV2.enforce(vault)` per linked vault.
+- <https://forum.gudman.xyz/#markets>: SlashMarket YES/NO staking UI per market.
+- <https://forum.gudman.xyz/#router>: CapitalRouter pool — deposit/withdraw + permissionless `rebalance()` against the strategist weight table.
 
 ## Adapter Template
 
@@ -132,6 +135,11 @@ Forum uses Arc as the USDC-native control plane:
 - vault deposits, bond balances, slashes, and fee splits are denominated in USDC;
 - enforcement is a single low-cost transaction;
 - receipt publication is cheap enough to happen continuously.
+
+A standalone bridge helper script ships in `keeper/scripts/cctp-bridge-and-deposit.mjs`. Three modes:
+- `--simulate` — prints source-chain calldata against pinned CCTP V2 addresses without broadcasting (no source-chain key needed).
+- `--build-source` — same calldata plus instructions for a funded source-chain wallet to sign + broadcast, then poll Iris.
+- `--redeem --message --attestation` — uses the Arc deployer key to call `MessageTransmitterV2.receiveMessage` on Arc, completing the bridge.
 
 Circle tools currently used directly: Arc, USDC, and **CCTP V2** via `CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) — a deployed Arc-side wrapper that receives USDC bridged in via CCTP V2 (Arc = Domain 26) and atomically deposits into a `CovenantVault` for a designated recipient. Source-domain TokenMessenger / MessageTransmitter addresses for Ethereum Sepolia (Domain 0), Avalanche Fuji (1), Base Sepolia (6), and Polygon Amoy (7) are all pinned in `deployments/arc-testnet.json` under `circle.cctp`. Gateway addresses (`GatewayWallet` + `GatewayMinter`) are pinned but not yet wired. USYC token + Teller + Entitlements are pinned (read-only verified, deposit/redeem ABI undocumented). App Kit and Paymaster are not used — Paymaster does not support Arc upstream.
 

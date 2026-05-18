@@ -250,6 +250,11 @@
               >Markets</a
             >
             <a
+              href="#router"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Router</a
+            >
+            <a
               href="#integrate"
               class="hidden md:inline text-forum-dim hover:text-forum-ink"
               >Integrate</a
@@ -1075,6 +1080,72 @@ node keeper/scripts/demo-violation.mjs</pre>
             <div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-dim text-sm">loading...</div>
           </div>
           <div id="markets-status" class="mt-4 text-xs hidden"></div>
+        </section>
+
+        <section id="router" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Capital Router · Phase 5 allocator</div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">One USDC pool, strategist-weighted across Covenant vaults.</h2>
+              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
+                Deposit USDC into <code class="mono text-forum-accent2">CapitalRouter</code>; the strategist sets a target weight table (bps summing to 10000) across a whitelist of <code class="mono text-forum-accent2">CovenantVault</code>s; anyone can call <code class="mono text-forum-accent2">rebalance()</code> to push idle USDC into under-target vaults via the vaults' own deposit path. Withdrawals pull idle first then proportionally from each target's router-held shares. No admin keys, no upgrade path.
+              </p>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
+              live · refreshes 30s
+            </span>
+          </div>
+          <div class="grid lg:grid-cols-3 gap-4">
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6 lg:col-span-2">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Router state</div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                <div class="rounded-lg bg-forum-panel2 p-3">
+                  <div class="text-[10px] uppercase tracking-wider text-forum-dim2">total assets</div>
+                  <div id="router-assets" class="mono mt-1 text-sm text-forum-ink">…</div>
+                </div>
+                <div class="rounded-lg bg-forum-panel2 p-3">
+                  <div class="text-[10px] uppercase tracking-wider text-forum-dim2">idle USDC</div>
+                  <div id="router-idle" class="mono mt-1 text-sm text-forum-ink">…</div>
+                </div>
+                <div class="rounded-lg bg-forum-panel2 p-3">
+                  <div class="text-[10px] uppercase tracking-wider text-forum-dim2">total shares</div>
+                  <div id="router-shares" class="mono mt-1 text-sm text-forum-ink">…</div>
+                </div>
+                <div class="rounded-lg bg-forum-panel2 p-3">
+                  <div class="text-[10px] uppercase tracking-wider text-forum-dim2">your shares</div>
+                  <div id="router-my-shares" class="mono mt-1 text-sm text-forum-ink">connect wallet</div>
+                </div>
+              </div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Strategy</div>
+              <div id="router-strategy" class="text-xs text-forum-dim mb-1">…</div>
+              <div class="text-[10px] text-forum-dim2 mt-2">strategist: <span id="router-strategist" class="mono">…</span></div>
+            </div>
+
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Actions</div>
+              <div class="space-y-3">
+                <div>
+                  <label class="text-[10px] uppercase tracking-wider text-forum-dim2">Deposit (USDC)</label>
+                  <div class="flex gap-2 mt-1">
+                    <input id="router-deposit-amount" class="mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" type="number" min="1" step="1" placeholder="amount" />
+                    <button id="router-deposit-btn" class="btn btn-primary text-xs">deposit</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-[10px] uppercase tracking-wider text-forum-dim2">Withdraw (shares)</label>
+                  <div class="flex gap-2 mt-1">
+                    <input id="router-withdraw-shares" class="mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" type="number" min="1" step="1" placeholder="shares" />
+                    <button id="router-withdraw-btn" class="btn btn-ghost text-xs">withdraw</button>
+                  </div>
+                </div>
+                <button id="router-rebalance-btn" class="btn btn-ghost w-full justify-center text-xs">
+                  rebalance() · permissionless
+                </button>
+              </div>
+              <div id="router-status" class="mt-3 text-xs hidden"></div>
+            </div>
+          </div>
         </section>
 
         <section id="architecture" class="pb-24">
@@ -2767,6 +2838,126 @@ verdict = forum.risk_kernel.evaluate(
       }
       loadMarkets();
       setInterval(loadMarkets, 30_000);
+
+      // ── Phase 5 · Capital Router ──────────────────────────────────────
+      const CAPITAL_ROUTER = "0x13617989cd443147b6f14ff98e492c6175bb0afc";
+      const ROUTER_READS_ABI = [
+        { type: "function", name: "strategist", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+        { type: "function", name: "idleUsdc",   stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+        { type: "function", name: "totalShares",stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+        { type: "function", name: "assets",     stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+        { type: "function", name: "targets",    stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
+        { type: "function", name: "weights",    stateMutability: "view", inputs: [], outputs: [{ type: "uint16[]" }] },
+        { type: "function", name: "sharesOf",   stateMutability: "view", inputs: [{ name: "u", type: "address" }], outputs: [{ type: "uint256" }] },
+      ];
+      const ROUTER_DEPOSIT_ABI    = [{ type: "function", name: "deposit",    stateMutability: "nonpayable", inputs: [{ name: "amount", type: "uint256" }], outputs: [{ type: "uint256" }] }];
+      const ROUTER_WITHDRAW_ABI   = [{ type: "function", name: "withdraw",   stateMutability: "nonpayable", inputs: [{ name: "shares", type: "uint256" }], outputs: [{ type: "uint256" }] }];
+      const ROUTER_REBALANCE_ABI  = [{ type: "function", name: "rebalance",  stateMutability: "nonpayable", inputs: [], outputs: [] }];
+
+      function setRouterStatus(html, kind = "info") {
+        const el = document.getElementById("router-status");
+        const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
+        el.className = "mt-3 text-xs " + colour;
+        el.innerHTML = html;
+      }
+      async function loadRouter() {
+        try {
+          const [strategist, idle, shares, assets, targets, weights] = await Promise.all([
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "strategist" }),
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "idleUsdc" }),
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "totalShares" }),
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "assets" }),
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "targets" }),
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "weights" }),
+          ]);
+          document.getElementById("router-assets").textContent = (Number(assets) / 1e6).toFixed(6) + " USDC";
+          document.getElementById("router-idle").textContent   = (Number(idle)   / 1e6).toFixed(6) + " USDC";
+          document.getElementById("router-shares").textContent = shares.toString();
+          document.getElementById("router-strategist").textContent = shortAddr(strategist);
+          const strat = document.getElementById("router-strategy");
+          if (!targets.length) {
+            strat.innerHTML = `<span class="text-forum-dim2">no strategy set — strategist must call setStrategy(vaults, weightsBps).</span>`;
+          } else {
+            strat.innerHTML = targets.map((vault, i) => {
+              const w = Number(weights[i]) / 100;
+              return `<div class="flex justify-between py-1 border-b border-forum-line/50">
+                <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${vault}">${shortAddr(vault)}</a>
+                <span class="mono text-forum-dim">${w.toFixed(2)}%</span>
+              </div>`;
+            }).join("");
+          }
+          if (connectedAddr) {
+            const my = await client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "sharesOf", args: [connectedAddr] });
+            document.getElementById("router-my-shares").textContent = my.toString();
+          }
+        } catch (e) {
+          setRouterStatus("load error: " + e.message, "err");
+        }
+      }
+      async function routerDeposit() {
+        if (!walletClient) return setRouterStatus("Connect a wallet first (Create section).", "err");
+        const amountWhole = document.getElementById("router-deposit-amount").value;
+        if (!amountWhole || Number(amountWhole) <= 0) return setRouterStatus("Enter an amount > 0", "err");
+        try {
+          const amountMicros = BigInt(amountWhole) * 1_000_000n;
+          setRouterStatus(`1/2 approve USDC for CapitalRouter ...`, "info");
+          const approveTx = await walletClient.sendTransaction({
+            account: connectedAddr, to: USDC_ADDR,
+            data: encodeFunctionData({ abi: USDC_APPROVE_ABI, functionName: "approve", args: [CAPITAL_ROUTER, amountMicros] }),
+          });
+          await client.waitForTransactionReceipt({ hash: approveTx });
+          setRouterStatus(`2/2 deposit ${amountWhole} USDC ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: CAPITAL_ROUTER,
+            data: encodeFunctionData({ abi: ROUTER_DEPOSIT_ABI, functionName: "deposit", args: [amountMicros] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setRouterStatus(`deposit reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setRouterStatus(`<strong class="text-forum-ok">deposited.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadRouter();
+        } catch (e) {
+          setRouterStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      async function routerWithdraw() {
+        if (!walletClient) return setRouterStatus("Connect a wallet first (Create section).", "err");
+        const shares = document.getElementById("router-withdraw-shares").value;
+        if (!shares || Number(shares) <= 0) return setRouterStatus("Enter shares > 0", "err");
+        try {
+          setRouterStatus(`withdraw ${shares} shares ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: CAPITAL_ROUTER,
+            data: encodeFunctionData({ abi: ROUTER_WITHDRAW_ABI, functionName: "withdraw", args: [BigInt(shares)] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setRouterStatus(`withdraw reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setRouterStatus(`<strong class="text-forum-ok">withdrew.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadRouter();
+        } catch (e) {
+          setRouterStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      async function routerRebalance() {
+        if (!walletClient) return setRouterStatus("Connect a wallet first (Create section).", "err");
+        try {
+          setRouterStatus(`rebalancing ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: CAPITAL_ROUTER,
+            data: encodeFunctionData({ abi: ROUTER_REBALANCE_ABI, functionName: "rebalance", args: [] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setRouterStatus(`rebalance reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setRouterStatus(`<strong class="text-forum-ok">rebalanced.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadRouter();
+        } catch (e) {
+          setRouterStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      document.getElementById("router-deposit-btn").addEventListener("click", routerDeposit);
+      document.getElementById("router-withdraw-btn").addEventListener("click", routerWithdraw);
+      document.getElementById("router-rebalance-btn").addEventListener("click", routerRebalance);
+      loadRouter();
+      setInterval(loadRouter, 30_000);
     </script>
   </body>
 </html>

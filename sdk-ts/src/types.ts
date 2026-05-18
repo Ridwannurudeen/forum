@@ -62,6 +62,9 @@ export interface ForumAddresses {
   covenantVault?: Address;
   covenantVaultFactory?: Address;
   covenantInbox?: Address;
+  capitalRouter?: Address;
+  slashMarket?: Address;
+  slashInsurance?: Address;
 }
 
 export const ARC_TESTNET = {

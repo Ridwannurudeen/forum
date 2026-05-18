@@ -753,3 +753,271 @@ COVENANT_INBOX_ABI = [
         "outputs": [{"type": "uint256"}],
     },
 ]
+
+
+CAPITAL_ROUTER_ABI = [
+    {
+        "type": "function",
+        "name": "strategist",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "usdc",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "idleUsdc",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "totalShares",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "sharesOf",
+        "stateMutability": "view",
+        "inputs": [{"name": "u", "type": "address"}],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "assets",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "targets",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address[]"}],
+    },
+    {
+        "type": "function",
+        "name": "weights",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint16[]"}],
+    },
+    {
+        "type": "function",
+        "name": "setStrategy",
+        "stateMutability": "nonpayable",
+        "inputs": [
+            {"name": "vaults", "type": "address[]"},
+            {"name": "weightsBps", "type": "uint16[]"},
+        ],
+        "outputs": [],
+    },
+    {
+        "type": "function",
+        "name": "deposit",
+        "stateMutability": "nonpayable",
+        "inputs": [{"name": "amount", "type": "uint256"}],
+        "outputs": [{"name": "minted", "type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "withdraw",
+        "stateMutability": "nonpayable",
+        "inputs": [{"name": "shares", "type": "uint256"}],
+        "outputs": [{"name": "out", "type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "rebalance",
+        "stateMutability": "nonpayable",
+        "inputs": [],
+        "outputs": [],
+    },
+]
+
+
+SLASH_MARKET_ABI = [
+    {
+        "type": "function",
+        "name": "usdc",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "marketCount",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "createMarket",
+        "stateMutability": "nonpayable",
+        "inputs": [
+            {"name": "bond", "type": "address"},
+            {"name": "expiryAt", "type": "uint64"},
+        ],
+        "outputs": [{"name": "id", "type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "stake",
+        "stateMutability": "nonpayable",
+        "inputs": [
+            {"name": "id", "type": "uint256"},
+            {"name": "yesSide", "type": "bool"},
+            {"name": "amount", "type": "uint256"},
+        ],
+        "outputs": [],
+    },
+    {
+        "type": "function",
+        "name": "settle",
+        "stateMutability": "nonpayable",
+        "inputs": [{"name": "id", "type": "uint256"}],
+        "outputs": [],
+    },
+    {
+        "type": "function",
+        "name": "claim",
+        "stateMutability": "nonpayable",
+        "inputs": [{"name": "id", "type": "uint256"}],
+        "outputs": [{"name": "paid", "type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "marketAt",
+        "stateMutability": "view",
+        "inputs": [{"name": "id", "type": "uint256"}],
+        "outputs": [
+            {
+                "type": "tuple",
+                "components": [
+                    {"name": "bond", "type": "address"},
+                    {"name": "createdAt", "type": "uint64"},
+                    {"name": "expiryAt", "type": "uint64"},
+                    {"name": "slashedSnapshot", "type": "uint256"},
+                    {"name": "yesStake", "type": "uint256"},
+                    {"name": "noStake", "type": "uint256"},
+                    {"name": "settled", "type": "bool"},
+                    {"name": "didSlash", "type": "bool"},
+                    {"name": "newSlashedAtSettle", "type": "uint256"},
+                ],
+            }
+        ],
+    },
+    {
+        "type": "function",
+        "name": "stakeOf",
+        "stateMutability": "view",
+        "inputs": [
+            {"name": "id", "type": "uint256"},
+            {"name": "user", "type": "address"},
+            {"name": "yesSide", "type": "bool"},
+        ],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "claimed",
+        "stateMutability": "view",
+        "inputs": [
+            {"name": "id", "type": "uint256"},
+            {"name": "user", "type": "address"},
+        ],
+        "outputs": [{"type": "bool"}],
+    },
+]
+
+
+SLASH_INSURANCE_ABI = [
+    {
+        "type": "function",
+        "name": "usdc",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "bond",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "topUpRecipient",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "address"}],
+    },
+    {
+        "type": "function",
+        "name": "totalPremium",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "totalPaidOut",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "lastSlashedSnapshot",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "contribOf",
+        "stateMutability": "view",
+        "inputs": [{"name": "u", "type": "address"}],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "poolBalance",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
+    {
+        "type": "function",
+        "name": "payPremium",
+        "stateMutability": "nonpayable",
+        "inputs": [{"name": "amount", "type": "uint256"}],
+        "outputs": [],
+    },
+    {
+        "type": "function",
+        "name": "withdrawPremium",
+        "stateMutability": "nonpayable",
+        "inputs": [{"name": "amount", "type": "uint256"}],
+        "outputs": [],
+    },
+    {
+        "type": "function",
+        "name": "notifySlash",
+        "stateMutability": "nonpayable",
+        "inputs": [],
+        "outputs": [{"name": "paidOut", "type": "uint256"}],
+    },
+]
