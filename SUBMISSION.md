@@ -61,12 +61,23 @@ Live contracts on Arc testnet:
 | `SlashBondV1.1` | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | slashable USDC bond |
 | `CovenantVaultV1.2` | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | live AgoraMind credit line |
 | `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP V2 bridge-friendly deposit wrapper; deposits incoming USDC into a vault for a designated recipient |
+| `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | self-serve vault creation — anyone calls `createVault(mandate)` to launch a fresh Covenant Account; emits `VaultCreated` for indexer auto-discovery |
 
 Live services:
 
 - `forum-keeper`: reference paper-mode keeper publishing v1 records.
 - `forum-agora-mind`: AI-driven keeper publishing `TrackRecordV2` receipts and reasoning trace hashes.
-- `forum-indexer`: polled Arc-state cache exposed at `https://forum.gudman.xyz/api/{health,bots,bots/:id/records,covenant/:address,slash-events,state}`. 30s poll interval, persists snapshot to disk, replaces the frontend's direct-RPC reads. Live: `curl https://forum.gudman.xyz/api/health`. Systemd unit + nginx config templates in `deploy/`.
+- `forum-indexer`: polled Arc-state cache exposed at `https://forum.gudman.xyz/api/{health,bots,bots/:id/records,covenant/:address,slash-events,factory-vaults,vaults,agents,agents/:botId,state}`. 30s poll interval, persists snapshot to disk, subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes. **AgentScore v0** at `/api/agents` ranks bots by drawdown / slash history / freshness with a transparent in-source formula. Live: `curl https://forum.gudman.xyz/api/health`. Systemd unit + nginx config templates in `deploy/`.
+
+Self-serve UI:
+
+- <https://forum.gudman.xyz/#create>: any visitor with a browser wallet (MetaMask / Backpack / Rabby) creates a Covenant Account in one tx via `CovenantVaultFactory.createVault(mandate)`. Auto-switches to Arc testnet. New vaults auto-appear in `/api/factory-vaults` within ~30s.
+- <https://forum.gudman.xyz/#manage>: operator bond (USDC approve → `SlashBond.bond`) + depositor withdraw (`CovenantVault.withdraw(shares)`) flows.
+- <https://forum.gudman.xyz/#agents>: live AgentScore leaderboard. Click any row → agent inspector with score tiles, linked vaults, and one-click `RiskKernelV2.enforce(vault)` button.
+
+Adapter template:
+
+- `adapters/template/{adapter.ts, adapter.py}`: fork-this scaffolds for wrapping any existing bot — minimal `runBot()` placeholder + the publish-loop boilerplate (registration, EIP-712 signing, hash chaining, on-chain publish). Reference real-world implementation: `keeper/scripts/agora-mind-keeper.mjs` (live on VPS, publishing every ~10 min since 2026-05-17).
 
 ## Verifiable Demo Proofs
 
