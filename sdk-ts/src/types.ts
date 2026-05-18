@@ -60,6 +60,8 @@ export interface ForumAddresses {
   slashBond?: Address;
   riskKernel?: Address;
   covenantVault?: Address;
+  covenantVaultFactory?: Address;
+  covenantInbox?: Address;
 }
 
 export const ARC_TESTNET = {

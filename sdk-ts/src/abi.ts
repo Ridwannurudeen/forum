@@ -671,6 +671,114 @@ export const slashBondAbi = [
   },
 ] as const;
 
+export const covenantVaultFactoryAbi = [
+  {
+    type: "function",
+    name: "createVault",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "m",
+        type: "tuple",
+        components: [
+          { name: "operator", type: "address" },
+          { name: "botId", type: "bytes32" },
+          { name: "budgetUsdc", type: "uint128" },
+          { name: "maxDrawdownBps", type: "uint16" },
+          { name: "receiptFreshnessSec", type: "uint32" },
+          { name: "expiry", type: "uint64" },
+          { name: "perfFeeBps", type: "uint16" },
+          { name: "bondContract", type: "address" },
+          { name: "riskKernel", type: "address" },
+          { name: "trackRecordV2", type: "address" },
+        ],
+      },
+    ],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "vaultCount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "allVaults",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "vaultsByCreator",
+    stateMutability: "view",
+    inputs: [{ name: "creator", type: "address" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "vaultsByOperator",
+    stateMutability: "view",
+    inputs: [{ name: "operator", type: "address" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "vaultsByBotId",
+    stateMutability: "view",
+    inputs: [{ name: "botId", type: "bytes32" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "event",
+    name: "VaultCreated",
+    inputs: [
+      { name: "vault", type: "address", indexed: true },
+      { name: "creator", type: "address", indexed: true },
+      { name: "operator", type: "address", indexed: true },
+      { name: "botId", type: "bytes32", indexed: false },
+      { name: "budgetUsdc", type: "uint128", indexed: false },
+      { name: "createdAt", type: "uint64", indexed: false },
+    ],
+  },
+] as const;
+
+export const covenantInboxAbi = [
+  {
+    type: "function",
+    name: "depositInto",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "vaultAddr", type: "address" },
+      { name: "recipient", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "sharesMinted", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "claim",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "vaultAddr", type: "address" },
+      { name: "shares", type: "uint256" },
+    ],
+    outputs: [{ name: "usdcOut", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "sharesOf",
+    stateMutability: "view",
+    inputs: [
+      { name: "vaultAddr", type: "address" },
+      { name: "recipient", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
 export const agentPoolAbi = [
   {
     type: "function",

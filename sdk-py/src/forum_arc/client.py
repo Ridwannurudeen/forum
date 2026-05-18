@@ -57,6 +57,8 @@ class ForumAddresses:
     slash_bond: str | None = None
     risk_kernel: str | None = None
     covenant_vault: str | None = None
+    covenant_vault_factory: str | None = None
+    covenant_inbox: str | None = None
 
 
 # Bot kinds match Solidity enum order in TrackRecord.sol

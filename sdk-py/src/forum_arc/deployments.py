@@ -11,4 +11,6 @@ ARC_TESTNET_DEPLOYMENT = ForumAddresses(
     slash_bond="0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
     risk_kernel="0x0af356f280af1d8b7a43f0746c581614feec4055",
     covenant_vault="0x80384963c0c93414ff16e018c6618a64bc94df6d",
+    covenant_vault_factory="0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26",
+    covenant_inbox="0x670f68ff6b90c42f4b7be26a684812e1e5561b12",
 )
