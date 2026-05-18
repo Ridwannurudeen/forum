@@ -39,7 +39,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.2.0'; // adds CovenantVaultFactory subscription
+const VERSION = 'forum-indexer/0.3.0'; // adds /api/agents + AgentScore v0
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -194,6 +194,10 @@ async function refreshBotStats() {
         state.bots[botId].lastSeq = n;
         state.bots[botId].lastPnlMicros = Number(r.pnlMicros);
         state.bots[botId].lastPeriodEnd = Number(r.ts);
+        // Running peak across all observed cycles — for drawdown computation.
+        const cur = Number(r.pnlMicros);
+        const prevPeak = Number(state.bots[botId].peakPnlMicros ?? cur);
+        state.bots[botId].peakPnlMicros = Math.max(prevPeak, cur);
       }
       state.bots[botId].lastUpdate = now;
     } catch (e) {
@@ -441,6 +445,88 @@ const server = createServer((req, res) => {
 
   if (path === '/vaults' || path === '/vaults/') {
     return jsonReply(res, 200, Object.entries(state.vaults).map(([addr, v]) => ({ address: addr, ...v })));
+  }
+
+  // -- AgentScore v0 --------------------------------------------------------
+  // Score formula (all in source, no oracles):
+  //   start = 100
+  //   - if recordCount == 0: -40
+  //   - drawdown penalty   : -min(40, ddBps / 100)
+  //   - staleness penalty  : -min(30, max(0, (secondsSince - 1800)/60))
+  //   - slash penalty      : -15 * slashEventCount
+  //   - bond bonus         : +10 if bondBalance > 0 anywhere
+  //   clamp 0..100
+  function computeAgentScore(botId) {
+    const bot = state.bots[botId];
+    if (!bot) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const records = bot.recordCount || 0;
+    const lastPnl = Number(bot.lastPnlMicros ?? 0);
+    const peak = Number(bot.peakPnlMicros ?? lastPnl);
+    const lastTs = Number(bot.lastPeriodEnd ?? 0);
+    const secondsSince = lastTs > 0 ? now - lastTs : 0;
+    let ddBps = 0;
+    if (peak > 0 && lastPnl < peak) {
+      ddBps = Math.floor(((peak - lastPnl) * 10000) / peak);
+    }
+
+    // Vaults bound to this bot (cross-vault stats)
+    const linkedVaults = Object.entries(state.vaults)
+      .filter(([, v]) => v.mandate?.botId?.toLowerCase() === botId.toLowerCase())
+      .map(([addr, v]) => ({ address: addr, label: v.label, state: v.state }));
+
+    // Slash events targeting any linked vault
+    const linkedVaultSet = new Set(linkedVaults.map((v) => v.address.toLowerCase()));
+    const botSlashEvents = state.slashEvents.filter((e) => linkedVaultSet.has(e.vault.toLowerCase()) && e.slashedMicros !== '0');
+    const slashEventCount = botSlashEvents.length;
+    const totalSlashedMicros = botSlashEvents.reduce((a, e) => a + BigInt(e.slashedMicros), 0n).toString();
+
+    // Bond coverage — sum across linked bonds (proxy: SlashBondV1.1 only for v0)
+    let bondBalanceMicros = '0';
+    const bondLabels = Object.keys(state.bonds);
+    if (bondLabels.length > 0) bondBalanceMicros = state.bonds[bondLabels[0]].bondBalanceMicros;
+    const hasBond = bondBalanceMicros !== '0';
+
+    let score = 100;
+    if (records === 0) score -= 40;
+    score -= Math.min(40, Math.floor(ddBps / 100));
+    if (secondsSince > 1800) score -= Math.min(30, Math.floor((secondsSince - 1800) / 60));
+    score -= 15 * slashEventCount;
+    if (hasBond) score += 10;
+    score = Math.max(0, Math.min(100, score));
+
+    return {
+      botId,
+      kind: bot.kind,
+      signer: bot.signer,
+      recordCount: records,
+      lastPnlMicros: lastPnl,
+      peakPnlMicros: peak,
+      drawdownBps: ddBps,
+      lastReceiptAt: lastTs,
+      secondsSinceLastReceipt: secondsSince,
+      slashEventCount,
+      totalSlashedMicros,
+      linkedVaults,
+      bondBalanceMicros,
+      scoreV0: score,
+      asOf: now,
+    };
+  }
+
+  if (path === '/agents' || path === '/agents/') {
+    const out = Object.keys(state.bots)
+      .map((botId) => computeAgentScore(botId))
+      .filter((s) => s !== null)
+      .sort((a, b) => b.scoreV0 - a.scoreV0);
+    return jsonReply(res, 200, out);
+  }
+
+  const agentMatch = path.match(/^\/agents\/(0x[0-9a-fA-F]{64})\/?$/);
+  if (agentMatch) {
+    const s = computeAgentScore(agentMatch[1]);
+    if (!s) return jsonReply(res, 404, { error: 'agent not indexed' });
+    return jsonReply(res, 200, s);
   }
 
   jsonReply(res, 404, { error: 'unknown endpoint', path: req.url });

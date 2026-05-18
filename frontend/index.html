@@ -235,6 +235,16 @@
               >Create</a
             >
             <a
+              href="#manage"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Manage</a
+            >
+            <a
+              href="#agents"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Agents</a
+            >
+            <a
               href="#integrate"
               class="hidden md:inline text-forum-dim hover:text-forum-ink"
               >Integrate</a
@@ -1011,6 +1021,113 @@ node keeper/scripts/demo-violation.mjs</pre>
               </p>
             </div>
           </div>
+        </section>
+
+        <section id="manage" class="pb-24">
+          <div class="mb-10">
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Manage your vault · operator + depositor flows</div>
+            <h2 class="mt-1 text-3xl font-medium tracking-tight">Bond, deposit, withdraw — same wallet.</h2>
+          </div>
+
+          <div class="grid lg:grid-cols-2 gap-6">
+            <!-- Operator bond panel -->
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent mb-3">Operator · post bond</div>
+              <p class="text-xs text-forum-dim mb-4 leading-relaxed">
+                Fund the SlashBond so RiskKernelV2 has something to slash on a mandate breach.
+                <strong class="text-forum-ink">Only the registered operator</strong> can call <code class="mono">bond()</code>.
+              </p>
+              <form id="bond-form" class="space-y-3">
+                <label class="block">
+                  <span class="text-[10px] uppercase tracking-wider text-forum-dim2">SlashBond address</span>
+                  <input id="bond-addr" type="text" required
+                    class="mono mt-1 w-full rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs text-forum-ink focus:outline-none focus:border-forum-accent" />
+                </label>
+                <label class="block">
+                  <span class="text-[10px] uppercase tracking-wider text-forum-dim2">Amount (USDC)</span>
+                  <input id="bond-amount" type="number" min="1" step="1" value="5" required
+                    class="mono mt-1 w-full rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm text-forum-ink focus:outline-none focus:border-forum-accent" />
+                </label>
+                <div class="text-[10px] text-forum-dim2">
+                  Current SlashBondV1.1 balance: <span id="bond-current-balance" class="mono text-forum-dim">—</span>
+                </div>
+                <button type="submit" disabled id="bond-submit-btn" class="btn btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                  Approve + bond
+                </button>
+              </form>
+              <div id="bond-status" class="mt-3 text-xs hidden"></div>
+            </div>
+
+            <!-- Depositor withdraw panel -->
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent2 mb-3">Depositor · withdraw</div>
+              <p class="text-xs text-forum-dim mb-4 leading-relaxed">
+                Burn vault shares for USDC. Works in any state — depositors are never trapped.
+                Capped by current <code class="mono">depositTotalIdle</code>.
+              </p>
+              <form id="withdraw-form" class="space-y-3">
+                <label class="block">
+                  <span class="text-[10px] uppercase tracking-wider text-forum-dim2">CovenantVault address</span>
+                  <input id="withdraw-vault" type="text" required placeholder="0x..."
+                    class="mono mt-1 w-full rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs text-forum-ink focus:outline-none focus:border-forum-accent" />
+                </label>
+                <div class="grid grid-cols-2 gap-3 text-[10px] text-forum-dim2">
+                  <div>
+                    your shares: <span id="withdraw-shares" class="mono text-forum-dim">—</span>
+                    <button type="button" id="withdraw-refresh-btn" class="ml-1 text-forum-accent2 hover:underline">refresh</button>
+                  </div>
+                  <div>
+                    vault idle: <span id="withdraw-idle" class="mono text-forum-dim">—</span>
+                  </div>
+                </div>
+                <label class="block">
+                  <span class="text-[10px] uppercase tracking-wider text-forum-dim2">Shares to burn</span>
+                  <input id="withdraw-amount" type="text" required placeholder="e.g. 1000000"
+                    class="mono mt-1 w-full rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm text-forum-ink focus:outline-none focus:border-forum-accent" />
+                </label>
+                <button type="submit" disabled id="withdraw-submit-btn" class="btn btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                  Withdraw
+                </button>
+              </form>
+              <div id="withdraw-status" class="mt-3 text-xs hidden"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="agents" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v0 · live leaderboard</div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">Ranked by drawdown, slash history, freshness.</h2>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
+              live · /api/agents
+            </span>
+          </div>
+          <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+            <div class="overflow-x-auto scroll-shadow">
+              <table class="w-full text-sm">
+                <thead class="border-b border-forum-line text-left text-[11px] uppercase tracking-widest text-forum-dim2">
+                  <tr>
+                    <th class="px-5 py-3 font-normal">Bot ID</th>
+                    <th class="px-5 py-3 font-normal">Kind</th>
+                    <th class="px-5 py-3 font-normal text-right">Score</th>
+                    <th class="px-5 py-3 font-normal text-right">Records</th>
+                    <th class="px-5 py-3 font-normal text-right">DD bps</th>
+                    <th class="px-5 py-3 font-normal text-right">Slashes</th>
+                    <th class="px-5 py-3 font-normal">Last publish</th>
+                  </tr>
+                </thead>
+                <tbody id="agents-body" class="mono text-xs">
+                  <tr><td class="px-5 py-6 text-forum-dim" colspan="7">loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p class="mt-4 text-[10px] text-forum-dim2 leading-relaxed">
+            v0 score: 100 - max(40, drawdownBps/100) - max(30, (secondsStale-1800)/60) - 15×slashEventCount + (bond ? 10 : 0). Source in <code class="mono">keeper/scripts/forum-indexer.mjs</code>. Will be hardened with per-vault bond attribution, longest-uninterrupted-streak, and verified-fill PnL recompute in v1.
+          </p>
         </section>
 
         <section id="architecture" class="pb-24">
@@ -2137,6 +2254,191 @@ verdict = forum.risk_kernel.evaluate(
 
       loadRecentFactoryVaults();
       setInterval(loadRecentFactoryVaults, 30_000);
+
+      // ============================================================
+      // Manage panels: operator bond + depositor withdraw
+      // ============================================================
+      const USDC_ADDR = "0x3600000000000000000000000000000000000000";
+      const USDC_APPROVE_ABI = [{
+        type: "function", name: "approve", stateMutability: "nonpayable",
+        inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }],
+        outputs: [{ type: "bool" }],
+      }];
+      const BOND_BOND_ABI = [{
+        type: "function", name: "bond", stateMutability: "nonpayable",
+        inputs: [{ name: "amount", type: "uint256" }], outputs: [],
+      }];
+      const BOND_BALANCE_ABI = [{
+        type: "function", name: "bondBalance", stateMutability: "view",
+        inputs: [], outputs: [{ type: "uint256" }],
+      }];
+      const VAULT_WITHDRAW_ABI = [{
+        type: "function", name: "withdraw", stateMutability: "nonpayable",
+        inputs: [{ name: "shares", type: "uint256" }],
+        outputs: [{ name: "usdcOut", type: "uint256" }],
+      }];
+      const VAULT_SHARES_OF_ABI = [{
+        type: "function", name: "sharesOf", stateMutability: "view",
+        inputs: [{ name: "user", type: "address" }], outputs: [{ type: "uint256" }],
+      }];
+      const VAULT_IDLE_ABI = [{
+        type: "function", name: "depositTotalIdle", stateMutability: "view",
+        inputs: [], outputs: [{ type: "uint256" }],
+      }];
+
+      // Prefill bond address with the live SlashBondV1.1
+      document.getElementById("bond-addr").value = SLASH_BOND_V11;
+
+      // Enable manage buttons when wallet connects (piggyback the create wiring)
+      const _origConnect = connectWallet;
+      window.connectWallet = async function () {
+        await _origConnect();
+        if (walletClient) {
+          document.getElementById("bond-submit-btn").disabled = false;
+          document.getElementById("withdraw-submit-btn").disabled = false;
+        }
+      };
+
+      async function refreshBondBalance() {
+        try {
+          const bal = await client.readContract({
+            address: SLASH_BOND_V11, abi: BOND_BALANCE_ABI, functionName: "bondBalance",
+          });
+          document.getElementById("bond-current-balance").textContent =
+            (Number(bal) / 1e6).toFixed(2) + " USDC";
+        } catch (e) {
+          document.getElementById("bond-current-balance").textContent = "—";
+        }
+      }
+      refreshBondBalance();
+      setInterval(refreshBondBalance, 30_000);
+
+      function setPanelStatus(id, html, kind = "info") {
+        const el = document.getElementById(id);
+        const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
+        el.className = "mt-3 text-xs " + colour;
+        el.innerHTML = html;
+      }
+
+      document.getElementById("bond-form").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!walletClient) { setPanelStatus("bond-status", "Connect a wallet first.", "err"); return; }
+        const btn = document.getElementById("bond-submit-btn");
+        btn.disabled = true; btn.textContent = "Submitting...";
+        try {
+          const bondAddr = document.getElementById("bond-addr").value.trim();
+          const amountWhole = BigInt(document.getElementById("bond-amount").value);
+          const amountMicros = amountWhole * 1_000_000n;
+          if (!/^0x[0-9a-fA-F]{40}$/.test(bondAddr)) throw new Error("bond addr must be 0x + 40 hex");
+
+          setPanelStatus("bond-status", "1/2 approve USDC ...", "info");
+          const approveTx = await walletClient.sendTransaction({
+            account: connectedAddr, to: USDC_ADDR,
+            data: encodeFunctionData({ abi: USDC_APPROVE_ABI, functionName: "approve", args: [bondAddr, amountMicros] }),
+          });
+          await client.waitForTransactionReceipt({ hash: approveTx });
+
+          setPanelStatus("bond-status", `1/2 approve OK <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${approveTx}">${approveTx.slice(0, 10)}...</a><br/>2/2 bond ...`, "info");
+          const bondTx = await walletClient.sendTransaction({
+            account: connectedAddr, to: bondAddr,
+            data: encodeFunctionData({ abi: BOND_BOND_ABI, functionName: "bond", args: [amountMicros] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: bondTx });
+          if (rcpt.status !== "success") {
+            setPanelStatus("bond-status", `bond tx reverted (likely NotOperator — only registered operator can bond). <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${bondTx}">${bondTx.slice(0, 10)}...</a>`, "err");
+            return;
+          }
+          setPanelStatus("bond-status", `<strong class="text-forum-ok">Bonded ${amountWhole} USDC.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${bondTx}">${bondTx.slice(0, 10)}...${bondTx.slice(-6)}</a>`, "ok");
+          refreshBondBalance();
+        } catch (e) {
+          setPanelStatus("bond-status", "Failed: " + (e.shortMessage || e.message || e), "err");
+        } finally {
+          btn.disabled = false; btn.textContent = "Approve + bond";
+        }
+      });
+
+      async function refreshWithdrawState() {
+        const vaultAddr = document.getElementById("withdraw-vault").value.trim();
+        if (!/^0x[0-9a-fA-F]{40}$/.test(vaultAddr) || !connectedAddr) {
+          document.getElementById("withdraw-shares").textContent = "—";
+          document.getElementById("withdraw-idle").textContent = "—";
+          return;
+        }
+        try {
+          const [shares, idle] = await Promise.all([
+            client.readContract({ address: vaultAddr, abi: VAULT_SHARES_OF_ABI, functionName: "sharesOf", args: [connectedAddr] }),
+            client.readContract({ address: vaultAddr, abi: VAULT_IDLE_ABI, functionName: "depositTotalIdle" }),
+          ]);
+          document.getElementById("withdraw-shares").textContent = shares.toString();
+          document.getElementById("withdraw-idle").textContent = (Number(idle) / 1e6).toFixed(2) + " USDC";
+        } catch (e) {
+          document.getElementById("withdraw-shares").textContent = "(read err)";
+          document.getElementById("withdraw-idle").textContent = "—";
+        }
+      }
+      document.getElementById("withdraw-vault").addEventListener("blur", refreshWithdrawState);
+      document.getElementById("withdraw-refresh-btn").addEventListener("click", refreshWithdrawState);
+
+      document.getElementById("withdraw-form").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!walletClient) { setPanelStatus("withdraw-status", "Connect a wallet first.", "err"); return; }
+        const btn = document.getElementById("withdraw-submit-btn");
+        btn.disabled = true; btn.textContent = "Submitting...";
+        try {
+          const vaultAddr = document.getElementById("withdraw-vault").value.trim();
+          const shares = BigInt(document.getElementById("withdraw-amount").value);
+          if (!/^0x[0-9a-fA-F]{40}$/.test(vaultAddr)) throw new Error("vault addr must be 0x + 40 hex");
+          if (shares < 1n) throw new Error("shares > 0 required");
+
+          setPanelStatus("withdraw-status", "Submitting withdraw tx ...", "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: vaultAddr,
+            data: encodeFunctionData({ abi: VAULT_WITHDRAW_ABI, functionName: "withdraw", args: [shares] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") {
+            setPanelStatus("withdraw-status", `withdraw reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0, 10)}...</a>`, "err");
+            return;
+          }
+          setPanelStatus("withdraw-status", `<strong class="text-forum-ok">Withdrew ${shares} shares.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0, 10)}...${tx.slice(-6)}</a>`, "ok");
+          refreshWithdrawState();
+        } catch (e) {
+          setPanelStatus("withdraw-status", "Failed: " + (e.shortMessage || e.message || e), "err");
+        } finally {
+          btn.disabled = false; btn.textContent = "Withdraw";
+        }
+      });
+
+      // ============================================================
+      // AgentScore v0 leaderboard
+      // ============================================================
+      async function loadAgents() {
+        const body = document.getElementById("agents-body");
+        try {
+          const res = await fetch("/api/agents");
+          const list = await res.json();
+          if (!Array.isArray(list) || list.length === 0) {
+            body.innerHTML = `<tr><td class="px-5 py-6 text-forum-dim" colspan="7">no agents indexed yet.</td></tr>`;
+            return;
+          }
+          body.innerHTML = list.map((a) => {
+            const scoreColour = a.scoreV0 >= 80 ? "text-forum-ok" : a.scoreV0 >= 50 ? "text-forum-warn" : "text-forum-err";
+            return `<tr class="border-b border-forum-line2 last:border-0 row-hover">
+              <td class="px-5 py-3"><span title="${a.botId}" class="text-forum-ink">${shortHash(a.botId)}</span></td>
+              <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${a.kind}</span></td>
+              <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${a.scoreV0}</td>
+              <td class="px-5 py-3 text-right tnum text-forum-ink">${a.recordCount}</td>
+              <td class="px-5 py-3 text-right tnum text-forum-dim">${a.drawdownBps}</td>
+              <td class="px-5 py-3 text-right tnum text-forum-dim">${a.slashEventCount}</td>
+              <td class="px-5 py-3 text-forum-dim2">${a.lastReceiptAt > 0 ? ago(a.lastReceiptAt) : "—"}</td>
+            </tr>`;
+          }).join("");
+        } catch (e) {
+          body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">load error: ${e.message}</td></tr>`;
+        }
+      }
+      loadAgents();
+      setInterval(loadAgents, 30_000);
     </script>
   </body>
 </html>
