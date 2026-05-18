@@ -28,6 +28,7 @@ import { createServer } from 'node:http';
 import {
   createPublicClient, defineChain, http, parseAbi, parseAbiItem,
 } from 'viem';
+import { computeAgentScore as scoreFn } from '../src/agent-score.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -448,14 +449,8 @@ const server = createServer((req, res) => {
   }
 
   // -- AgentScore v0 --------------------------------------------------------
-  // Score formula (all in source, no oracles):
-  //   start = 100
-  //   - if recordCount == 0: -40
-  //   - drawdown penalty   : -min(40, ddBps / 100)
-  //   - staleness penalty  : -min(30, max(0, (secondsSince - 1800)/60))
-  //   - slash penalty      : -15 * slashEventCount
-  //   - bond bonus         : +10 if bondBalance > 0 anywhere
-  //   clamp 0..100
+  // Lookup + glue. The scoring math is in keeper/src/agent-score.ts
+  // (covered by keeper/test/agent-score.test.ts — 15 vitest cases).
   function computeAgentScore(botId) {
     const bot = state.bots[botId];
     if (!bot) return null;
@@ -465,10 +460,6 @@ const server = createServer((req, res) => {
     const peak = Number(bot.peakPnlMicros ?? lastPnl);
     const lastTs = Number(bot.lastPeriodEnd ?? 0);
     const secondsSince = lastTs > 0 ? now - lastTs : 0;
-    let ddBps = 0;
-    if (peak > 0 && lastPnl < peak) {
-      ddBps = Math.floor(((peak - lastPnl) * 10000) / peak);
-    }
 
     // Vaults bound to this bot (cross-vault stats)
     const linkedVaults = Object.entries(state.vaults)
@@ -485,15 +476,15 @@ const server = createServer((req, res) => {
     let bondBalanceMicros = '0';
     const bondLabels = Object.keys(state.bonds);
     if (bondLabels.length > 0) bondBalanceMicros = state.bonds[bondLabels[0]].bondBalanceMicros;
-    const hasBond = bondBalanceMicros !== '0';
 
-    let score = 100;
-    if (records === 0) score -= 40;
-    score -= Math.min(40, Math.floor(ddBps / 100));
-    if (secondsSince > 1800) score -= Math.min(30, Math.floor((secondsSince - 1800) / 60));
-    score -= 15 * slashEventCount;
-    if (hasBond) score += 10;
-    score = Math.max(0, Math.min(100, score));
+    const breakdown = scoreFn({
+      recordCount: records,
+      lastPnlMicros: lastPnl,
+      peakPnlMicros: peak,
+      secondsSinceLastReceipt: secondsSince,
+      slashEventCount,
+      bondBalanceMicros,
+    });
 
     return {
       botId,
@@ -502,14 +493,15 @@ const server = createServer((req, res) => {
       recordCount: records,
       lastPnlMicros: lastPnl,
       peakPnlMicros: peak,
-      drawdownBps: ddBps,
+      drawdownBps: breakdown.drawdownBps,
       lastReceiptAt: lastTs,
       secondsSinceLastReceipt: secondsSince,
       slashEventCount,
       totalSlashedMicros,
       linkedVaults,
       bondBalanceMicros,
-      scoreV0: score,
+      scoreV0: breakdown.scoreV0,
+      scoreBreakdown: { penalties: breakdown.penalties, bonuses: breakdown.bonuses },
       asOf: now,
     };
   }

@@ -36,7 +36,9 @@ from web3.contract import Contract
 from .abi import (
     AGENT_POOL_ABI,
     BUILDER_CODE_REGISTRY_ABI,
+    COVENANT_INBOX_ABI,
     COVENANT_VAULT_ABI,
+    COVENANT_VAULT_FACTORY_ABI,
     FEE_DISTRIBUTOR_ABI,
     KEEPER_CONFIG_ABI,
     RISK_KERNEL_V2_ABI,
@@ -586,3 +588,122 @@ class ForumClient:
             if addresses.agent_pool
             else None
         )
+
+        self.covenant_vault_factory = (
+            CovenantVaultFactoryClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.covenant_vault_factory),
+                    abi=COVENANT_VAULT_FACTORY_ABI,
+                ),
+                account,
+            )
+            if addresses.covenant_vault_factory
+            else None
+        )
+        self.covenant_inbox = (
+            CovenantInboxClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.covenant_inbox),
+                    abi=COVENANT_INBOX_ABI,
+                ),
+                account,
+            )
+            if addresses.covenant_inbox
+            else None
+        )
+
+
+class CovenantVaultFactoryClient(_SubClient):
+    """Self-serve creation of CovenantVault instances."""
+
+    def vault_count(self) -> int:
+        return int(self._c.functions.vaultCount().call())
+
+    def all_vaults(self) -> list[str]:
+        return [str(a) for a in self._c.functions.allVaults().call()]
+
+    def vaults_by_creator(self, creator: str) -> list[str]:
+        return [
+            str(a)
+            for a in self._c.functions.vaultsByCreator(
+                Web3.to_checksum_address(creator)
+            ).call()
+        ]
+
+    def vaults_by_operator(self, operator: str) -> list[str]:
+        return [
+            str(a)
+            for a in self._c.functions.vaultsByOperator(
+                Web3.to_checksum_address(operator)
+            ).call()
+        ]
+
+    def vaults_by_bot_id(self, bot_id: bytes) -> list[str]:
+        return [str(a) for a in self._c.functions.vaultsByBotId(bot_id).call()]
+
+    def create_vault(self, mandate: CovenantMandate) -> str:
+        """Submit a factory.createVault(mandate) tx; returns the tx hash."""
+        account = self._require_account()
+        tup = (
+            Web3.to_checksum_address(mandate.operator),
+            mandate.bot_id,
+            int(mandate.budget_usdc),
+            int(mandate.max_drawdown_bps),
+            int(mandate.receipt_freshness_sec),
+            int(mandate.expiry),
+            int(mandate.perf_fee_bps),
+            Web3.to_checksum_address(mandate.bond_contract),
+            Web3.to_checksum_address(mandate.risk_kernel),
+            Web3.to_checksum_address(mandate.track_record_v2),
+        )
+        tx = self._c.functions.createVault(tup).build_transaction(
+            {
+                "from": account.address,
+                "nonce": self._w3.eth.get_transaction_count(account.address),
+            }
+        )
+        signed = account.sign_transaction(tx)
+        return self._w3.eth.send_raw_transaction(signed.raw_transaction).hex()
+
+
+class CovenantInboxClient(_SubClient):
+    """Bridge-friendly USDC deposit wrapper for Covenant Accounts."""
+
+    def shares_of(self, vault: str, recipient: str) -> int:
+        return int(
+            self._c.functions.sharesOf(
+                Web3.to_checksum_address(vault),
+                Web3.to_checksum_address(recipient),
+            ).call()
+        )
+
+    def deposit_into(self, vault: str, recipient: str, amount: int) -> str:
+        account = self._require_account()
+        tx = self._c.functions.depositInto(
+            Web3.to_checksum_address(vault),
+            Web3.to_checksum_address(recipient),
+            int(amount),
+        ).build_transaction(
+            {
+                "from": account.address,
+                "nonce": self._w3.eth.get_transaction_count(account.address),
+            }
+        )
+        signed = account.sign_transaction(tx)
+        return self._w3.eth.send_raw_transaction(signed.raw_transaction).hex()
+
+    def claim(self, vault: str, shares: int) -> str:
+        account = self._require_account()
+        tx = self._c.functions.claim(
+            Web3.to_checksum_address(vault),
+            int(shares),
+        ).build_transaction(
+            {
+                "from": account.address,
+                "nonce": self._w3.eth.get_transaction_count(account.address),
+            }
+        )
+        signed = account.sign_transaction(tx)
+        return self._w3.eth.send_raw_transaction(signed.raw_transaction).hex()

@@ -11,7 +11,9 @@ import {
 import {
   agentPoolAbi,
   builderCodeRegistryAbi,
+  covenantInboxAbi,
   covenantVaultAbi,
+  covenantVaultFactoryAbi,
   keeperConfigAbi,
   trackRecordAbi,
   feeDistributorAbi,
@@ -46,6 +48,8 @@ export class ForumClient {
   public readonly riskKernel: RiskKernelClient;
   public readonly slashBond: SlashBondClient;
   public readonly agentPool: AgentPoolClient;
+  public readonly covenantVaultFactory: CovenantVaultFactoryClient;
+  public readonly covenantInbox: CovenantInboxClient;
 
   constructor(opts: ForumClientOptions) {
     this.registry = new RegistryClient(opts);
@@ -57,6 +61,8 @@ export class ForumClient {
     this.riskKernel = new RiskKernelClient(opts);
     this.slashBond = new SlashBondClient(opts);
     this.agentPool = new AgentPoolClient(opts);
+    this.covenantVaultFactory = new CovenantVaultFactoryClient(opts);
+    this.covenantInbox = new CovenantInboxClient(opts);
   }
 }
 
@@ -880,6 +886,106 @@ export class FeeDistributorClient extends BaseSubClient {
       abi: feeDistributorAbi,
       functionName: "claim",
       args: [],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export class CovenantVaultFactoryClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("covenantVaultFactory");
+  }
+
+  async vaultCount(): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultFactoryAbi,
+      functionName: "vaultCount",
+    })) as bigint;
+  }
+
+  async allVaults(): Promise<Address[]> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultFactoryAbi,
+      functionName: "allVaults",
+    })) as Address[];
+  }
+
+  async vaultsByCreator(creator: Address): Promise<Address[]> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultFactoryAbi,
+      functionName: "vaultsByCreator",
+      args: [creator],
+    })) as Address[];
+  }
+
+  async vaultsByOperator(operator: Address): Promise<Address[]> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultFactoryAbi,
+      functionName: "vaultsByOperator",
+      args: [operator],
+    })) as Address[];
+  }
+
+  async vaultsByBotId(botId: Hex): Promise<Address[]> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultFactoryAbi,
+      functionName: "vaultsByBotId",
+      args: [botId],
+    })) as Address[];
+  }
+
+  async createVault(mandate: CovenantMandate): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantVaultFactoryAbi,
+      functionName: "createVault",
+      args: [mandate as any],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export class CovenantInboxClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("covenantInbox");
+  }
+
+  async sharesOf(vault: Address, recipient: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantInboxAbi,
+      functionName: "sharesOf",
+      args: [vault, recipient],
+    })) as bigint;
+  }
+
+  async depositInto(vault: Address, recipient: Address, amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantInboxAbi,
+      functionName: "depositInto",
+      args: [vault, recipient, amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async claim(vault: Address, shares: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantInboxAbi,
+      functionName: "claim",
+      args: [vault, shares],
       account: this.account(),
       chain: w.chain ?? null,
     });
