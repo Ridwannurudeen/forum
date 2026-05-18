@@ -39,7 +39,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.1.0';
+const VERSION = 'forum-indexer/0.2.0'; // adds CovenantVaultFactory subscription
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -57,6 +57,10 @@ const VAULTS = {
   v1_2: deployment.contracts.CovenantVaultV1_2?.address,
 };
 const BOND_V11 = deployment.contracts.SlashBondV1_1?.address;
+const FACTORY = deployment.contracts.CovenantVaultFactory?.address;
+const FACTORY_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactory?.block
+  ? BigInt(deployment.contracts.CovenantVaultFactory.block)
+  : null;
 const DEPLOY_BLOCK = BigInt(deployment.contracts.BuilderCodeRegistry.block);
 
 // ---- ABIs ------------------------------------------------------------------
@@ -96,6 +100,9 @@ const BOT_REGISTERED_EVENT = parseAbiItem(
 const ENFORCED_EVENT = parseAbiItem(
   'event Enforced(address indexed vault, uint8 verdict, uint8 newState, uint256 slashedUsdc)',
 );
+const VAULT_CREATED_EVENT = parseAbiItem(
+  'event VaultCreated(address indexed vault, address indexed creator, address indexed operator, bytes32 botId, uint128 budgetUsdc, uint64 createdAt)',
+);
 
 const KIND_NAMES = ['MAKER', 'TAKER', 'ARB', 'OTHER'];
 const STATE_NAMES = ['ACTIVE', 'PAUSED', 'EXPIRED'];
@@ -106,9 +113,10 @@ const VERDICT_NAMES = ['ALLOW', 'PAUSE_DRAWDOWN', 'PAUSE_OVERSUBSCRIBED', 'PAUSE
 const initial = {
   cursor: { lastBlock: DEPLOY_BLOCK.toString() },
   bots: {},            // botId -> { kind, signer, recordCount, lastSeq, lastPnlMicros, lastPeriodEnd, lastUpdate }
-  vaults: {},          // address -> { state, assets, idle, outstanding, mandate, lastUpdate }
+  vaults: {},          // address -> { state, assets, idle, outstanding, mandate, lastUpdate, source }
   bonds: {},           // address -> { bondBalance, totalSlashed, lastUpdate }
   slashEvents: [],     // newest first, capped at 200
+  factoryVaults: [],   // [{ vault, creator, operator, botId, budgetMicros, createdAt, blockNumber, txHash }] newest first
   lastPollAt: 0,
   lastBlock: 0,
 };
@@ -194,41 +202,76 @@ async function refreshBotStats() {
   }));
 }
 
+async function indexFactoryVaults(fromBlock, toBlock) {
+  if (!FACTORY || !FACTORY_DEPLOY_BLOCK) return;
+  const start = fromBlock > FACTORY_DEPLOY_BLOCK ? fromBlock : FACTORY_DEPLOY_BLOCK;
+  if (toBlock < start) return;
+  const logs = await getLogsChunked({
+    address: FACTORY, event: VAULT_CREATED_EVENT, fromBlock: start, toBlock,
+  });
+  const knownVaults = new Set(state.factoryVaults.map((v) => v.vault.toLowerCase()));
+  for (const log of logs) {
+    const addr = log.args.vault;
+    if (knownVaults.has(addr.toLowerCase())) continue;
+    state.factoryVaults.unshift({
+      vault: addr,
+      creator: log.args.creator,
+      operator: log.args.operator,
+      botId: log.args.botId,
+      budgetMicros: log.args.budgetUsdc.toString(),
+      createdAt: Number(log.args.createdAt),
+      blockNumber: log.blockNumber.toString(),
+      txHash: log.transactionHash,
+    });
+    knownVaults.add(addr.toLowerCase());
+  }
+  state.factoryVaults = state.factoryVaults.slice(0, 500);
+}
+
+async function refreshOneVault(addr, label) {
+  try {
+    const [s, a, idle, out, m] = await Promise.all([
+      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'state' }),
+      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'assets' }),
+      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'depositTotalIdle' }),
+      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'operatorOutstanding' }),
+      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'mandate' }),
+    ]);
+    state.vaults[addr] = {
+      label,
+      source: label.startsWith('factory') ? 'factory' : 'hardcoded',
+      state: STATE_NAMES[Number(s)] || `S${s}`,
+      assetsMicros: a.toString(),
+      idleMicros: idle.toString(),
+      outstandingMicros: out.toString(),
+      mandate: {
+        operator: m[0],
+        botId: m[1],
+        budgetMicros: m[2].toString(),
+        maxDrawdownBps: Number(m[3]),
+        receiptFreshnessSec: Number(m[4]),
+        expiry: m[5].toString(),
+        perfFeeBps: Number(m[6]),
+        bondContract: m[7],
+        riskKernel: m[8],
+        trackRecordV2: m[9],
+      },
+      lastUpdate: Math.floor(Date.now() / 1000),
+    };
+  } catch (e) {
+    // Skip on failure; next cycle will retry
+  }
+}
+
 async function refreshVaults() {
-  const now = Math.floor(Date.now() / 1000);
+  // Hard-coded labelled vaults
   for (const [label, addr] of Object.entries(VAULTS)) {
-    if (!addr) continue;
-    try {
-      const [s, a, idle, out, m] = await Promise.all([
-        pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'state' }),
-        pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'assets' }),
-        pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'depositTotalIdle' }),
-        pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'operatorOutstanding' }),
-        pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'mandate' }),
-      ]);
-      state.vaults[addr] = {
-        label,
-        state: STATE_NAMES[Number(s)] || `S${s}`,
-        assetsMicros: a.toString(),
-        idleMicros: idle.toString(),
-        outstandingMicros: out.toString(),
-        mandate: {
-          operator: m[0],
-          botId: m[1],
-          budgetMicros: m[2].toString(),
-          maxDrawdownBps: Number(m[3]),
-          receiptFreshnessSec: Number(m[4]),
-          expiry: m[5].toString(),
-          perfFeeBps: Number(m[6]),
-          bondContract: m[7],
-          riskKernel: m[8],
-          trackRecordV2: m[9],
-        },
-        lastUpdate: now,
-      };
-    } catch (e) {
-      // Skip on failure
-    }
+    if (addr) await refreshOneVault(addr, label);
+  }
+  // Factory-discovered vaults
+  for (let i = 0; i < state.factoryVaults.length; i++) {
+    const fv = state.factoryVaults[i];
+    await refreshOneVault(fv.vault, `factory/${i + 1}`);
   }
 }
 
@@ -279,6 +322,7 @@ async function pollOnce() {
     if (toBlock > fromBlock) {
       await indexBots(fromBlock, toBlock);
       await indexSlashEvents(fromBlock, toBlock);
+      await indexFactoryVaults(fromBlock, toBlock);
       state.cursor.lastBlock = toBlock.toString();
     }
     await refreshBotStats();
@@ -388,6 +432,15 @@ const server = createServer((req, res) => {
   if (path === '/slash-events' || path === '/slash-events/') {
     const limit = Math.min(Number(url.searchParams.get('limit') || 20), 200);
     return jsonReply(res, 200, state.slashEvents.slice(0, limit));
+  }
+
+  if (path === '/factory-vaults' || path === '/factory-vaults/') {
+    const limit = Math.min(Number(url.searchParams.get('limit') || 100), 500);
+    return jsonReply(res, 200, state.factoryVaults.slice(0, limit));
+  }
+
+  if (path === '/vaults' || path === '/vaults/') {
+    return jsonReply(res, 200, Object.entries(state.vaults).map(([addr, v]) => ({ address: addr, ...v })));
   }
 
   jsonReply(res, 404, { error: 'unknown endpoint', path: req.url });

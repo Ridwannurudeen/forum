@@ -124,6 +124,12 @@
       "txHash": "0xdb9fcdf586fb40ae7d84be8f836dbf942eed7fc3f3e449ac0106ec2710ff1473",
       "block": "42816210",
       "note": "Bridge-friendly deposit wrapper. depositInto(vault, recipient, amount) and claim(vault, shares)."
+    },
+    "CovenantVaultFactory": {
+      "address": "0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26",
+      "txHash": "0x16bd4c3b3a23ab04faace3f830fa18fb6f6c7f26be8f25764ce243c9f3d4a19e",
+      "block": "42824603",
+      "note": "Self-serve creation of Covenant Accounts. Anyone can call createVault(mandate) and get a fresh CovenantVault. USDC pinned at factory deploy time. Emits VaultCreated for indexer subscription."
     }
   },
   "circle": {
