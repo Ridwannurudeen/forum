@@ -375,7 +375,7 @@
               >
                 Product modules
               </div>
-              <div class="mt-3 text-3xl font-medium tnum">9</div>
+              <div class="mt-3 text-3xl font-medium tnum">10</div>
               <div class="text-xs text-forum-dim2 mt-1">All immutable</div>
             </div>
             <div class="bg-forum-panel p-6">
@@ -828,12 +828,9 @@ node keeper/scripts/demo-violation.mjs</pre>
             <button data-app-tab="fees"    class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Fees</button>
           </div>
           <div data-tab="create" class="app-tab-panel">
-          <div class="mb-10">
+          <div class="mb-6">
             <div class="text-[11px] uppercase tracking-widest text-forum-accent">Launch your own · permissionless</div>
-            <h2 class="mt-1 text-3xl sm:text-4xl font-medium tracking-tight">Create a Covenant Account in one tx.</h2>
-            <p class="mt-3 text-forum-dim max-w-2xl leading-relaxed">
-              Connect a wallet, set the mandate, click create. <code class="mono text-forum-accent2 text-sm">CovenantVaultFactory.createVault(mandate)</code> deploys a fresh, immutable <code class="mono text-forum-accent2 text-sm">CovenantVault</code> bound to your terms. RiskKernelV2 + SlashBondV1.1 are pre-wired so enforcement and slashing work the moment the vault exists.
-            </p>
+            <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Connect a wallet, set the mandate, click create. <code class="mono text-forum-accent2">CovenantVaultFactory.createVault(mandate)</code> deploys a fresh immutable vault with RiskKernelV2 + SlashBondV1.1 pre-wired.</p>
           </div>
 
           <div class="grid lg:grid-cols-[2fr_1fr] gap-6">
@@ -927,9 +924,9 @@ node keeper/scripts/demo-violation.mjs</pre>
 
           </div>
           <div data-tab="manage" class="app-tab-panel hidden">
-          <div class="mb-10">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Manage your vault · operator + depositor flows</div>
-            <h2 class="mt-1 text-3xl font-medium tracking-tight">Bond, deposit, withdraw — same wallet.</h2>
+          <div class="mb-6">
+            <div class="text-[11px] uppercase tracking-widest text-forum-accent">Manage · operator + depositor</div>
+            <p class="mt-2 text-sm text-forum-dim leading-relaxed">Operators post bond. Depositors withdraw shares. Same wallet.</p>
           </div>
 
           <div class="grid lg:grid-cols-2 gap-6">
@@ -1000,8 +997,8 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="agents" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
-              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v0 · live leaderboard</div>
-              <h2 class="mt-1 text-2xl font-medium tracking-tight">Ranked by drawdown, slash history, freshness.</h2>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore · ranked by drawdown / slash / freshness</div>
+              <p class="mt-2 text-sm text-forum-dim leading-relaxed">Click any row for the inspector + one-click enforce per linked vault.</p>
             </div>
             <span class="text-xs text-forum-dim">
               <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
@@ -1064,10 +1061,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">Risk Markets · price agent failure on-chain</div>
-              <h2 class="mt-1 text-2xl font-medium tracking-tight">Stake YES/NO on whether a SlashBond will see a slash before expiry.</h2>
-              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
-                Oracle-free settlement: at expiry, anyone calls <code class="mono text-forum-accent2">SlashMarket.settle(id)</code> which reads <code class="mono text-forum-accent2">SlashBond.totalSlashed()</code> and compares to the snapshot taken when the market was created. Winners get stake back + pro-rata share of losers' pool. No protocol fee in v0.
-              </p>
+              <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Oracle-free YES/NO per bond. Settle reads <code class="mono text-forum-accent2">SlashBond.totalSlashed</code> delta against snapshot. Winners take stake + pro-rata losing pool.</p>
             </div>
             <span class="text-xs text-forum-dim">
               <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
@@ -1083,11 +1077,8 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="router" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
-              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Capital Router · Phase 5 allocator</div>
-              <h2 class="mt-1 text-2xl font-medium tracking-tight">One USDC pool, strategist-weighted across Covenant vaults.</h2>
-              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
-                Deposit USDC into <code class="mono text-forum-accent2">CapitalRouter</code>; the strategist sets a target weight table (bps summing to 10000) across a whitelist of <code class="mono text-forum-accent2">CovenantVault</code>s; anyone can call <code class="mono text-forum-accent2">rebalance()</code> to push idle USDC into under-target vaults via the vaults' own deposit path. Withdrawals pull idle first then proportionally from each target's router-held shares. No admin keys, no upgrade path.
-              </p>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Capital Router · pooled allocator</div>
+              <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">One USDC pool routed across strategist-whitelisted vaults per weight table. Permissionless <code class="mono text-forum-accent2">rebalance()</code> enforces targets. No admin keys.</p>
             </div>
             <span class="text-xs text-forum-dim">
               <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
@@ -1149,11 +1140,8 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="fees" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
-              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Fee Router · Phase 6 revenue loop</div>
-              <h2 class="mt-1 text-2xl font-medium tracking-tight">USDC fee splits across operator / researcher / referrer.</h2>
-              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
-                Operator (or anyone) creates a <code class="mono text-forum-accent2">FeeRouterV1</code> split with up to N (recipient, bps) tuples summing to 10000. Permissionless <code class="mono text-forum-accent2">pay(splitId, amount)</code> moves USDC in + allocates per recipient (rounding dust folded into the first slot). Each recipient pulls via <code class="mono text-forum-accent2">claim()</code> across every split they're in. No admin keys, immutable per split.
-              </p>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Fee Router · operator / researcher / referrer splits</div>
+              <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Create a (recipient, bps) split; anyone can <code class="mono text-forum-accent2">pay(splitId, amount)</code>; each recipient pulls accruals across every split via <code class="mono text-forum-accent2">claim()</code>.</p>
             </div>
             <span class="text-xs text-forum-dim">
               <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
@@ -1192,65 +1180,19 @@ node keeper/scripts/demo-violation.mjs</pre>
         </section>
 
         <section id="architecture" class="pb-24">
-          <div class="mb-10">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">
-              Architecture · all bytecode verifiable on testnet.arcscan.app
-            </div>
-            <h2 class="mt-1 text-3xl font-medium tracking-tight">
-              Live Arc contract set.
-            </h2>
-          </div>
-          <div id="contracts-grouped" class="space-y-8"></div>
+          <details class="group rounded-2xl ring-soft bg-forum-panel p-6 sm:p-8">
+            <summary class="cursor-pointer list-none flex items-baseline justify-between gap-4 flex-wrap">
+              <div>
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Architecture · all bytecode verifiable on testnet.arcscan.app</div>
+                <h2 class="mt-1 text-2xl font-medium tracking-tight">Live Arc contract set <span class="text-forum-dim2 text-sm font-normal">(10 modules)</span></h2>
+              </div>
+              <span class="text-forum-accent text-xs mono group-open:hidden">expand ↓</span>
+              <span class="text-forum-accent text-xs mono hidden group-open:inline">collapse ↑</span>
+            </summary>
+            <div id="contracts-grouped" class="space-y-8 mt-8"></div>
+          </details>
         </section>
 
-        <section class="pb-24">
-          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
-            <div>
-              <div
-                class="text-[11px] uppercase tracking-widest text-forum-dim2"
-              >
-                AgentScore · reputation graph
-              </div>
-              <h2 class="mt-1 text-2xl font-medium tracking-tight">
-                Every signed receipt deepens the moat.
-              </h2>
-            </div>
-            <span class="text-xs text-forum-dim">
-              <span
-                class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"
-              ></span>
-              live · refreshes 30s
-            </span>
-          </div>
-          <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
-            <div class="overflow-x-auto scroll-shadow">
-              <table class="w-full text-sm">
-                <thead
-                  class="border-b border-forum-line text-left text-[11px] uppercase tracking-widest text-forum-dim2"
-                >
-                  <tr>
-                    <th class="px-5 py-3 font-normal">Bot ID</th>
-                    <th class="px-5 py-3 font-normal">Kind</th>
-                    <th class="px-5 py-3 font-normal">Signer</th>
-                    <th class="px-5 py-3 font-normal text-right">Records</th>
-                    <th class="px-5 py-3 font-normal text-right">
-                      Last PnL (µUSDC)
-                    </th>
-                    <th class="px-5 py-3 font-normal">Trend</th>
-                    <th class="px-5 py-3 font-normal">Last publish</th>
-                  </tr>
-                </thead>
-                <tbody id="bots-body" class="mono text-xs">
-                  <tr>
-                    <td class="px-5 py-6 text-forum-dim" colspan="7">
-                      Loading…
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
 
         <section class="pb-24">
           <div class="rounded-2xl ring-soft bg-forum-panel p-10">
@@ -1391,15 +1333,16 @@ node keeper/scripts/demo-violation.mjs</pre>
         </section>
 
         <section id="integrate" class="pb-24">
-          <div class="mb-10">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">
-              Integrate
-            </div>
-            <h2 class="mt-1 text-3xl font-medium tracking-tight">
-              Fork the SDK. Ship in 5 minutes.
-            </h2>
-          </div>
-          <div class="grid md:grid-cols-2 gap-6">
+          <details class="group rounded-2xl ring-soft bg-forum-panel p-6 sm:p-8">
+            <summary class="cursor-pointer list-none flex items-baseline justify-between gap-4 flex-wrap mb-2">
+              <div>
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Integrate · SDK snippets</div>
+                <h2 class="mt-1 text-2xl font-medium tracking-tight">Fork the SDK. Ship in 5 minutes.</h2>
+              </div>
+              <span class="text-forum-accent text-xs mono group-open:hidden">expand ↓</span>
+              <span class="text-forum-accent text-xs mono hidden group-open:inline">collapse ↑</span>
+            </summary>
+          <div class="grid md:grid-cols-2 gap-6 mt-6">
             <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
               <div
                 class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between"
@@ -1443,6 +1386,7 @@ verdict = forum.risk_kernel.evaluate(
 )</pre>
             </div>
           </div>
+          </details>
         </section>
 
         <section class="pb-24">
@@ -2016,7 +1960,7 @@ verdict = forum.risk_kernel.evaluate(
           );
 
           if (logs.length === 0) {
-            body.innerHTML = `<tr><td class="px-5 py-6 text-forum-dim" colspan="7">No bots registered yet. Be the first.</td></tr>`;
+            if (body) body.innerHTML = `<tr><td class="px-5 py-6 text-forum-dim" colspan="7">No bots registered yet. Be the first.</td></tr>`;
             document.getElementById("metric-records").textContent = "0";
             document.getElementById("metric-latest").textContent = "—";
             return;
@@ -2083,7 +2027,7 @@ verdict = forum.risk_kernel.evaluate(
           document.getElementById("metric-latest").textContent =
             latestTs > 0 ? ago(latestTs) : "—";
 
-          body.innerHTML = rows
+          if (body) body.innerHTML = rows
             .map(
               (r) => `
           <tr class="border-b border-forum-line2 last:border-0 row-hover">
@@ -2098,7 +2042,7 @@ verdict = forum.risk_kernel.evaluate(
             )
             .join("");
         } catch (e) {
-          body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">Load error: ${e.message}</td></tr>`;
+          if (body) body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">Load error: ${e.message}</td></tr>`;
         }
       }
 
