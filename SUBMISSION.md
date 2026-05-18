@@ -66,6 +66,7 @@ Live services:
 
 - `forum-keeper`: reference paper-mode keeper publishing v1 records.
 - `forum-agora-mind`: AI-driven keeper publishing `TrackRecordV2` receipts and reasoning trace hashes.
+- `forum-indexer`: polled Arc-state cache exposed at `https://forum.gudman.xyz/api/{health,bots,bots/:id/records,covenant/:address,slash-events,state}`. 30s poll interval, persists snapshot to disk, replaces the frontend's direct-RPC reads. Live: `curl https://forum.gudman.xyz/api/health`. Systemd unit + nginx config templates in `deploy/`.
 
 ## Verifiable Demo Proofs
 

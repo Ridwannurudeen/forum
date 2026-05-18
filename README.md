@@ -93,6 +93,21 @@ bond = forum.slash_bond.bond_balance()
 
 The keepers are paper-mode by default. No real Polymarket order execution is claimed in this repository.
 
+## Indexer API
+
+Polled Arc-state cache live at `https://forum.gudman.xyz/api/*`:
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/health` | `{ ok, version, lastPollAt, lastBlock, freshnessSec, stale }` |
+| `GET /api/state` | Full snapshot — bots + vaults + bonds + recent slash events |
+| `GET /api/bots` | Array of indexed bots with kind/signer/recordCount/lastSeq/lastPnlMicros |
+| `GET /api/bots/:botId/records?limit=50` | Record history for a bot (live RPC read, not cached) |
+| `GET /api/covenant/:address` | Vault snapshot (state, assets, idle, outstanding, mandate) |
+| `GET /api/slash-events?limit=20` | `RiskKernelV2.Enforced` event log (autonomous slash + revive history) |
+
+Source: `keeper/scripts/forum-indexer.mjs`. Systemd + nginx templates in `deploy/`.
+
 ## Why Arc
 
 Forum uses Arc as the USDC-native control plane:

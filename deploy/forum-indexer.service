@@ -1,0 +1,19 @@
+[Unit]
+Description=Forum indexer service - polls Arc + serves /api/*
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/forum
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/forum-indexer.mjs
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=FORUM_INDEXER_PORT=3060
+Environment=FORUM_INDEXER_STATE=/opt/forum/indexer-state.json
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
