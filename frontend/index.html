@@ -245,6 +245,11 @@
               >Agents</a
             >
             <a
+              href="#markets"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Markets</a
+            >
+            <a
               href="#integrate"
               class="hidden md:inline text-forum-dim hover:text-forum-ink"
               >Integrate</a
@@ -1050,6 +1055,26 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
             <div id="ins-status" class="mt-4 text-xs hidden"></div>
           </div>
+        </section>
+
+        <section id="markets" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Risk Markets · price agent failure on-chain</div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">Stake YES/NO on whether a SlashBond will see a slash before expiry.</h2>
+              <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
+                Oracle-free settlement: at expiry, anyone calls <code class="mono text-forum-accent2">SlashMarket.settle(id)</code> which reads <code class="mono text-forum-accent2">SlashBond.totalSlashed()</code> and compares to the snapshot taken when the market was created. Winners get stake back + pro-rata share of losers' pool. No protocol fee in v0.
+              </p>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
+              live · refreshes 30s
+            </span>
+          </div>
+          <div id="markets-list" class="grid lg:grid-cols-2 gap-4">
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-dim text-sm">loading...</div>
+          </div>
+          <div id="markets-status" class="mt-4 text-xs hidden"></div>
         </section>
 
         <section id="architecture" class="pb-24">
@@ -2479,6 +2504,269 @@ verdict = forum.risk_kernel.evaluate(
       document.getElementById("ins-close-btn").addEventListener("click", () => {
         document.getElementById("agent-inspector").classList.add("hidden");
       });
+
+      // ============================================================
+      // Phase 9 — SlashMarket: YES/NO staking + settle + claim
+      // ============================================================
+      const SLASH_MARKET = "0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76";
+      const SLASH_MARKET_READS_ABI = [
+        { type: "function", name: "marketCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+        {
+          type: "function", name: "marketAt", stateMutability: "view",
+          inputs: [{ name: "id", type: "uint256" }],
+          outputs: [{
+            type: "tuple",
+            components: [
+              { name: "bond", type: "address" },
+              { name: "createdAt", type: "uint64" },
+              { name: "expiryAt", type: "uint64" },
+              { name: "slashedSnapshot", type: "uint256" },
+              { name: "yesStake", type: "uint256" },
+              { name: "noStake", type: "uint256" },
+              { name: "settled", type: "bool" },
+              { name: "didSlash", type: "bool" },
+              { name: "newSlashedAtSettle", type: "uint256" },
+            ],
+          }],
+        },
+        {
+          type: "function", name: "stakeOf", stateMutability: "view",
+          inputs: [{ name: "id", type: "uint256" }, { name: "user", type: "address" }],
+          outputs: [{ name: "yes", type: "uint256" }, { name: "no", type: "uint256" }],
+        },
+        {
+          type: "function", name: "claimed", stateMutability: "view",
+          inputs: [{ name: "id", type: "uint256" }, { name: "user", type: "address" }],
+          outputs: [{ type: "bool" }],
+        },
+      ];
+      const SLASH_MARKET_STAKE_ABI = [{
+        type: "function", name: "stake", stateMutability: "nonpayable",
+        inputs: [
+          { name: "id", type: "uint256" },
+          { name: "yesSide", type: "bool" },
+          { name: "amount", type: "uint256" },
+        ],
+        outputs: [],
+      }];
+      const SLASH_MARKET_SETTLE_ABI = [{
+        type: "function", name: "settle", stateMutability: "nonpayable",
+        inputs: [{ name: "id", type: "uint256" }], outputs: [],
+      }];
+      const SLASH_MARKET_CLAIM_ABI = [{
+        type: "function", name: "claim", stateMutability: "nonpayable",
+        inputs: [{ name: "id", type: "uint256" }],
+        outputs: [{ name: "payout", type: "uint256" }],
+      }];
+      const BOND_TOTAL_SLASHED_ABI = [{
+        type: "function", name: "totalSlashed", stateMutability: "view",
+        inputs: [], outputs: [{ type: "uint256" }],
+      }];
+
+      function fmtSec(sec) {
+        sec = Math.max(0, Math.floor(sec));
+        if (sec < 60) return sec + "s";
+        if (sec < 3600) return Math.floor(sec / 60) + "m";
+        if (sec < 86400) return Math.floor(sec / 3600) + "h " + Math.floor((sec % 3600) / 60) + "m";
+        return Math.floor(sec / 86400) + "d " + Math.floor((sec % 86400) / 3600) + "h";
+      }
+
+      async function loadMarkets() {
+        const list = document.getElementById("markets-list");
+        try {
+          const count = await client.readContract({
+            address: SLASH_MARKET, abi: SLASH_MARKET_READS_ABI, functionName: "marketCount",
+          });
+          const n = Number(count);
+          if (n === 0) {
+            list.innerHTML = `<div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-dim2 text-sm">no markets yet — anyone can call <code class="mono">SlashMarket.createMarket(bond, expiryAt)</code> to open one.</div>`;
+            return;
+          }
+          const ids = Array.from({ length: n }, (_, i) => BigInt(i));
+          const fetched = await Promise.all(ids.map(async (id) => {
+            const m = await client.readContract({
+              address: SLASH_MARKET, abi: SLASH_MARKET_READS_ABI,
+              functionName: "marketAt", args: [id],
+            });
+            const liveSlashed = await client.readContract({
+              address: m.bond, abi: BOND_TOTAL_SLASHED_ABI, functionName: "totalSlashed",
+            }).catch(() => 0n);
+            let myStake = { yes: 0n, no: 0n };
+            let alreadyClaimed = false;
+            if (connectedAddr) {
+              try {
+                const r = await client.readContract({
+                  address: SLASH_MARKET, abi: SLASH_MARKET_READS_ABI,
+                  functionName: "stakeOf", args: [id, connectedAddr],
+                });
+                myStake = { yes: r[0] ?? r.yes ?? 0n, no: r[1] ?? r.no ?? 0n };
+                alreadyClaimed = await client.readContract({
+                  address: SLASH_MARKET, abi: SLASH_MARKET_READS_ABI,
+                  functionName: "claimed", args: [id, connectedAddr],
+                });
+              } catch (e) { /* skip */ }
+            }
+            return { id: Number(id), market: m, liveSlashed, myStake, alreadyClaimed };
+          }));
+
+          const now = Math.floor(Date.now() / 1000);
+          list.innerHTML = fetched.map(({ id, market: m, liveSlashed, myStake, alreadyClaimed }) => {
+            const yesPool = Number(m.yesStake) / 1e6;
+            const noPool = Number(m.noStake) / 1e6;
+            const totalPool = yesPool + noPool;
+            const yesProb = totalPool > 0 ? (yesPool / totalPool * 100).toFixed(0) : 50;
+            const expiry = Number(m.expiryAt);
+            const secsLeft = expiry - now;
+            const expired = secsLeft <= 0;
+            const liveDelta = BigInt(liveSlashed) - BigInt(m.slashedSnapshot);
+            const slashAlreadyTriggered = liveDelta > 0n;
+            const statusPill = m.settled
+              ? (m.didSlash
+                ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-forum-accent/15 text-forum-accent">SETTLED · YES won</span>`
+                : `<span class="px-2 py-0.5 rounded-full text-[10px] bg-forum-accent2/15 text-forum-accent2">SETTLED · NO won</span>`)
+              : expired
+              ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-forum-warn/15 text-forum-warn">expired · awaiting settle</span>`
+              : `<span class="px-2 py-0.5 rounded-full text-[10px] bg-forum-ok/15 text-forum-ok">OPEN · ${fmtSec(secsLeft)} left</span>`;
+            return `
+              <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+                <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+                  <div>
+                    <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Market #${id} · bond</div>
+                    <a class="mono text-sm text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${m.bond}">${shortAddr(m.bond)}</a>
+                  </div>
+                  ${statusPill}
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs mb-4">
+                  <div class="rounded-lg bg-forum-panel2 p-2">
+                    <div class="text-[10px] uppercase tracking-wider text-forum-dim2">YES pool</div>
+                    <div class="mono text-forum-ink mt-1">${yesPool.toFixed(2)} USDC <span class="text-forum-dim2">(${yesProb}%)</span></div>
+                  </div>
+                  <div class="rounded-lg bg-forum-panel2 p-2">
+                    <div class="text-[10px] uppercase tracking-wider text-forum-dim2">NO pool</div>
+                    <div class="mono text-forum-ink mt-1">${noPool.toFixed(2)} USDC <span class="text-forum-dim2">(${100 - yesProb}%)</span></div>
+                  </div>
+                  <div class="rounded-lg bg-forum-panel2 p-2">
+                    <div class="text-[10px] uppercase tracking-wider text-forum-dim2">snapshot</div>
+                    <div class="mono text-forum-ink mt-1">${(Number(m.slashedSnapshot) / 1e6).toFixed(6)} USDC slashed</div>
+                  </div>
+                  <div class="rounded-lg bg-forum-panel2 p-2">
+                    <div class="text-[10px] uppercase tracking-wider text-forum-dim2">live now</div>
+                    <div class="mono ${slashAlreadyTriggered ? 'text-forum-accent' : 'text-forum-dim'} mt-1">
+                      ${(Number(liveSlashed) / 1e6).toFixed(6)} USDC
+                      ${slashAlreadyTriggered ? '<span class="text-[10px]">· YES winning</span>' : ''}
+                    </div>
+                  </div>
+                </div>
+
+                ${connectedAddr ? `
+                  <div class="text-[10px] text-forum-dim2 mb-2">
+                    your stake: YES <span class="mono text-forum-dim">${(Number(myStake.yes) / 1e6).toFixed(2)}</span> · NO <span class="mono text-forum-dim">${(Number(myStake.no) / 1e6).toFixed(2)}</span> · claimed: ${alreadyClaimed}
+                  </div>
+                ` : ''}
+
+                ${m.settled ? `
+                  <button data-market-id="${id}" class="market-claim-btn btn btn-primary w-full justify-center" ${alreadyClaimed ? 'disabled' : ''}>
+                    ${alreadyClaimed ? 'claimed' : 'claim'}
+                  </button>
+                ` : expired ? `
+                  <button data-market-id="${id}" class="market-settle-btn btn btn-primary w-full justify-center">
+                    settle now (anyone)
+                  </button>
+                ` : `
+                  <div class="flex gap-2 items-center">
+                    <input data-market-id="${id}" class="market-amount-input mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm" type="number" min="1" step="1" placeholder="USDC amount" />
+                    <button data-market-id="${id}" data-side="yes" class="market-stake-btn px-3 py-2 rounded-lg text-xs mono bg-forum-accent/15 text-forum-accent border border-forum-accent/40 hover:bg-forum-accent/25">stake YES</button>
+                    <button data-market-id="${id}" data-side="no" class="market-stake-btn px-3 py-2 rounded-lg text-xs mono bg-forum-accent2/15 text-forum-accent2 border border-forum-accent2/40 hover:bg-forum-accent2/25">stake NO</button>
+                  </div>
+                `}
+              </div>`;
+          }).join("");
+
+          // wire stake buttons
+          list.querySelectorAll(".market-stake-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const id = Number(btn.dataset.marketId);
+              const side = btn.dataset.side === "yes";
+              const inputs = list.querySelectorAll(`.market-amount-input[data-market-id="${id}"]`);
+              const amount = inputs[0]?.value;
+              if (!amount || Number(amount) <= 0) return setMarketStatus("Enter an amount > 0", "err");
+              marketStake(id, side, amount);
+            });
+          });
+          list.querySelectorAll(".market-settle-btn").forEach((btn) => {
+            btn.addEventListener("click", () => marketSettle(Number(btn.dataset.marketId)));
+          });
+          list.querySelectorAll(".market-claim-btn").forEach((btn) => {
+            btn.addEventListener("click", () => marketClaim(Number(btn.dataset.marketId)));
+          });
+        } catch (e) {
+          list.innerHTML = `<div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-err text-sm">load error: ${e.message}</div>`;
+        }
+      }
+      function setMarketStatus(html, kind = "info") {
+        const el = document.getElementById("markets-status");
+        const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
+        el.className = "mt-4 text-xs " + colour;
+        el.innerHTML = html;
+      }
+      async function marketStake(id, yesSide, amountWhole) {
+        if (!walletClient) return setMarketStatus("Connect a wallet first (Create section).", "err");
+        try {
+          const amountMicros = BigInt(amountWhole) * 1_000_000n;
+          setMarketStatus(`1/2 approve USDC for SlashMarket ...`, "info");
+          const approveTx = await walletClient.sendTransaction({
+            account: connectedAddr, to: USDC_ADDR,
+            data: encodeFunctionData({ abi: USDC_APPROVE_ABI, functionName: "approve", args: [SLASH_MARKET, amountMicros] }),
+          });
+          await client.waitForTransactionReceipt({ hash: approveTx });
+          setMarketStatus(`2/2 stake ${yesSide ? "YES" : "NO"} ${amountWhole} USDC ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: SLASH_MARKET,
+            data: encodeFunctionData({ abi: SLASH_MARKET_STAKE_ABI, functionName: "stake", args: [BigInt(id), yesSide, amountMicros] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setMarketStatus(`stake reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setMarketStatus(`<strong class="text-forum-ok">staked.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadMarkets();
+        } catch (e) {
+          setMarketStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      async function marketSettle(id) {
+        if (!walletClient) return setMarketStatus("Connect a wallet first (Create section).", "err");
+        try {
+          setMarketStatus(`settling market #${id} ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: SLASH_MARKET,
+            data: encodeFunctionData({ abi: SLASH_MARKET_SETTLE_ABI, functionName: "settle", args: [BigInt(id)] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setMarketStatus(`settle reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setMarketStatus(`<strong class="text-forum-ok">settled.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadMarkets();
+        } catch (e) {
+          setMarketStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      async function marketClaim(id) {
+        if (!walletClient) return setMarketStatus("Connect a wallet first (Create section).", "err");
+        try {
+          setMarketStatus(`claiming market #${id} ...`, "info");
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: SLASH_MARKET,
+            data: encodeFunctionData({ abi: SLASH_MARKET_CLAIM_ABI, functionName: "claim", args: [BigInt(id)] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") return setMarketStatus(`claim reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+          setMarketStatus(`<strong class="text-forum-ok">claimed.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          loadMarkets();
+        } catch (e) {
+          setMarketStatus("failed: " + (e.shortMessage || e.message), "err");
+        }
+      }
+      loadMarkets();
+      setInterval(loadMarkets, 30_000);
     </script>
   </body>
 </html>
