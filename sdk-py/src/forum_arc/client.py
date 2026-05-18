@@ -34,10 +34,15 @@ from web3 import Web3
 from web3.contract import Contract
 
 from .abi import (
+    AGENT_POOL_ABI,
     BUILDER_CODE_REGISTRY_ABI,
+    COVENANT_VAULT_ABI,
     FEE_DISTRIBUTOR_ABI,
     KEEPER_CONFIG_ABI,
+    RISK_KERNEL_V2_ABI,
+    SLASH_BOND_ABI,
     TRACK_RECORD_ABI,
+    TRACK_RECORD_V2_ABI,
 )
 
 
@@ -47,6 +52,11 @@ class ForumAddresses:
     config: str
     track_record: str
     fee_distributor: str
+    track_record_v2: str | None = None
+    agent_pool: str | None = None
+    slash_bond: str | None = None
+    risk_kernel: str | None = None
+    covenant_vault: str | None = None
 
 
 # Bot kinds match Solidity enum order in TrackRecord.sol
@@ -223,6 +233,235 @@ class TrackRecordClient(_SubClient):
 
 
 @dataclass(frozen=True)
+class TrackRecordV2Entry:
+    seq: int
+    period_start: int
+    period_end: int
+    pnl_micros: int
+    fills: int
+    meta_hash: bytes
+    evidence_uri_hash: bytes
+    evidence_hash: bytes
+    record_hash: bytes
+
+
+@dataclass(frozen=True)
+class TrackRecordV2Publish:
+    seq: int
+    period_start: int
+    period_end: int
+    pnl_micros: int
+    fills: int
+    meta_hash: bytes
+    evidence_uri: str
+    evidence_hash: bytes
+    prev_record_hash: bytes
+
+
+class TrackRecordV2Client(_SubClient):
+    def signer(self, bot_id: bytes) -> str:
+        return self._c.functions.botSigner(bot_id).call()
+
+    def last_seq(self, bot_id: bytes) -> int:
+        return self._c.functions.lastSeq(bot_id).call()
+
+    def last_record_hash(self, bot_id: bytes) -> bytes:
+        return bytes(self._c.functions.lastRecordHash(bot_id).call())
+
+    def register_bot(self, bot_id: bytes, kind: str, signer: str) -> str:
+        return self._send(
+            "registerBot", bot_id, BOT_KIND_ENUM[kind], Web3.to_checksum_address(signer)
+        )
+
+    def record_count(self, bot_id: bytes) -> int:
+        return self._c.functions.recordCount(bot_id).call()
+
+    def record_at(self, bot_id: bytes, idx: int) -> TrackRecordV2Entry:
+        (
+            seq,
+            period_start,
+            period_end,
+            pnl,
+            fills,
+            meta_hash,
+            evidence_uri_hash,
+            evidence_hash,
+            record_hash,
+        ) = self._c.functions.recordAt(bot_id, idx).call()
+        return TrackRecordV2Entry(
+            seq=seq,
+            period_start=period_start,
+            period_end=period_end,
+            pnl_micros=pnl,
+            fills=fills,
+            meta_hash=bytes(meta_hash),
+            evidence_uri_hash=bytes(evidence_uri_hash),
+            evidence_hash=bytes(evidence_hash),
+            record_hash=bytes(record_hash),
+        )
+
+    def publish(
+        self, bot_id: bytes, record: TrackRecordV2Publish, signature: bytes
+    ) -> str:
+        return self._send(
+            "publish",
+            bot_id,
+            (
+                record.seq,
+                record.period_start,
+                record.period_end,
+                record.pnl_micros,
+                record.fills,
+                record.meta_hash,
+                record.evidence_uri,
+                record.evidence_hash,
+                record.prev_record_hash,
+            ),
+            signature,
+        )
+
+
+@dataclass(frozen=True)
+class CovenantMandate:
+    operator: str
+    bot_id: bytes
+    budget_usdc: int
+    max_drawdown_bps: int
+    receipt_freshness_sec: int
+    expiry: int
+    perf_fee_bps: int
+    bond_contract: str
+    risk_kernel: str
+    track_record_v2: str
+
+
+@dataclass(frozen=True)
+class CovenantVaultSnapshot:
+    state: str
+    mandate: CovenantMandate
+    assets: int
+    idle: int
+    operator_outstanding: int
+    available_credit: int
+    total_shares: int
+    high_water_mark: int
+    operator_claimable: int
+
+
+STATE_NAMES = ["ACTIVE", "PAUSED"]
+VERDICT_NAMES = [
+    "ALLOW",
+    "PAUSE_DRAWDOWN",
+    "PAUSE_OVERSUBSCRIBED",
+    "PAUSE_STALE",
+    "PAUSE_EXPIRED",
+]
+
+
+def _state_name(value: int) -> str:
+    try:
+        return STATE_NAMES[value]
+    except IndexError as exc:
+        raise ValueError(f"unknown CovenantVault state: {value}") from exc
+
+
+def _verdict_name(value: int) -> str:
+    try:
+        return VERDICT_NAMES[value]
+    except IndexError as exc:
+        raise ValueError(f"unknown RiskKernel verdict: {value}") from exc
+
+
+def _mandate(values: tuple[Any, ...]) -> CovenantMandate:
+    return CovenantMandate(
+        operator=values[0],
+        bot_id=bytes(values[1]),
+        budget_usdc=values[2],
+        max_drawdown_bps=values[3],
+        receipt_freshness_sec=values[4],
+        expiry=values[5],
+        perf_fee_bps=values[6],
+        bond_contract=values[7],
+        risk_kernel=values[8],
+        track_record_v2=values[9],
+    )
+
+
+class CovenantVaultClient(_SubClient):
+    def mandate(self) -> CovenantMandate:
+        return _mandate(self._c.functions.mandate().call())
+
+    def state(self) -> str:
+        return _state_name(self._c.functions.state().call())
+
+    def snapshot(self) -> CovenantVaultSnapshot:
+        return CovenantVaultSnapshot(
+            state=self.state(),
+            mandate=self.mandate(),
+            assets=self._c.functions.assets().call(),
+            idle=self._c.functions.depositTotalIdle().call(),
+            operator_outstanding=self._c.functions.operatorOutstanding().call(),
+            available_credit=self._c.functions.availableCredit().call(),
+            total_shares=self._c.functions.totalShares().call(),
+            high_water_mark=self._c.functions.highWaterMark().call(),
+            operator_claimable=self._c.functions.operatorClaimable().call(),
+        )
+
+    def shares_of(self, user: str) -> int:
+        return self._c.functions.sharesOf(Web3.to_checksum_address(user)).call()
+
+    def deposit(self, amount: int) -> str:
+        return self._send("deposit", amount)
+
+    def withdraw(self, shares: int) -> str:
+        return self._send("withdraw", shares)
+
+    def pull_credit(self, amount: int) -> str:
+        return self._send("pullCredit", amount)
+
+    def return_capital(self, amount: int) -> str:
+        return self._send("returnCapital", amount)
+
+
+class RiskKernelClient(_SubClient):
+    def evaluate(self, vault: str) -> str:
+        return _verdict_name(
+            self._c.functions.evaluate(Web3.to_checksum_address(vault)).call()
+        )
+
+    def enforce(self, vault: str) -> str:
+        return self._send("enforce", Web3.to_checksum_address(vault))
+
+
+class SlashBondClient(_SubClient):
+    def bond_balance(self) -> int:
+        return self._c.functions.bondBalance().call()
+
+    def total_slashed(self) -> int:
+        return self._c.functions.totalSlashed().call()
+
+    def bond(self, amount: int) -> str:
+        return self._send("bond", amount)
+
+    def request_unbond(self, amount: int) -> str:
+        return self._send("requestUnbond", amount)
+
+
+class AgentPoolClient(_SubClient):
+    def assets(self) -> int:
+        return self._c.functions.assets().call()
+
+    def shares_of(self, user: str) -> int:
+        return self._c.functions.sharesOf(Web3.to_checksum_address(user)).call()
+
+    def deposit(self, amount: int) -> str:
+        return self._send("deposit", amount)
+
+    def withdraw(self, shares: int) -> str:
+        return self._send("withdraw", shares)
+
+
+@dataclass(frozen=True)
 class Attribution:
     recipients: list[str]
     bps: list[int]
@@ -285,3 +524,63 @@ class ForumClient:
         self.config = ConfigClient(w3, config_c, account)
         self.track_record = TrackRecordClient(w3, track_c, account)
         self.fee_distributor = FeeDistributorClient(w3, fee_c, account)
+        self.track_record_v2 = (
+            TrackRecordV2Client(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.track_record_v2),
+                    abi=TRACK_RECORD_V2_ABI,
+                ),
+                account,
+            )
+            if addresses.track_record_v2
+            else None
+        )
+        self.covenant_vault = (
+            CovenantVaultClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.covenant_vault),
+                    abi=COVENANT_VAULT_ABI,
+                ),
+                account,
+            )
+            if addresses.covenant_vault
+            else None
+        )
+        self.risk_kernel = (
+            RiskKernelClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.risk_kernel),
+                    abi=RISK_KERNEL_V2_ABI,
+                ),
+                account,
+            )
+            if addresses.risk_kernel
+            else None
+        )
+        self.slash_bond = (
+            SlashBondClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.slash_bond),
+                    abi=SLASH_BOND_ABI,
+                ),
+                account,
+            )
+            if addresses.slash_bond
+            else None
+        )
+        self.agent_pool = (
+            AgentPoolClient(
+                w3,
+                w3.eth.contract(
+                    address=Web3.to_checksum_address(addresses.agent_pool),
+                    abi=AGENT_POOL_ABI,
+                ),
+                account,
+            )
+            if addresses.agent_pool
+            else None
+        )

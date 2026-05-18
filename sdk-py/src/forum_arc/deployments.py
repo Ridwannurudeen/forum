@@ -6,4 +6,9 @@ ARC_TESTNET_DEPLOYMENT = ForumAddresses(
     config="0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26",
     track_record="0xaace70a50573cb077f65d601cd19103afc4aef9d",
     fee_distributor="0x0574257629e8221d560cf4aace0f3cd7226be2a0",
+    track_record_v2="0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66",
+    agent_pool="0x13855be80b6122187c0bcba007946f9fbaae3fae",
+    slash_bond="0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+    risk_kernel="0x0af356f280af1d8b7a43f0746c581614feec4055",
+    covenant_vault="0x80384963c0c93414ff16e018c6618a64bc94df6d",
 )

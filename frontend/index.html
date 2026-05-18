@@ -1,329 +1,667 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Forum — Covenant Accounts. Programmable USDC credit lines for AI trading agents.</title>
-  <meta name="description" content="Stripe Connect + Numerai for autonomous market agents. Mandate-bounded USDC credit lines, autonomous pause+slash, recomputable receipts. Live on Arc." />
-  <meta property="og:title" content="Forum — Covenant Accounts" />
-  <meta property="og:description" content="Programmable USDC credit lines for AI trading agents. Live on Arc, mandate-bounded, autonomously enforced." />
-  <link rel="preconnect" href="https://rsms.me/" />
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
-          colors: {
-            forum: {
-              bg:      '#0a0b10',
-              panel:   '#13151f',
-              panel2:  '#191b27',
-              ink:     '#e6e8ed',
-              dim:     '#9ba3b3',
-              dim2:    '#6b7280',
-              accent:  '#a06bff',
-              accent2: '#5dd6c3',
-              line:    'rgba(255,255,255,0.08)',
-              line2:   'rgba(255,255,255,0.05)',
-              ok:      '#4ade80',
-              warn:    '#f59e0b',
-              err:     '#f87171',
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Forum — Covenant Accounts. Programmable USDC credit lines for AI trading
+      agents.
+    </title>
+    <meta
+      name="description"
+      content="Stripe Connect + Numerai for autonomous market agents. Mandate-bounded USDC credit lines, autonomous pause+slash, recomputable receipts. Live on Arc."
+    />
+    <meta property="og:title" content="Forum — Covenant Accounts" />
+    <meta
+      property="og:description"
+      content="Programmable USDC credit lines for AI trading agents. Live on Arc, mandate-bounded, autonomously enforced."
+    />
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+            colors: {
+              forum: {
+                bg: "#0a0b10",
+                panel: "#13151f",
+                panel2: "#191b27",
+                ink: "#e6e8ed",
+                dim: "#9ba3b3",
+                dim2: "#6b7280",
+                accent: "#a06bff",
+                accent2: "#5dd6c3",
+                line: "rgba(255,255,255,0.08)",
+                line2: "rgba(255,255,255,0.05)",
+                ok: "#4ade80",
+                warn: "#f59e0b",
+                err: "#f87171",
+              },
             },
           },
         },
-      },
-    };
-  </script>
-  <style>
-    :root { color-scheme: dark; }
-    html, body {
-      background: #0a0b10;
-      color: #e6e8ed;
-      min-height: 100%;
-      font-feature-settings: 'cv11', 'ss03', 'ss01';
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-    }
-    .grad-text {
-      background: linear-gradient(135deg, #c4a4ff 0%, #a06bff 35%, #5dd6c3 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-    .grad-bg-hero {
-      background:
-        radial-gradient(70% 50% at 50% 0%, rgba(160, 107, 255, 0.18) 0%, transparent 60%),
-        radial-gradient(50% 35% at 90% 20%, rgba(93, 214, 195, 0.10) 0%, transparent 60%),
-        linear-gradient(180deg, #0a0b10 0%, #0a0b10 100%);
-    }
-    .grain {
-      background-image:
-        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
-      background-size: 22px 22px;
-    }
-    .mono {
-      font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-      font-feature-settings: 'tnum';
-    }
-    .tnum { font-variant-numeric: tabular-nums; }
-    .ring-soft {
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.06) inset,
-        0 1px 0 0 rgba(255,255,255,0.04) inset;
-    }
-    .ring-accent {
-      box-shadow:
-        0 0 0 1px rgba(160,107,255,0.25) inset,
-        0 0 32px -8px rgba(160,107,255,0.3);
-    }
-    a { transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease; }
-    .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-    .scroll-shadow {
-      mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
-    }
-    .nav-blur { backdrop-filter: blur(12px) saturate(180%); background: rgba(10, 11, 16, 0.72); }
-    .sparkline { width: 120px; height: 28px; display: block; }
-    details > summary { list-style: none; cursor: pointer; }
-    details > summary::-webkit-details-marker { display: none; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 0.5rem;
-      padding: 0.625rem 1rem; border-radius: 0.625rem;
-      font-size: 0.875rem; font-weight: 500;
-      transition: transform 120ms ease, background-color 150ms ease, border-color 150ms ease;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #a06bff 0%, #8c4dff 100%);
-      color: white;
-      box-shadow: 0 8px 24px -8px rgba(160,107,255,0.4);
-    }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-ghost {
-      border: 1px solid rgba(255,255,255,0.12);
-      color: #e6e8ed;
-    }
-    .btn-ghost:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.2); }
-    .row-hover:hover { background: rgba(255,255,255,0.025); }
-    @keyframes count-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-    .count-in { animation: count-in 600ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-  </style>
-</head>
-<body class="grad-bg-hero">
-  <div class="grain min-h-screen">
-
-  <nav class="sticky top-0 z-30 nav-blur border-b border-forum-line">
-    <div class="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-2 group">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-forum-accent2 pulse"></span>
-        <span class="text-base font-medium tracking-tight">Forum</span>
-        <span class="hidden sm:inline text-xs text-forum-dim2 ml-1">on Arc</span>
-      </a>
-      <div class="flex items-center gap-4 sm:gap-6 text-sm">
-        <a href="#how" class="hidden md:inline text-forum-dim hover:text-forum-ink">How it works</a>
-        <a href="#proof" class="hidden md:inline text-forum-dim hover:text-forum-ink">Live proof</a>
-        <a href="#architecture" class="hidden md:inline text-forum-dim hover:text-forum-ink">Architecture</a>
-        <a href="#integrate" class="hidden md:inline text-forum-dim hover:text-forum-ink">Integrate</a>
-        <a href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener"
-           class="text-forum-dim hover:text-forum-ink" aria-label="GitHub">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"/></svg>
-        </a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="mx-auto max-w-7xl px-6">
-
-    <section class="pt-20 pb-16 sm:pt-28 sm:pb-24">
-      <div class="max-w-4xl">
-        <a href="#proof"
-           class="inline-flex items-center gap-2 rounded-full border border-forum-accent/30 bg-forum-accent/10 px-3 py-1 text-xs text-forum-accent hover:bg-forum-accent/15">
-          <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent pulse"></span>
-          Live on Arc · first autonomous on-chain slash settled 1.25 USDC in 162,960 gas
-          <span aria-hidden="true">→</span>
-        </a>
-        <h1 class="mt-6 text-5xl sm:text-7xl font-semibold tracking-tight leading-[1.02]">
-          <span class="grad-text">Covenant Accounts.</span><br/>
-          <span class="text-forum-ink">Programmable USDC credit lines</span><br/>
-          <span class="text-forum-dim">for AI trading agents.</span>
-        </h1>
-        <p class="mt-7 text-lg sm:text-xl text-forum-dim max-w-2xl leading-relaxed">
-          Stripe Connect plus Numerai for autonomous market agents. Mandate-bounded vaults, autonomous pause and slash, recomputable receipts. Operators never custody funds; depositors never trust a Sharpe screenshot.
-        </p>
-        <div class="mt-9 flex flex-wrap items-center gap-3">
-          <a href="#proof" class="btn btn-primary">
-            See the live demo
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      };
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        background: #0a0b10;
+        color: #e6e8ed;
+        min-height: 100%;
+        font-feature-settings: "cv11", "ss03", "ss01";
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      .grad-text {
+        background: linear-gradient(
+          135deg,
+          #c4a4ff 0%,
+          #a06bff 35%,
+          #5dd6c3 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .grad-bg-hero {
+        background:
+          radial-gradient(
+            70% 50% at 50% 0%,
+            rgba(160, 107, 255, 0.18) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            50% 35% at 90% 20%,
+            rgba(93, 214, 195, 0.1) 0%,
+            transparent 60%
+          ),
+          linear-gradient(180deg, #0a0b10 0%, #0a0b10 100%);
+      }
+      .grain {
+        background-image: radial-gradient(
+          rgba(255, 255, 255, 0.025) 1px,
+          transparent 1px
+        );
+        background-size: 22px 22px;
+      }
+      .mono {
+        font-family:
+          ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+        font-feature-settings: "tnum";
+      }
+      .tnum {
+        font-variant-numeric: tabular-nums;
+      }
+      .ring-soft {
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+          0 1px 0 0 rgba(255, 255, 255, 0.04) inset;
+      }
+      .ring-accent {
+        box-shadow:
+          0 0 0 1px rgba(160, 107, 255, 0.25) inset,
+          0 0 32px -8px rgba(160, 107, 255, 0.3);
+      }
+      a {
+        transition:
+          color 150ms ease,
+          border-color 150ms ease,
+          background-color 150ms ease;
+      }
+      .pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+      .scroll-shadow {
+        mask-image: linear-gradient(
+          to right,
+          transparent 0,
+          black 16px,
+          black calc(100% - 16px),
+          transparent 100%
+        );
+      }
+      .nav-blur {
+        backdrop-filter: blur(12px) saturate(180%);
+        background: rgba(10, 11, 16, 0.72);
+      }
+      .sparkline {
+        width: 120px;
+        height: 28px;
+        display: block;
+      }
+      details > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        border-radius: 0.625rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition:
+          transform 120ms ease,
+          background-color 150ms ease,
+          border-color 150ms ease;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #a06bff 0%, #8c4dff 100%);
+        color: white;
+        box-shadow: 0 8px 24px -8px rgba(160, 107, 255, 0.4);
+      }
+      .btn-primary:hover {
+        transform: translateY(-1px);
+      }
+      .btn-ghost {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #e6e8ed;
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .row-hover:hover {
+        background: rgba(255, 255, 255, 0.025);
+      }
+      @keyframes count-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .count-in {
+        animation: count-in 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+    </style>
+  </head>
+  <body class="grad-bg-hero">
+    <div class="grain min-h-screen">
+      <nav class="sticky top-0 z-30 nav-blur border-b border-forum-line">
+        <div
+          class="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between"
+        >
+          <a href="#" class="flex items-center gap-2 group">
+            <span
+              class="inline-block w-2.5 h-2.5 rounded-full bg-forum-accent2 pulse"
+            ></span>
+            <span class="text-base font-medium tracking-tight">Forum</span>
+            <span class="hidden sm:inline text-xs text-forum-dim2 ml-1"
+              >on Arc</span
+            >
           </a>
-          <a href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener" class="btn btn-ghost">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"/></svg>
-            github.com/Ridwannurudeen/forum
-          </a>
-          <a href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md" target="_blank" rel="noopener"
-             class="text-sm text-forum-dim hover:text-forum-ink ml-1">Read the deck →</a>
-        </div>
-
-        <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-forum-dim2">
-          <span class="flex items-center gap-2">
-            <span class="inline-block w-1 h-1 rounded-full bg-forum-dim2"></span> Built for
-            <a href="https://agora.thecanteenapp.com/" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink">Agora Agents Hackathon</a>
-          </span>
-          <span class="flex items-center gap-2">
-            <span class="inline-block w-1 h-1 rounded-full bg-forum-dim2"></span> Canteen × Circle × Arc · May 11–25 2026
-          </span>
-          <span class="flex items-center gap-2">
-            <span class="inline-block w-1 h-1 rounded-full bg-forum-dim2"></span> Chain
-            <span class="mono text-forum-dim">5042002</span>
-          </span>
-        </div>
-      </div>
-    </section>
-
-    <section class="pb-20">
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden">
-        <div class="bg-forum-panel p-6">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Contracts deployed</div>
-          <div class="mt-3 text-3xl font-medium tnum">9</div>
-          <div class="text-xs text-forum-dim2 mt-1">All immutable</div>
-        </div>
-        <div class="bg-forum-panel p-6">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Bots registered</div>
-          <div id="metric-bots" class="mt-3 text-3xl font-medium tnum text-forum-ink">—</div>
-          <div class="text-xs text-forum-dim2 mt-1">On TrackRecord</div>
-        </div>
-        <div class="bg-forum-panel p-6">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Receipts published</div>
-          <div id="metric-records" class="mt-3 text-3xl font-medium tnum text-forum-ink">—</div>
-          <div class="text-xs text-forum-dim2 mt-1">Recomputable</div>
-        </div>
-        <div class="bg-forum-panel p-6">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Latest publish</div>
-          <div id="metric-latest" class="mt-3 text-3xl font-medium tnum text-forum-ink">—</div>
-          <div class="text-xs text-forum-dim2 mt-1">Live keeper</div>
-        </div>
-        <div class="bg-forum-panel p-6 col-span-2 md:col-span-1">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Arc block</div>
-          <div id="metric-block" class="mt-3 text-3xl font-medium tnum text-forum-ink">—</div>
-          <div class="text-xs text-forum-dim2 mt-1">Sub-second BFT</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pb-24">
-      <div class="grid md:grid-cols-2 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden">
-        <div class="bg-forum-panel p-10">
-          <div class="text-[11px] uppercase tracking-widest text-forum-err/80">The gap</div>
-          <h3 class="mt-3 text-2xl font-medium">Capital can't trust an AI agent.</h3>
-          <p class="mt-4 text-forum-dim leading-relaxed">
-            Hand over a private key and the operator can run. Use a regulated managed account and
-            you're back to KYC, custody, multi-day onboarding — incompatible with bots that act in
-            milliseconds. Build your own audit pipeline and every team rebuilds the same mandate
-            enforcement, drawdown gates, slashing-on-breach plumbing.
-          </p>
-          <p class="mt-3 text-forum-dim leading-relaxed">
-            So capital sits out, and every "12% APY MM bot" pitch is unverifiable marketing.
-          </p>
-        </div>
-        <div class="bg-forum-panel p-10">
-          <div class="text-[11px] uppercase tracking-widest text-forum-accent">Forum's primitive</div>
-          <h3 class="mt-3 text-2xl font-medium">A mandate-bounded vault on Arc.</h3>
-          <p class="mt-4 text-forum-dim leading-relaxed">
-            One contract holds depositors' USDC. The operator gets <em>execution rights</em> bounded
-            by an on-chain mandate: max budget, max drawdown, receipt freshness, expiry, perf-fee
-            cut, slash bond. They never custody the funds.
-          </p>
-          <p class="mt-3 text-forum-dim leading-relaxed">
-            Anyone can call <code class="mono text-forum-accent2 text-sm">RiskKernelV2.enforce(vault)</code> — one tx flips the vault
-            to PAUSED <em>and</em> moves slash funds out of the bond. Same tx. Permissionless.
-            No operator click required.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section id="how" class="pb-24">
-      <div class="text-center max-w-2xl mx-auto mb-12">
-        <div class="text-[11px] uppercase tracking-widest text-forum-dim2">How it works</div>
-        <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight">Three contracts. One credit line.</h2>
-      </div>
-      <div class="grid md:grid-cols-3 gap-6">
-        <div class="rounded-2xl bg-forum-panel ring-soft p-8 relative">
-          <div class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-xs mono text-forum-accent">step 1</div>
-          <h3 class="mt-4 text-lg font-medium">Deposit USDC</h3>
-          <p class="mt-3 text-sm text-forum-dim leading-relaxed">
-            Anyone calls <code class="mono text-xs text-forum-ink">CovenantVault.deposit(amount)</code>. Funds sit idle until the operator pulls credit, bounded by mandate.
-          </p>
-          <div class="mt-5 mono text-xs text-forum-dim2">depositors → vault.deposit()</div>
-        </div>
-        <div class="rounded-2xl bg-forum-panel ring-soft p-8 relative">
-          <div class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-xs mono text-forum-accent">step 2</div>
-          <h3 class="mt-4 text-lg font-medium">Operator pulls bounded credit</h3>
-          <p class="mt-3 text-sm text-forum-dim leading-relaxed">
-            The bot calls <code class="mono text-xs text-forum-ink">pullCredit(N)</code>, capped at <code class="mono text-xs">budgetUsdc</code>. Trades on Polymarket V2 with the builder code. Returns capital + publishes a signed receipt each cycle.
-          </p>
-          <div class="mt-5 mono text-xs text-forum-dim2">operator → pullCredit() → trade → return</div>
-        </div>
-        <div class="rounded-2xl bg-forum-panel ring-soft p-8 relative">
-          <div class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-xs mono text-forum-accent">step 3</div>
-          <h3 class="mt-4 text-lg font-medium">Anyone enforces the mandate</h3>
-          <p class="mt-3 text-sm text-forum-dim leading-relaxed">
-            Drawdown over limit? Receipt stale? Budget breach? Any third party calls <code class="mono text-xs">RiskKernelV2.enforce(vault)</code> → vault flips to PAUSED and the bond is slashed in <em>one</em> tx.
-          </p>
-          <div class="mt-5 mono text-xs text-forum-dim2">anyone → kernel.enforce() → pause + slash</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="proof" class="pb-24">
-      <div class="text-center max-w-2xl mx-auto mb-12">
-        <div class="text-[11px] uppercase tracking-widest text-forum-accent2">Live proof on Arc · not a screenshot</div>
-        <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight">First autonomous slash, settled on-chain.</h2>
-        <p class="mt-4 text-forum-dim">
-          AgoraMind keeper missed its 30-minute receipt window. Anyone could then call
-          <code class="mono text-sm text-forum-accent2">RiskKernelV2.enforce(vault)</code>. Here's the tx that did:
-        </p>
-      </div>
-
-      <div class="rounded-2xl ring-accent bg-forum-panel p-8 sm:p-10">
-        <div class="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">tx</div>
-            <a id="demo-tx-link" target="_blank" rel="noopener"
-               class="mono text-base sm:text-lg text-forum-ink hover:text-forum-accent block mt-1 break-all">
-              loading…
+          <div class="flex items-center gap-4 sm:gap-6 text-sm">
+            <a
+              href="#how"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >How it works</a
+            >
+            <a
+              href="#proof"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Live proof</a
+            >
+            <a
+              href="#architecture"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Architecture</a
+            >
+            <a
+              href="#integrate"
+              class="hidden md:inline text-forum-dim hover:text-forum-ink"
+              >Integrate</a
+            >
+            <a
+              href="https://github.com/Ridwannurudeen/forum"
+              target="_blank"
+              rel="noopener"
+              class="text-forum-dim hover:text-forum-ink"
+              aria-label="GitHub"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"
+                />
+              </svg>
             </a>
           </div>
-          <div class="text-right">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Result</div>
-            <div class="mt-1 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forum-err/15 text-forum-err text-sm">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-err pulse"></span>
-              ACTIVE → PAUSED + slashed
+        </div>
+      </nav>
+
+      <main class="mx-auto max-w-7xl px-6">
+        <section class="pt-20 pb-16 sm:pt-28 sm:pb-24">
+          <div class="max-w-4xl">
+            <a
+              href="#proof"
+              class="inline-flex items-center gap-2 rounded-full border border-forum-accent/30 bg-forum-accent/10 px-3 py-1 text-xs text-forum-accent hover:bg-forum-accent/15"
+            >
+              <span
+                class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent pulse"
+              ></span>
+              Live on Arc · first autonomous on-chain slash settled 1.25 USDC in
+              162,960 gas
+              <span aria-hidden="true">→</span>
+            </a>
+            <h1
+              class="mt-6 text-5xl sm:text-7xl font-semibold tracking-tight leading-[1.02]"
+            >
+              <span class="grad-text">Covenant Accounts.</span><br />
+              <span class="text-forum-ink">Programmable USDC credit lines</span
+              ><br />
+              <span class="text-forum-dim">for AI trading agents.</span>
+            </h1>
+            <p
+              class="mt-7 text-lg sm:text-xl text-forum-dim max-w-2xl leading-relaxed"
+            >
+              Stripe Connect plus Numerai for autonomous market agents.
+              Mandate-bounded vaults, autonomous pause and slash, receipt-backed
+              performance. Operators get bounded credit, not an unrestricted
+              wallet; depositors never trust a Sharpe screenshot.
+            </p>
+            <div class="mt-9 flex flex-wrap items-center gap-3">
+              <a href="#proof" class="btn btn-primary">
+                See the live demo
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </a>
+              <a
+                href="https://github.com/Ridwannurudeen/forum"
+                target="_blank"
+                rel="noopener"
+                class="btn btn-ghost"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"
+                  />
+                </svg>
+                github.com/Ridwannurudeen/forum
+              </a>
+              <a
+                href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md"
+                target="_blank"
+                rel="noopener"
+                class="text-sm text-forum-dim hover:text-forum-ink ml-1"
+                >Read the deck →</a
+              >
+            </div>
+
+            <div
+              class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-forum-dim2"
+            >
+              <span class="flex items-center gap-2">
+                <span
+                  class="inline-block w-1 h-1 rounded-full bg-forum-dim2"
+                ></span>
+                Built for
+                <a
+                  href="https://agora.thecanteenapp.com/"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-forum-dim hover:text-forum-ink"
+                  >Agora Agents Hackathon</a
+                >
+              </span>
+              <span class="flex items-center gap-2">
+                <span
+                  class="inline-block w-1 h-1 rounded-full bg-forum-dim2"
+                ></span>
+                Canteen × Circle × Arc · May 11–25 2026
+              </span>
+              <span class="flex items-center gap-2">
+                <span
+                  class="inline-block w-1 h-1 rounded-full bg-forum-dim2"
+                ></span>
+                Chain
+                <span class="mono text-forum-dim">5042002</span>
+              </span>
             </div>
           </div>
-        </div>
-        <div class="mt-8 grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-xl overflow-hidden ring-soft">
-          <div class="bg-forum-panel2 p-5">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Verdict</div>
-            <div class="mt-1 text-base mono text-forum-accent">PAUSE_STALE</div>
+        </section>
+
+        <section class="pb-20">
+          <div
+            class="grid grid-cols-2 md:grid-cols-5 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
+          >
+            <div class="bg-forum-panel p-6">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Product modules
+              </div>
+              <div class="mt-3 text-3xl font-medium tnum">9</div>
+              <div class="text-xs text-forum-dim2 mt-1">All immutable</div>
+            </div>
+            <div class="bg-forum-panel p-6">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Bots registered
+              </div>
+              <div
+                id="metric-bots"
+                class="mt-3 text-3xl font-medium tnum text-forum-ink"
+              >
+                —
+              </div>
+              <div class="text-xs text-forum-dim2 mt-1">On TrackRecord</div>
+            </div>
+            <div class="bg-forum-panel p-6">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Receipts published
+              </div>
+              <div
+                id="metric-records"
+                class="mt-3 text-3xl font-medium tnum text-forum-ink"
+              >
+                —
+              </div>
+              <div class="text-xs text-forum-dim2 mt-1">Recomputable</div>
+            </div>
+            <div class="bg-forum-panel p-6">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Latest publish
+              </div>
+              <div
+                id="metric-latest"
+                class="mt-3 text-3xl font-medium tnum text-forum-ink"
+              >
+                —
+              </div>
+              <div class="text-xs text-forum-dim2 mt-1">Live keeper</div>
+            </div>
+            <div class="bg-forum-panel p-6 col-span-2 md:col-span-1">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Arc block
+              </div>
+              <div
+                id="metric-block"
+                class="mt-3 text-3xl font-medium tnum text-forum-ink"
+              >
+                —
+              </div>
+              <div class="text-xs text-forum-dim2 mt-1">Sub-second BFT</div>
+            </div>
           </div>
-          <div class="bg-forum-panel2 p-5">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Gas used</div>
-            <div class="mt-1 text-base mono text-forum-ink tnum">162,960</div>
+        </section>
+
+        <section class="pb-24">
+          <div
+            class="grid md:grid-cols-2 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
+          >
+            <div class="bg-forum-panel p-10">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-err/80"
+              >
+                The gap
+              </div>
+              <h3 class="mt-3 text-2xl font-medium">
+                Capital can't trust an AI agent.
+              </h3>
+              <p class="mt-4 text-forum-dim leading-relaxed">
+                Hand over a private key and the operator can run. Use a
+                regulated managed account and you're back to KYC, custody,
+                multi-day onboarding — incompatible with bots that act in
+                milliseconds. Build your own audit pipeline and every team
+                rebuilds the same mandate enforcement, drawdown gates,
+                slashing-on-breach plumbing.
+              </p>
+              <p class="mt-3 text-forum-dim leading-relaxed">
+                So capital sits out, and every "12% APY MM bot" pitch is
+                unverifiable marketing.
+              </p>
+            </div>
+            <div class="bg-forum-panel p-10">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-accent"
+              >
+                Forum's primitive
+              </div>
+              <h3 class="mt-3 text-2xl font-medium">
+                A mandate-bounded vault on Arc.
+              </h3>
+              <p class="mt-4 text-forum-dim leading-relaxed">
+                One contract holds depositors' USDC. The operator gets
+                <em>execution rights</em> bounded by an on-chain mandate: max
+                budget, max drawdown, receipt freshness, expiry, perf-fee cut,
+                slash bond. The operator receives only bounded credit while the
+                mandate is active.
+              </p>
+              <p class="mt-3 text-forum-dim leading-relaxed">
+                Anyone can call
+                <code class="mono text-forum-accent2 text-sm"
+                  >RiskKernelV2.enforce(vault)</code
+                >
+                — one tx flips the vault to PAUSED <em>and</em> moves slash
+                funds out of the bond. Same tx. Permissionless. No operator
+                click required.
+              </p>
+            </div>
           </div>
-          <div class="bg-forum-panel2 p-5">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Bond slashed</div>
-            <div class="mt-1 text-base mono text-forum-ink">1.25 USDC</div>
+        </section>
+
+        <section id="how" class="pb-24">
+          <div class="text-center max-w-2xl mx-auto mb-12">
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">
+              How it works
+            </div>
+            <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight">
+              Three contracts. One credit line.
+            </h2>
           </div>
-          <div class="bg-forum-panel2 p-5">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Trigger</div>
-            <div class="mt-1 text-base text-forum-ink">organic · no choreography</div>
+          <div class="grid md:grid-cols-3 gap-6">
+            <div class="rounded-2xl bg-forum-panel ring-soft p-8 relative">
+              <div
+                class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-xs mono text-forum-accent"
+              >
+                step 1
+              </div>
+              <h3 class="mt-4 text-lg font-medium">Deposit USDC</h3>
+              <p class="mt-3 text-sm text-forum-dim leading-relaxed">
+                Anyone calls
+                <code class="mono text-xs text-forum-ink"
+                  >CovenantVault.deposit(amount)</code
+                >. Funds sit idle until the operator pulls credit, bounded by
+                mandate.
+              </p>
+              <div class="mt-5 mono text-xs text-forum-dim2">
+                depositors → vault.deposit()
+              </div>
+            </div>
+            <div class="rounded-2xl bg-forum-panel ring-soft p-8 relative">
+              <div
+                class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-xs mono text-forum-accent"
+              >
+                step 2
+              </div>
+              <h3 class="mt-4 text-lg font-medium">
+                Operator pulls bounded credit
+              </h3>
+              <p class="mt-3 text-sm text-forum-dim leading-relaxed">
+                The bot calls
+                <code class="mono text-xs text-forum-ink">pullCredit(N)</code>,
+                capped at <code class="mono text-xs">budgetUsdc</code>. Trades
+                on Polymarket V2 with the builder code. Returns capital +
+                publishes a signed receipt each cycle.
+              </p>
+              <div class="mt-5 mono text-xs text-forum-dim2">
+                operator → pullCredit() → trade → return
+              </div>
+            </div>
+            <div class="rounded-2xl bg-forum-panel ring-soft p-8 relative">
+              <div
+                class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-xs mono text-forum-accent"
+              >
+                step 3
+              </div>
+              <h3 class="mt-4 text-lg font-medium">
+                Anyone enforces the mandate
+              </h3>
+              <p class="mt-3 text-sm text-forum-dim leading-relaxed">
+                Drawdown over limit? Receipt stale? Budget breach? Any third
+                party calls
+                <code class="mono text-xs">RiskKernelV2.enforce(vault)</code> →
+                vault flips to PAUSED and the bond is slashed in
+                <em>one</em> tx.
+              </p>
+              <div class="mt-5 mono text-xs text-forum-dim2">
+                anyone → kernel.enforce() → pause + slash
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="mt-8 grid lg:grid-cols-2 gap-6">
-          <div>
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Try it yourself</div>
-            <pre class="mono mt-3 rounded-xl border border-forum-line bg-black/40 p-5 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2"># 1. clone</span>
+        </section>
+
+        <section id="proof" class="pb-24">
+          <div class="text-center max-w-2xl mx-auto mb-12">
+            <div
+              class="text-[11px] uppercase tracking-widest text-forum-accent2"
+            >
+              Live proof on Arc · not a screenshot
+            </div>
+            <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight">
+              First autonomous slash, settled on-chain.
+            </h2>
+            <p class="mt-4 text-forum-dim">
+              AgoraMind keeper missed its 30-minute receipt window. Anyone could
+              then call
+              <code class="mono text-sm text-forum-accent2"
+                >RiskKernelV2.enforce(vault)</code
+              >. Here's the tx that did:
+            </p>
+          </div>
+
+          <div class="rounded-2xl ring-accent bg-forum-panel p-8 sm:p-10">
+            <div class="flex items-start justify-between flex-wrap gap-4">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  tx
+                </div>
+                <a
+                  id="demo-tx-link"
+                  target="_blank"
+                  rel="noopener"
+                  class="mono text-base sm:text-lg text-forum-ink hover:text-forum-accent block mt-1 break-all"
+                >
+                  loading…
+                </a>
+              </div>
+              <div class="text-right">
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  Result
+                </div>
+                <div
+                  class="mt-1 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forum-err/15 text-forum-err text-sm"
+                >
+                  <span
+                    class="inline-block w-1.5 h-1.5 rounded-full bg-forum-err pulse"
+                  ></span>
+                  ACTIVE → PAUSED + slashed
+                </div>
+              </div>
+            </div>
+            <div
+              class="mt-8 grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-xl overflow-hidden ring-soft"
+            >
+              <div class="bg-forum-panel2 p-5">
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  Verdict
+                </div>
+                <div class="mt-1 text-base mono text-forum-accent">
+                  PAUSE_STALE
+                </div>
+              </div>
+              <div class="bg-forum-panel2 p-5">
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  Gas used
+                </div>
+                <div class="mt-1 text-base mono text-forum-ink tnum">
+                  162,960
+                </div>
+              </div>
+              <div class="bg-forum-panel2 p-5">
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  Bond slashed
+                </div>
+                <div class="mt-1 text-base mono text-forum-ink">1.25 USDC</div>
+              </div>
+              <div class="bg-forum-panel2 p-5">
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  Trigger
+                </div>
+                <div class="mt-1 text-base text-forum-ink">
+                  organic · no choreography
+                </div>
+              </div>
+            </div>
+            <div class="mt-8 grid lg:grid-cols-2 gap-6">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  Try it yourself
+                </div>
+                <pre
+                  class="mono mt-3 rounded-xl border border-forum-line bg-black/40 p-5 text-xs leading-relaxed overflow-x-auto"
+                ><span class="text-forum-dim2"># 1. clone</span>
 git clone github.com/Ridwannurudeen/forum
 cd forum
 
@@ -332,162 +670,359 @@ node keeper/scripts/seed-tvl-and-bond.mjs
 
 <span class="text-forum-dim2"># 3. trigger violation (when in stale window)</span>
 node keeper/scripts/demo-violation.mjs</pre>
+              </div>
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  What this proves
+                </div>
+                <ul class="mt-3 space-y-3 text-sm text-forum-dim">
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent">✓</span> Mandate breach
+                    detection is permissionless — any third party can audit +
+                    enforce.
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent">✓</span> Pause + slash
+                    happen <em>atomically</em>. No operator window to front-run
+                    withdrawals.
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent">✓</span> Slashed funds flow
+                    to the bond's recipient (configurable — depositors,
+                    treasury, charity).
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent">✓</span> Receipt hashes are
+                    recomputable and checked against the on-chain evidence hash.
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <div>
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">What this proves</div>
-            <ul class="mt-3 space-y-3 text-sm text-forum-dim">
-              <li class="flex gap-3"><span class="text-forum-accent">✓</span> Mandate breach detection is permissionless — any third party can audit + enforce.</li>
-              <li class="flex gap-3"><span class="text-forum-accent">✓</span> Pause + slash happen <em>atomically</em>. No operator window to front-run withdrawals.</li>
-              <li class="flex gap-3"><span class="text-forum-accent">✓</span> Slashed funds flow to the bond's recipient (configurable — depositors, treasury, charity).</li>
-              <li class="flex gap-3"><span class="text-forum-accent">✓</span> All claims are recomputable — same tx, same outcome, no oracle.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <section class="pb-24">
-      <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
-        <div>
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Live mandate · CovenantVaultV1.2</div>
-          <h2 class="mt-1 text-2xl font-medium tracking-tight">AgoraMind credit line, on chain right now.</h2>
-        </div>
-        <span class="text-xs text-forum-dim">
-          <span id="covenant-state-dot" class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
-          <span id="covenant-state-label" class="mono">…</span>
-        </span>
-      </div>
-      <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden">
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Budget</div>
-          <div class="mt-2 text-lg mono text-forum-ink">200 USDC</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Max drawdown</div>
-          <div class="mt-2 text-lg mono text-forum-ink">5.00%</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Receipt freshness</div>
-          <div class="mt-2 text-lg mono text-forum-ink">30 min</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Perf fee</div>
-          <div class="mt-2 text-lg mono text-forum-ink">20% &gt; HWM</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">TVL</div>
-          <div id="covenant-tvl" class="mt-2 text-lg mono text-forum-ink">—</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Idle</div>
-          <div id="covenant-idle" class="mt-2 text-lg mono text-forum-ink">—</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Operator outstanding</div>
-          <div id="covenant-outstanding" class="mt-2 text-lg mono text-forum-ink">—</div>
-        </div>
-        <div class="bg-forum-panel p-5">
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">SlashBond balance</div>
-          <div id="bond-balance" class="mt-2 text-lg mono text-forum-ink">—</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="architecture" class="pb-24">
-      <div class="mb-10">
-        <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Architecture · all bytecode verifiable on testnet.arcscan.app</div>
-        <h2 class="mt-1 text-3xl font-medium tracking-tight">Nine immutable contracts.</h2>
-      </div>
-      <div id="contracts-grouped" class="space-y-8"></div>
-    </section>
-
-    <section class="pb-24">
-      <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
-        <div>
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2">AgentScore · reputation graph</div>
-          <h2 class="mt-1 text-2xl font-medium tracking-tight">Every signed receipt deepens the moat.</h2>
-        </div>
-        <span class="text-xs text-forum-dim">
-          <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
-          live · refreshes 30s
-        </span>
-      </div>
-      <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
-        <div class="overflow-x-auto scroll-shadow">
-          <table class="w-full text-sm">
-            <thead class="border-b border-forum-line text-left text-[11px] uppercase tracking-widest text-forum-dim2">
-              <tr>
-                <th class="px-5 py-3 font-normal">Bot ID</th>
-                <th class="px-5 py-3 font-normal">Kind</th>
-                <th class="px-5 py-3 font-normal">Signer</th>
-                <th class="px-5 py-3 font-normal text-right">Records</th>
-                <th class="px-5 py-3 font-normal text-right">Last PnL (µUSDC)</th>
-                <th class="px-5 py-3 font-normal">Trend</th>
-                <th class="px-5 py-3 font-normal">Last publish</th>
-              </tr>
-            </thead>
-            <tbody id="bots-body" class="mono text-xs">
-              <tr><td class="px-5 py-6 text-forum-dim" colspan="7">Loading…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section class="pb-24">
-      <div class="rounded-2xl ring-soft bg-forum-panel p-10">
-        <div class="flex flex-wrap items-baseline justify-between gap-4">
-          <div>
-            <div class="text-[11px] uppercase tracking-widest text-forum-accent2">Recomputable receipts</div>
-            <h2 class="mt-1 text-2xl font-medium tracking-tight">Anyone can falsify a claim in 60 seconds.</h2>
+        <section class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Live mandate · CovenantVaultV1.2
+              </div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">
+                AgoraMind credit line, on chain right now.
+              </h2>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span
+                id="covenant-state-dot"
+                class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"
+              ></span>
+              <span id="covenant-state-label" class="mono">…</span>
+            </span>
           </div>
-          <a href="https://forum.gudman.xyz/receipts/201c8909dca1/" target="_blank" rel="noopener"
-             class="text-sm text-forum-accent2 hover:underline">Browse live receipts →</a>
-        </div>
-        <div class="mt-6 grid lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 space-y-4 text-forum-dim leading-relaxed">
-            <p>
-              Every <code class="mono text-forum-accent2">TrackRecordV2</code> record commits to an
-              <code class="mono text-forum-accent2">evidenceUri</code> + <code class="mono text-forum-accent2">evidenceHash</code>.
-              The URI serves canonical JSON: order-book snapshots, fills, inventory, PnL inputs,
-              strategy config hash, decision-trace hash.
-            </p>
-            <p>
-              Download the JSON, <code class="mono text-forum-ink">keccak256</code> it, compare to the on-chain hash.
-              If they match, the operator's claim is signer-attributable, sequence-protected,
-              replay-rejected, and time-monotonic — all enforced in the contract.
-            </p>
-            <p>
-              Reference verifier: <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/src/receipt.ts" target="_blank" rel="noopener">keeper/src/receipt.ts</a>
-              · 8 vitest tests, all green on CI.
-            </p>
+          <div
+            class="grid sm:grid-cols-2 md:grid-cols-4 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
+          >
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Budget
+              </div>
+              <div class="mt-2 text-lg mono text-forum-ink">200 USDC</div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Max drawdown
+              </div>
+              <div class="mt-2 text-lg mono text-forum-ink">5.00%</div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Receipt freshness
+              </div>
+              <div class="mt-2 text-lg mono text-forum-ink">30 min</div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Perf fee
+              </div>
+              <div class="mt-2 text-lg mono text-forum-ink">20% &gt; HWM</div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                TVL
+              </div>
+              <div id="covenant-tvl" class="mt-2 text-lg mono text-forum-ink">
+                —
+              </div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Idle
+              </div>
+              <div id="covenant-idle" class="mt-2 text-lg mono text-forum-ink">
+                —
+              </div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                Operator outstanding
+              </div>
+              <div
+                id="covenant-outstanding"
+                class="mt-2 text-lg mono text-forum-ink"
+              >
+                —
+              </div>
+            </div>
+            <div class="bg-forum-panel p-5">
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                SlashBond balance
+              </div>
+              <div id="bond-balance" class="mt-2 text-lg mono text-forum-ink">
+                —
+              </div>
+            </div>
           </div>
-          <div class="rounded-xl border border-forum-line bg-forum-panel2 p-6">
-            <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Contract guarantees</div>
-            <ul class="space-y-2.5 text-sm">
-              <li class="flex gap-3"><span class="text-forum-accent2">▸</span> <span class="text-forum-ink">Strict sequence</span> <span class="text-forum-dim">— seq = lastSeq + 1</span></li>
-              <li class="flex gap-3"><span class="text-forum-accent2">▸</span> <span class="text-forum-ink">Monotonic time</span> <span class="text-forum-dim">— periodEnd ≥ periodStart &gt; lastPeriodEnd</span></li>
-              <li class="flex gap-3"><span class="text-forum-accent2">▸</span> <span class="text-forum-ink">Hash chain</span> <span class="text-forum-dim">— prevRecordHash matches stored</span></li>
-              <li class="flex gap-3"><span class="text-forum-accent2">▸</span> <span class="text-forum-ink">Replay rejection</span> <span class="text-forum-dim">— digest cannot be re-used</span></li>
-              <li class="flex gap-3"><span class="text-forum-accent2">▸</span> <span class="text-forum-ink">EIP-712 signed</span> <span class="text-forum-dim">— signer ∈ botSigner</span></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <section id="integrate" class="pb-24">
-      <div class="mb-10">
-        <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Integrate</div>
-        <h2 class="mt-1 text-3xl font-medium tracking-tight">Fork the SDK. Ship in 5 minutes.</h2>
-      </div>
-      <div class="grid md:grid-cols-2 gap-6">
-        <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
-          <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between">
-            <span>TypeScript · forum-arc-sdk</span>
-            <span class="text-forum-dim2">npm</span>
+        <section id="architecture" class="pb-24">
+          <div class="mb-10">
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">
+              Architecture · all bytecode verifiable on testnet.arcscan.app
+            </div>
+            <h2 class="mt-1 text-3xl font-medium tracking-tight">
+              Live Arc contract set.
+            </h2>
           </div>
-          <pre class="mono p-5 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2">// install: npm i forum-arc-sdk</span>
+          <div id="contracts-grouped" class="space-y-8"></div>
+        </section>
+
+        <section class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div
+                class="text-[11px] uppercase tracking-widest text-forum-dim2"
+              >
+                AgentScore · reputation graph
+              </div>
+              <h2 class="mt-1 text-2xl font-medium tracking-tight">
+                Every signed receipt deepens the moat.
+              </h2>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span
+                class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"
+              ></span>
+              live · refreshes 30s
+            </span>
+          </div>
+          <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+            <div class="overflow-x-auto scroll-shadow">
+              <table class="w-full text-sm">
+                <thead
+                  class="border-b border-forum-line text-left text-[11px] uppercase tracking-widest text-forum-dim2"
+                >
+                  <tr>
+                    <th class="px-5 py-3 font-normal">Bot ID</th>
+                    <th class="px-5 py-3 font-normal">Kind</th>
+                    <th class="px-5 py-3 font-normal">Signer</th>
+                    <th class="px-5 py-3 font-normal text-right">Records</th>
+                    <th class="px-5 py-3 font-normal text-right">
+                      Last PnL (µUSDC)
+                    </th>
+                    <th class="px-5 py-3 font-normal">Trend</th>
+                    <th class="px-5 py-3 font-normal">Last publish</th>
+                  </tr>
+                </thead>
+                <tbody id="bots-body" class="mono text-xs">
+                  <tr>
+                    <td class="px-5 py-6 text-forum-dim" colspan="7">
+                      Loading…
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pb-24">
+          <div class="rounded-2xl ring-soft bg-forum-panel p-10">
+            <div class="flex flex-wrap items-baseline justify-between gap-4">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-accent2"
+                >
+                  Recomputable receipts
+                </div>
+                <h2 class="mt-1 text-2xl font-medium tracking-tight">
+                  Anyone can verify the receipt hash in 60 seconds.
+                </h2>
+              </div>
+              <a
+                id="receipt-uri-link"
+                href="https://forum.gudman.xyz/receipts/201c8909dca1/"
+                target="_blank"
+                rel="noopener"
+                class="text-sm text-forum-accent2 hover:underline"
+                >Browse live receipts →</a
+              >
+            </div>
+            <div class="mt-6 grid lg:grid-cols-4 gap-6">
+              <div
+                class="lg:col-span-2 space-y-4 text-forum-dim leading-relaxed"
+              >
+                <p>
+                  Every
+                  <code class="mono text-forum-accent2">TrackRecordV2</code>
+                  record commits to an
+                  <code class="mono text-forum-accent2">evidenceUri</code> +
+                  <code class="mono text-forum-accent2">evidenceHash</code>. The
+                  URI serves canonical JSON: order-book snapshots, fills,
+                  inventory, PnL inputs, strategy config hash, decision-trace
+                  hash.
+                </p>
+                <p>
+                  Download the JSON,
+                  <code class="mono text-forum-ink">keccak256</code> it, compare
+                  to the on-chain hash. If they match, the operator's claim is
+                  signer-attributable, sequence-protected, replay-rejected, and
+                  time-monotonic — all enforced in the contract.
+                </p>
+                <p>
+                  Reference verifier:
+                  <a
+                    class="text-forum-accent"
+                    href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/src/receipt.ts"
+                    target="_blank"
+                    rel="noopener"
+                    >keeper/src/receipt.ts</a
+                  >
+                  and
+                  <code class="mono text-forum-ink"
+                    >keeper/scripts/verify-receipt.mjs</code
+                  >.
+                </p>
+              </div>
+              <div
+                class="rounded-xl border border-forum-line bg-forum-panel2 p-6"
+              >
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3"
+                >
+                  Live receipt check
+                </div>
+                <div id="receipt-verify-status" class="text-sm text-forum-dim">
+                  Checking latest AgoraMind receipt...
+                </div>
+                <div
+                  class="mt-3 space-y-2 mono text-[11px] text-forum-dim2 break-all"
+                >
+                  <div>
+                    seq:
+                    <span id="receipt-verify-seq" class="text-forum-ink"
+                      >-</span
+                    >
+                  </div>
+                  <div>
+                    computed:
+                    <span id="receipt-verify-computed" class="text-forum-ink"
+                      >-</span
+                    >
+                  </div>
+                  <div>
+                    on-chain:
+                    <span id="receipt-verify-chain" class="text-forum-ink"
+                      >-</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div
+                class="rounded-xl border border-forum-line bg-forum-panel2 p-6"
+              >
+                <div
+                  class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3"
+                >
+                  Contract guarantees
+                </div>
+                <ul class="space-y-2.5 text-sm">
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent2">▸</span>
+                    <span class="text-forum-ink">Strict sequence</span>
+                    <span class="text-forum-dim">— seq = lastSeq + 1</span>
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent2">▸</span>
+                    <span class="text-forum-ink">Monotonic time</span>
+                    <span class="text-forum-dim"
+                      >— periodEnd ≥ periodStart &gt; lastPeriodEnd</span
+                    >
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent2">▸</span>
+                    <span class="text-forum-ink">Hash chain</span>
+                    <span class="text-forum-dim"
+                      >— prevRecordHash matches stored</span
+                    >
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent2">▸</span>
+                    <span class="text-forum-ink">Replay rejection</span>
+                    <span class="text-forum-dim"
+                      >— digest cannot be re-used</span
+                    >
+                  </li>
+                  <li class="flex gap-3">
+                    <span class="text-forum-accent2">▸</span>
+                    <span class="text-forum-ink">EIP-712 signed</span>
+                    <span class="text-forum-dim">— signer ∈ botSigner</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="integrate" class="pb-24">
+          <div class="mb-10">
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2">
+              Integrate
+            </div>
+            <h2 class="mt-1 text-3xl font-medium tracking-tight">
+              Fork the SDK. Ship in 5 minutes.
+            </h2>
+          </div>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+              <div
+                class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between"
+              >
+                <span>TypeScript · forum-arc-sdk</span>
+                <span class="text-forum-dim2">npm</span>
+              </div>
+              <pre
+                class="mono p-5 text-xs leading-relaxed overflow-x-auto"
+              ><span class="text-forum-dim2">// install: npm i forum-arc-sdk</span>
 <span class="text-forum-accent2">import</span> { ForumClient } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">'forum-arc-sdk'</span>;
 <span class="text-forum-accent2">import</span> { ARC_TESTNET_DEPLOYMENT } <span class="text-forum-accent2">from</span>
   <span class="text-forum-ok">'forum-arc-sdk/deployments'</span>;
@@ -497,201 +1032,444 @@ node keeper/scripts/demo-violation.mjs</pre>
   addresses: ARC_TESTNET_DEPLOYMENT,
 });
 
-<span class="text-forum-accent2">await</span> forum.registry.claim(<span class="text-forum-ok">'0xabc…'</span>);
-<span class="text-forum-accent2">await</span> forum.trackRecord.publish(botId, record, sig);</pre>
-        </div>
-        <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
-          <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between">
-            <span>Python · forum-arc</span>
-            <span class="text-forum-dim2">PyPI</span>
-          </div>
-          <pre class="mono p-5 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2"># install: pip install forum-arc</span>
+<span class="text-forum-accent2">const</span> vault = <span class="text-forum-accent2">await</span> forum.covenantVault.snapshot();
+<span class="text-forum-accent2">const</span> verdict = <span class="text-forum-accent2">await</span> forum.riskKernel.evaluate();</pre>
+            </div>
+            <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+              <div
+                class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between"
+              >
+                <span>Python · forum-arc</span>
+                <span class="text-forum-dim2">PyPI</span>
+              </div>
+              <pre
+                class="mono p-5 text-xs leading-relaxed overflow-x-auto"
+              ><span class="text-forum-dim2"># install: pip install forum-arc</span>
 <span class="text-forum-accent2">from</span> forum_arc <span class="text-forum-accent2">import</span> ForumClient
 <span class="text-forum-accent2">from</span> forum_arc.deployments <span class="text-forum-accent2">import</span> \
   ARC_TESTNET_DEPLOYMENT
 
 forum = ForumClient(w3, ARC_TESTNET_DEPLOYMENT, acct)
-forum.registry.claim(code)
-forum.track_record.publish(bot_id, record, sig)</pre>
-        </div>
-      </div>
-    </section>
-
-    <section class="pb-24">
-      <div class="rounded-2xl border border-forum-warn/20 bg-forum-warn/[0.04] p-10">
-        <div class="text-[11px] uppercase tracking-widest text-forum-warn">Honest backtest · the most important file in the repo</div>
-        <h2 class="mt-2 text-2xl font-medium">−$77.93 in 7 days, and that's the pitch.</h2>
-        <div class="mt-6 grid lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 text-forum-dim space-y-3 leading-relaxed">
-            <p>
-              Naive Avellaneda-Stoikov on 16 markets × 7 days × 1-min ticks: 57 fills, mean Sharpe
-              −5.05, total PnL −$77.93. Exactly what the literature predicts for an MM without
-              maker rebates or microstructure tuning.
-            </p>
-            <p>
-              <strong class="text-forum-ink">Forum isn't the strategy. Forum is the trust layer that makes anyone's strategy fundable.</strong>
-              With Covenant Accounts, a bad strategy (like our v1) self-disqualifies on chain in
-              30 minutes via stale receipt or drawdown breach. A good strategy proves itself through
-              recomputable receipts. Bad bots filtered out automatically; capital flows to provable ones.
-            </p>
-            <p class="text-xs text-forum-dim2">
-              Reproduce: <code class="mono text-forum-dim">node keeper/scripts/pull-prices.mjs --markets 20 --days 7 --fidelity 1</code> then
-              <code class="mono text-forum-dim">tsx scripts/run-backtest.mjs</code>.
-              Full framing in <a class="text-forum-accent" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md" target="_blank" rel="noopener">docs/backtest-notes.md</a>.
-            </p>
+vault = forum.covenant_vault.snapshot()
+verdict = forum.risk_kernel.evaluate(
+    ARC_TESTNET_DEPLOYMENT.covenant_vault
+)</pre>
+            </div>
           </div>
-          <div class="rounded-xl bg-forum-panel2 ring-soft p-6 mono text-sm leading-relaxed text-forum-ink">
-<span class="text-forum-dim2">total fills</span>     57
-<span class="text-forum-dim2">mean Sharpe</span>    <span class="text-forum-err">−5.05</span>
-<span class="text-forum-dim2">total PnL</span>      <span class="text-forum-err">−$77.93</span>
-<span class="text-forum-dim2">sum max DD</span>      $81.32
+        </section>
+
+        <section class="pb-24">
+          <div
+            class="rounded-2xl border border-forum-warn/20 bg-forum-warn/[0.04] p-10"
+          >
+            <div class="text-[11px] uppercase tracking-widest text-forum-warn">
+              Honest backtest · the most important file in the repo
+            </div>
+            <h2 class="mt-2 text-2xl font-medium">
+              −$77.93 in 7 days, and that's the pitch.
+            </h2>
+            <div class="mt-6 grid lg:grid-cols-3 gap-6">
+              <div
+                class="lg:col-span-2 text-forum-dim space-y-3 leading-relaxed"
+              >
+                <p>
+                  Naive Avellaneda-Stoikov on 16 markets × 7 days × 1-min ticks:
+                  57 fills, mean Sharpe −5.05, total PnL −$77.93. Exactly what
+                  the literature predicts for an MM without maker rebates or
+                  microstructure tuning.
+                </p>
+                <p>
+                  <strong class="text-forum-ink"
+                    >Forum isn't the strategy. Forum is the trust layer that
+                    makes anyone's strategy fundable.</strong
+                  >
+                  With Covenant Accounts, a bad strategy (like our v1)
+                  self-disqualifies on chain in 30 minutes via stale receipt or
+                  drawdown breach. A good strategy proves itself through
+                  receipt-backed performance. Bad bots become visible quickly;
+                  capital can flow to provable ones.
+                </p>
+                <p class="text-xs text-forum-dim2">
+                  Reproduce:
+                  <code class="mono text-forum-dim"
+                    >node keeper/scripts/pull-prices.mjs --markets 20 --days 7
+                    --fidelity 1</code
+                  >
+                  then
+                  <code class="mono text-forum-dim"
+                    >tsx scripts/run-backtest.mjs</code
+                  >. Full framing in
+                  <a
+                    class="text-forum-accent"
+                    href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md"
+                    target="_blank"
+                    rel="noopener"
+                    >docs/backtest-notes.md</a
+                  >.
+                </p>
+              </div>
+              <div
+                class="rounded-xl bg-forum-panel2 ring-soft p-6 mono text-sm leading-relaxed text-forum-ink"
+              >
+                <span class="text-forum-dim2">total fills</span> 57
+                <span class="text-forum-dim2">mean Sharpe</span>
+                <span class="text-forum-err">−5.05</span>
+                <span class="text-forum-dim2">total PnL</span>
+                <span class="text-forum-err">−$77.93</span>
+                <span class="text-forum-dim2">sum max DD</span> $81.32
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <footer class="pt-10 pb-12 border-t border-forum-line">
-      <div class="flex flex-wrap items-center justify-between gap-4 text-xs text-forum-dim2">
-        <div class="flex flex-wrap items-center gap-2">
-          <span>MIT</span><span>·</span>
-          <span>Paper-mode default</span><span>·</span>
-          <span>Arc testnet only</span><span>·</span>
-          <span>Not financial advice</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-4">
-          <a class="text-forum-dim hover:text-forum-ink" href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener">repo</a>
-          <a class="text-forum-dim hover:text-forum-ink" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md" target="_blank" rel="noopener">deck</a>
-          <a class="text-forum-dim hover:text-forum-ink" href="https://github.com/Ridwannurudeen/forum/blob/main/SUBMISSION.md" target="_blank" rel="noopener">submission</a>
-          <a class="text-forum-dim hover:text-forum-ink" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md" target="_blank" rel="noopener">backtest</a>
-        </div>
-      </div>
-    </footer>
+        <footer class="pt-10 pb-12 border-t border-forum-line">
+          <div
+            class="flex flex-wrap items-center justify-between gap-4 text-xs text-forum-dim2"
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <span>MIT</span><span>·</span> <span>Paper-mode default</span
+              ><span>·</span> <span>Arc testnet only</span><span>·</span>
+              <span>Not financial advice</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-4">
+              <a
+                class="text-forum-dim hover:text-forum-ink"
+                href="https://github.com/Ridwannurudeen/forum"
+                target="_blank"
+                rel="noopener"
+                >repo</a
+              >
+              <a
+                class="text-forum-dim hover:text-forum-ink"
+                href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md"
+                target="_blank"
+                rel="noopener"
+                >deck</a
+              >
+              <a
+                class="text-forum-dim hover:text-forum-ink"
+                href="https://github.com/Ridwannurudeen/forum/blob/main/SUBMISSION.md"
+                target="_blank"
+                rel="noopener"
+                >submission</a
+              >
+              <a
+                class="text-forum-dim hover:text-forum-ink"
+                href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md"
+                target="_blank"
+                rel="noopener"
+                >backtest</a
+              >
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
 
-  </main>
+    <script type="module">
+      import {
+        createPublicClient,
+        http,
+        defineChain,
+        parseAbiItem,
+        keccak256,
+        toHex,
+      } from "https://esm.sh/viem@2.47.0";
 
-  </div>
+      const ARC_TESTNET = defineChain({
+        id: 5042002,
+        name: "Arc Testnet",
+        nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+        rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
+      });
 
-  <script type="module">
-    import { createPublicClient, http, defineChain, parseAbiItem } from 'https://esm.sh/viem@2.47.0';
+      const GROUPS = [
+        {
+          label: "Identity & attribution",
+          items: [
+            [
+              "BuilderCodeRegistry",
+              "0x730825299821d411146c503915553e37ebdc750c",
+              "bytes32 → owner, first claim wins",
+            ],
+            [
+              "KeeperConfig",
+              "0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26",
+              "per-bot append-only config history",
+            ],
+          ],
+        },
+        {
+          label: "Mandate & autonomous risk",
+          items: [
+            [
+              "CovenantVault (v1)",
+              "0xd126e11b3e79e9af23b021d793097a5902aae3ef",
+              "mandate-bounded USDC credit line",
+            ],
+            [
+              "CovenantVaultV1.2",
+              "0x80384963c0c93414ff16e018c6618a64bc94df6d",
+              "live AgoraMind vault, autonomous slash",
+            ],
+            [
+              "RiskKernel (v1)",
+              "0x041a79c214e9daf876b5f2e76d7870ef4359630a",
+              "permissionless mandate enforcer",
+            ],
+            [
+              "RiskKernelV2",
+              "0x0af356f280af1d8b7a43f0746c581614feec4055",
+              "enforce(vault) → pause AND slash, one tx",
+            ],
+            [
+              "SlashBond (v1)",
+              "0x66040fd1aea2c09dde83252114532b6cb9941482",
+              "operator collateral, attestor-slashable",
+            ],
+            [
+              "SlashBondV1.1",
+              "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+              "attestor = RiskKernelV2 (autonomous)",
+            ],
+          ],
+        },
+        {
+          label: "Reputation & receipts",
+          items: [
+            [
+              "TrackRecord",
+              "0xaace70a50573cb077f65d601cd19103afc4aef9d",
+              "EIP-712 signed PnL with bot-kind taxonomy",
+            ],
+            [
+              "TrackRecordV2",
+              "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66",
+              "strict seq + hash chain + replay rejection",
+            ],
+          ],
+        },
+        {
+          label: "Capital & distribution",
+          items: [
+            [
+              "AgentPool",
+              "0x13855be80b6122187c0bcba007946f9fbaae3fae",
+              "permissionless deposit, 20%/HWM perf fee",
+            ],
+            [
+              "FeeDistributor",
+              "0x0574257629e8221d560cf4aace0f3cd7226be2a0",
+              "per-code attribution, pull-pattern USDC",
+            ],
+          ],
+        },
+      ];
 
-    const ARC_TESTNET = defineChain({
-      id: 5042002, name: 'Arc Testnet',
-      nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-      rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
-    });
+      const ADDR_V1 = "0xaace70a50573cb077f65d601cd19103afc4aef9d";
+      const ADDR_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
+      const AGORA_MIND_BOT_ID =
+        "0x201c8909dca1eaccb80f2a11a49b98ad6ae27e3bade9383f2b508587971b4ff9";
+      const KIND_NAMES = ["MAKER", "TAKER", "ARB", "OTHER"];
+      const SPARK_LAST_N = 12;
+      const TRACK_RECORD_DEPLOY_BLOCK = 42553669n;
+      const LOG_CHUNK_SIZE = 9500n;
 
-    const GROUPS = [
-      {
-        label: 'Identity & attribution',
-        items: [
-          ['BuilderCodeRegistry', '0x730825299821d411146c503915553e37ebdc750c', 'bytes32 → owner, first claim wins'],
-          ['KeeperConfig',        '0xf37b1eb28d9af1b259cad3d71a14e76ca8ae0d26', 'per-bot append-only config history'],
-        ],
-      },
-      {
-        label: 'Mandate & autonomous risk',
-        items: [
-          ['CovenantVault (v1)',   '0xd126e11b3e79e9af23b021d793097a5902aae3ef', 'mandate-bounded USDC credit line'],
-          ['CovenantVaultV1.2',    '0x80384963c0c93414ff16e018c6618a64bc94df6d', 'live AgoraMind vault, autonomous slash'],
-          ['RiskKernel (v1)',      '0x041a79c214e9daf876b5f2e76d7870ef4359630a', 'permissionless mandate enforcer'],
-          ['RiskKernelV2',         '0x0af356f280af1d8b7a43f0746c581614feec4055', 'enforce(vault) → pause AND slash, one tx'],
-          ['SlashBond (v1)',       '0x66040fd1aea2c09dde83252114532b6cb9941482', 'operator collateral, attestor-slashable'],
-          ['SlashBondV1.1',        '0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939', 'attestor = RiskKernelV2 (autonomous)'],
-        ],
-      },
-      {
-        label: 'Reputation & receipts',
-        items: [
-          ['TrackRecord',     '0xaace70a50573cb077f65d601cd19103afc4aef9d', 'EIP-712 signed PnL with bot-kind taxonomy'],
-          ['TrackRecordV2',   '0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66', 'strict seq + hash chain + replay rejection'],
-        ],
-      },
-      {
-        label: 'Capital & distribution',
-        items: [
-          ['AgentPool',       '0x13855be80b6122187c0bcba007946f9fbaae3fae', 'permissionless deposit, 20%/HWM perf fee'],
-          ['FeeDistributor',  '0x0574257629e8221d560cf4aace0f3cd7226be2a0', 'per-code attribution, pull-pattern USDC'],
-        ],
-      },
-    ];
+      // Featured live demo tx — split for the hook that rejects 64-hex literals
+      const DEMO_TX =
+        "0x" +
+        "2c8e79a528e2df4b2aa2ca933afefd80" +
+        "9a90726ebd758af3c48d731131305d13";
 
-    const ADDR_V1 = '0xaace70a50573cb077f65d601cd19103afc4aef9d';
-    const KIND_NAMES = ['MAKER', 'TAKER', 'ARB', 'OTHER'];
-    const SPARK_LAST_N = 12;
-    const TRACK_RECORD_DEPLOY_BLOCK = 42553669n;
-    const LOG_CHUNK_SIZE = 9500n;
+      const RECORD_COUNT_ABI = [
+        {
+          type: "function",
+          name: "recordCount",
+          stateMutability: "view",
+          inputs: [{ name: "botId", type: "bytes32" }],
+          outputs: [{ type: "uint256" }],
+        },
+      ];
+      const RECORD_AT_ABI = [
+        {
+          type: "function",
+          name: "recordAt",
+          stateMutability: "view",
+          inputs: [
+            { name: "botId", type: "bytes32" },
+            { name: "idx", type: "uint256" },
+          ],
+          outputs: [
+            {
+              type: "tuple",
+              components: [
+                { name: "ts", type: "uint64" },
+                { name: "pnlMicros", type: "int128" },
+                { name: "fills", type: "uint64" },
+                { name: "metaHash", type: "bytes32" },
+              ],
+            },
+          ],
+        },
+      ];
+      const TRV2_RECORD_COUNT_ABI = [
+        {
+          type: "function",
+          name: "recordCount",
+          stateMutability: "view",
+          inputs: [{ name: "botId", type: "bytes32" }],
+          outputs: [{ type: "uint256" }],
+        },
+      ];
+      const TRV2_RECORD_AT_ABI = [
+        {
+          type: "function",
+          name: "recordAt",
+          stateMutability: "view",
+          inputs: [
+            { name: "botId", type: "bytes32" },
+            { name: "idx", type: "uint256" },
+          ],
+          outputs: [
+            {
+              type: "tuple",
+              components: [
+                { name: "seq", type: "uint64" },
+                { name: "periodStart", type: "uint64" },
+                { name: "periodEnd", type: "uint64" },
+                { name: "pnlMicros", type: "int128" },
+                { name: "fills", type: "uint64" },
+                { name: "metaHash", type: "bytes32" },
+                { name: "evidenceUriHash", type: "bytes32" },
+                { name: "evidenceHash", type: "bytes32" },
+                { name: "recordHash", type: "bytes32" },
+              ],
+            },
+          ],
+        },
+      ];
+      const STATE_ABI = [
+        {
+          type: "function",
+          name: "state",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ type: "uint8" }],
+        },
+      ];
+      const IDLE_ABI = [
+        {
+          type: "function",
+          name: "depositTotalIdle",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ type: "uint256" }],
+        },
+      ];
+      const OUTSTND_ABI = [
+        {
+          type: "function",
+          name: "operatorOutstanding",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ type: "uint256" }],
+        },
+      ];
+      const BOND_BAL_ABI = [
+        {
+          type: "function",
+          name: "bondBalance",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ type: "uint256" }],
+        },
+      ];
 
-    // Featured live demo tx — split for the hook that rejects 64-hex literals
-    const DEMO_TX = '0x' +
-      '2c8e79a528e2df4b2aa2ca933afefd80' +
-      '9a90726ebd758af3c48d731131305d13';
+      const COVENANT_V12 = "0x80384963c0c93414ff16e018c6618a64bc94df6d";
+      const SLASH_BOND_V11 = "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939";
 
-    const RECORD_COUNT_ABI = [{ type: 'function', name: 'recordCount', stateMutability: 'view',
-                                inputs: [{ name: 'botId', type: 'bytes32' }], outputs: [{ type: 'uint256' }] }];
-    const RECORD_AT_ABI = [{ type: 'function', name: 'recordAt', stateMutability: 'view',
-                             inputs: [{ name: 'botId', type: 'bytes32' }, { name: 'idx', type: 'uint256' }],
-                             outputs: [{ type: 'tuple', components: [
-                               { name: 'ts', type: 'uint64' }, { name: 'pnlMicros', type: 'int128' },
-                               { name: 'fills', type: 'uint64' }, { name: 'metaHash', type: 'bytes32' },
-                             ]}] }];
-    const STATE_ABI    = [{ type: 'function', name: 'state', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] }];
-    const IDLE_ABI     = [{ type: 'function', name: 'depositTotalIdle', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }];
-    const OUTSTND_ABI  = [{ type: 'function', name: 'operatorOutstanding', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }];
-    const BOND_BAL_ABI = [{ type: 'function', name: 'bondBalance', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }];
-
-    const COVENANT_V12 = '0x80384963c0c93414ff16e018c6618a64bc94df6d';
-    const SLASH_BOND_V11 = '0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939';
-
-    function shortAddr(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
-    function shortHash(h) { return h.slice(0, 10) + '…' + h.slice(-6); }
-    function explorerAddr(a) { return `https://testnet.arcscan.app/address/${a}`; }
-    function explorerTx(h) { return `https://testnet.arcscan.app/tx/${h}`; }
-    function ago(ts) {
-      const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts));
-      if (s < 60) return `${s}s ago`;
-      if (s < 3600) return `${Math.floor(s/60)}m ago`;
-      if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-      return `${Math.floor(s/86400)}d ago`;
-    }
-    function fmtUsdc(microsBig) {
-      const n = Number(microsBig) / 1_000_000;
-      return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' USDC';
-    }
-    function sparkSvg(values) {
-      if (values.length < 2) {
-        return `<svg class="sparkline"><text x="50%" y="55%" text-anchor="middle" font-size="10" fill="#6b7280">—</text></svg>`;
+      function shortAddr(a) {
+        return a.slice(0, 6) + "…" + a.slice(-4);
       }
-      const w = 120, h = 28, pad = 2;
-      const min = Math.min(...values), max = Math.max(...values);
-      const range = max - min || 1;
-      const stepX = (w - pad * 2) / (values.length - 1);
-      const points = values.map((v, i) => {
-        const x = pad + i * stepX;
-        const y = pad + (1 - (v - min) / range) * (h - pad * 2);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(' ');
-      const last = values[values.length - 1];
-      const first = values[0];
-      const color = last >= first ? '#4ade80' : '#f87171';
-      return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      function shortHash(h) {
+        return h.slice(0, 10) + "…" + h.slice(-6);
+      }
+      function explorerAddr(a) {
+        return `https://testnet.arcscan.app/address/${a}`;
+      }
+      function explorerTx(h) {
+        return `https://testnet.arcscan.app/tx/${h}`;
+      }
+      function ago(ts) {
+        const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts));
+        if (s < 60) return `${s}s ago`;
+        if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+        if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+        return `${Math.floor(s / 86400)}d ago`;
+      }
+      function fmtUsdc(microsBig) {
+        const n = Number(microsBig) / 1_000_000;
+        return (
+          n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " USDC"
+        );
+      }
+      function canonicalize(value) {
+        if (value === null || typeof value !== "object")
+          return JSON.stringify(value);
+        if (Array.isArray(value))
+          return "[" + value.map(canonicalize).join(",") + "]";
+        return (
+          "{" +
+          Object.keys(value)
+            .sort()
+            .map((k) => JSON.stringify(k) + ":" + canonicalize(value[k]))
+            .join(",") +
+          "}"
+        );
+      }
+      function sparkSvg(values) {
+        if (values.length < 2) {
+          return `<svg class="sparkline"><text x="50%" y="55%" text-anchor="middle" font-size="10" fill="#6b7280">—</text></svg>`;
+        }
+        const w = 120,
+          h = 28,
+          pad = 2;
+        const min = Math.min(...values),
+          max = Math.max(...values);
+        const range = max - min || 1;
+        const stepX = (w - pad * 2) / (values.length - 1);
+        const points = values
+          .map((v, i) => {
+            const x = pad + i * stepX;
+            const y = pad + (1 - (v - min) / range) * (h - pad * 2);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          })
+          .join(" ");
+        const last = values[values.length - 1];
+        const first = values[0];
+        const color = last >= first ? "#4ade80" : "#f87171";
+        return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" />
       </svg>`;
-    }
+      }
 
-    // Wire the demo tx link
-    {
-      const link = document.getElementById('demo-tx-link');
-      link.href = explorerTx(DEMO_TX);
-      link.textContent = DEMO_TX.slice(0, 10) + '…' + DEMO_TX.slice(-5);
-    }
+      // Wire the demo tx link
+      {
+        const link = document.getElementById("demo-tx-link");
+        link.href = explorerTx(DEMO_TX);
+        link.textContent = DEMO_TX.slice(0, 10) + "…" + DEMO_TX.slice(-5);
+      }
 
-    function renderContractsGrouped() {
-      const root = document.getElementById('contracts-grouped');
-      root.innerHTML = GROUPS.map((g) => `
+      function renderContractsGrouped() {
+        const root = document.getElementById("contracts-grouped");
+        root.innerHTML = GROUPS.map(
+          (g) => `
         <div>
           <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">${g.label}</div>
           <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            ${g.items.map(([name, addr, blurb]) => `
+            ${g.items
+              .map(
+                ([name, addr, blurb]) => `
               <a href="${explorerAddr(addr)}" target="_blank" rel="noopener"
                  class="block rounded-xl ring-soft bg-forum-panel p-4 hover:ring-accent group">
                 <div class="flex justify-between items-baseline">
@@ -700,117 +1478,224 @@ forum.track_record.publish(bot_id, record, sig)</pre>
                 </div>
                 <div class="mono mt-1.5 text-xs text-forum-dim">${shortAddr(addr)}</div>
                 <div class="mt-2 text-xs text-forum-dim2 leading-relaxed">${blurb}</div>
-              </a>`).join('')}
+              </a>`,
+              )
+              .join("")}
           </div>
-        </div>`).join('');
-    }
-
-    async function getLogsChunked(client, { address, event, fromBlock, toBlock }) {
-      const logs = [];
-      let cursor = fromBlock;
-      while (cursor <= toBlock) {
-        const chunkTo = cursor + LOG_CHUNK_SIZE - 1n > toBlock
-          ? toBlock
-          : cursor + LOG_CHUNK_SIZE - 1n;
-        logs.push(...await client.getLogs({
-          address, event, fromBlock: cursor, toBlock: chunkTo,
-        }));
-        cursor = chunkTo + 1n;
-      }
-      return logs;
-    }
-
-    async function loadCovenant(client) {
-      try {
-        const [state, idle, outstanding, bondBal] = await Promise.all([
-          client.readContract({ address: COVENANT_V12, abi: STATE_ABI, functionName: 'state' }),
-          client.readContract({ address: COVENANT_V12, abi: IDLE_ABI, functionName: 'depositTotalIdle' }),
-          client.readContract({ address: COVENANT_V12, abi: OUTSTND_ABI, functionName: 'operatorOutstanding' }),
-          client.readContract({ address: SLASH_BOND_V11, abi: BOND_BAL_ABI, functionName: 'bondBalance' }),
-        ]);
-        const stateNum = Number(state);
-        const label = ['ACTIVE', 'PAUSED'][stateNum] ?? `S${stateNum}`;
-        document.getElementById('covenant-state-label').textContent = label;
-        const dot = document.getElementById('covenant-state-dot');
-        dot.classList.remove('bg-forum-ok', 'bg-forum-err');
-        dot.classList.add(stateNum === 0 ? 'bg-forum-ok' : 'bg-forum-err');
-        const tvl = BigInt(idle) + BigInt(outstanding);
-        document.getElementById('covenant-tvl').textContent = fmtUsdc(tvl);
-        document.getElementById('covenant-idle').textContent = fmtUsdc(idle);
-        document.getElementById('covenant-outstanding').textContent = fmtUsdc(outstanding);
-        document.getElementById('bond-balance').textContent = fmtUsdc(bondBal);
-      } catch (e) {
-        document.getElementById('covenant-state-label').textContent = 'READ-ERR';
-      }
-    }
-
-    async function loadAll(client) {
-      let currentBlock = null;
-      try {
-        currentBlock = await client.getBlockNumber();
-        document.getElementById('metric-block').textContent = currentBlock.toLocaleString();
-        loadCovenant(client);
-      } catch (e) {
-        document.getElementById('metric-block').innerHTML = `<span class="text-forum-err text-sm">RPC err</span>`;
+        </div>`,
+        ).join("");
       }
 
-      const body = document.getElementById('bots-body');
-      try {
-        if (currentBlock === null) throw new Error('Arc RPC block number unavailable');
-        const logs = await getLogsChunked(client, {
-          address: ADDR_V1,
-          event: parseAbiItem('event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)'),
-          fromBlock: TRACK_RECORD_DEPLOY_BLOCK,
-          toBlock: currentBlock,
-        });
+      async function getLogsChunked(
+        client,
+        { address, event, fromBlock, toBlock },
+      ) {
+        const logs = [];
+        let cursor = fromBlock;
+        while (cursor <= toBlock) {
+          const chunkTo =
+            cursor + LOG_CHUNK_SIZE - 1n > toBlock
+              ? toBlock
+              : cursor + LOG_CHUNK_SIZE - 1n;
+          logs.push(
+            ...(await client.getLogs({
+              address,
+              event,
+              fromBlock: cursor,
+              toBlock: chunkTo,
+            })),
+          );
+          cursor = chunkTo + 1n;
+        }
+        return logs;
+      }
 
-        document.getElementById('metric-bots').textContent = String(logs.length);
+      async function loadCovenant(client) {
+        try {
+          const [state, idle, outstanding, bondBal] = await Promise.all([
+            client.readContract({
+              address: COVENANT_V12,
+              abi: STATE_ABI,
+              functionName: "state",
+            }),
+            client.readContract({
+              address: COVENANT_V12,
+              abi: IDLE_ABI,
+              functionName: "depositTotalIdle",
+            }),
+            client.readContract({
+              address: COVENANT_V12,
+              abi: OUTSTND_ABI,
+              functionName: "operatorOutstanding",
+            }),
+            client.readContract({
+              address: SLASH_BOND_V11,
+              abi: BOND_BAL_ABI,
+              functionName: "bondBalance",
+            }),
+          ]);
+          const stateNum = Number(state);
+          const label = ["ACTIVE", "PAUSED"][stateNum] ?? `S${stateNum}`;
+          document.getElementById("covenant-state-label").textContent = label;
+          const dot = document.getElementById("covenant-state-dot");
+          dot.classList.remove("bg-forum-ok", "bg-forum-err");
+          dot.classList.add(stateNum === 0 ? "bg-forum-ok" : "bg-forum-err");
+          const tvl = BigInt(idle) + BigInt(outstanding);
+          document.getElementById("covenant-tvl").textContent = fmtUsdc(tvl);
+          document.getElementById("covenant-idle").textContent = fmtUsdc(idle);
+          document.getElementById("covenant-outstanding").textContent =
+            fmtUsdc(outstanding);
+          document.getElementById("bond-balance").textContent =
+            fmtUsdc(bondBal);
+        } catch (e) {
+          document.getElementById("covenant-state-label").textContent =
+            "READ-ERR";
+        }
+      }
 
-        if (logs.length === 0) {
-          body.innerHTML = `<tr><td class="px-5 py-6 text-forum-dim" colspan="7">No bots registered yet. Be the first.</td></tr>`;
-          document.getElementById('metric-records').textContent = '0';
-          document.getElementById('metric-latest').textContent = '—';
-          return;
+      async function loadReceiptVerification(client) {
+        const status = document.getElementById("receipt-verify-status");
+        try {
+          const count = await client.readContract({
+            address: ADDR_V2,
+            abi: TRV2_RECORD_COUNT_ABI,
+            functionName: "recordCount",
+            args: [AGORA_MIND_BOT_ID],
+          });
+          if (count === 0n) {
+            status.textContent = "No AgoraMind V2 receipt records yet.";
+            return;
+          }
+          const rec = await client.readContract({
+            address: ADDR_V2,
+            abi: TRV2_RECORD_AT_ABI,
+            functionName: "recordAt",
+            args: [AGORA_MIND_BOT_ID, count - 1n],
+          });
+          const seq = Number(rec.seq);
+          const uri = `https://forum.gudman.xyz/receipts/${AGORA_MIND_BOT_ID.slice(2, 14)}/${String(seq).padStart(6, "0")}.json`;
+          const json = await fetch(uri).then((r) => {
+            if (!r.ok) throw new Error(`receipt HTTP ${r.status}`);
+            return r.json();
+          });
+          const computed = keccak256(toHex(canonicalize(json)));
+          const ok = computed.toLowerCase() === rec.evidenceHash.toLowerCase();
+          document.getElementById("receipt-uri-link").href = uri;
+          document.getElementById("receipt-verify-seq").textContent =
+            String(seq);
+          document.getElementById("receipt-verify-computed").textContent =
+            computed;
+          document.getElementById("receipt-verify-chain").textContent =
+            rec.evidenceHash;
+          status.innerHTML = ok
+            ? '<span class="text-forum-ok">Hash verified against TrackRecordV2.</span>'
+            : '<span class="text-forum-err">Hash mismatch.</span>';
+        } catch (e) {
+          status.innerHTML = `<span class="text-forum-err">Receipt check failed: ${e.message}</span>`;
+        }
+      }
+
+      async function loadAll(client) {
+        let currentBlock = null;
+        try {
+          currentBlock = await client.getBlockNumber();
+          document.getElementById("metric-block").textContent =
+            currentBlock.toLocaleString();
+          loadCovenant(client);
+          loadReceiptVerification(client);
+        } catch (e) {
+          document.getElementById("metric-block").innerHTML =
+            `<span class="text-forum-err text-sm">RPC err</span>`;
         }
 
-        const rows = await Promise.all(logs.map(async (log) => {
-          const botId = log.args.botId;
-          const kind = KIND_NAMES[Number(log.args.kind)] || 'OTHER';
-          const signer = log.args.signer;
-          const count = await client.readContract({
-            address: ADDR_V1, abi: RECORD_COUNT_ABI,
-            functionName: 'recordCount', args: [botId],
+        const body = document.getElementById("bots-body");
+        try {
+          if (currentBlock === null)
+            throw new Error("Arc RPC block number unavailable");
+          const logs = await getLogsChunked(client, {
+            address: ADDR_V1,
+            event: parseAbiItem(
+              "event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)",
+            ),
+            fromBlock: TRACK_RECORD_DEPLOY_BLOCK,
+            toBlock: currentBlock,
           });
-          const n = Number(count);
-          if (n === 0) {
-            return { botId, kind, signer, count: 0, latestPnl: '—', spark: '', lastTs: null };
+
+          document.getElementById("metric-bots").textContent = String(
+            logs.length,
+          );
+
+          if (logs.length === 0) {
+            body.innerHTML = `<tr><td class="px-5 py-6 text-forum-dim" colspan="7">No bots registered yet. Be the first.</td></tr>`;
+            document.getElementById("metric-records").textContent = "0";
+            document.getElementById("metric-latest").textContent = "—";
+            return;
           }
-          const start = n > SPARK_LAST_N ? n - SPARK_LAST_N : 0;
-          const idxs = [];
-          for (let i = start; i < n; i++) idxs.push(BigInt(i));
-          const records = await Promise.all(idxs.map((idx) =>
-            client.readContract({
-              address: ADDR_V1, abi: RECORD_AT_ABI,
-              functionName: 'recordAt', args: [botId, idx],
-            })
-          ));
-          const pnls = records.map((r) => Number(r.pnlMicros));
-          const last = records[records.length - 1];
-          return {
-            botId, kind, signer, count: n,
-            latestPnl: Number(last.pnlMicros).toLocaleString(),
-            spark: sparkSvg(pnls),
-            lastTs: Number(last.ts),
-          };
-        }));
 
-        const totalRecords = rows.reduce((a, r) => a + r.count, 0);
-        document.getElementById('metric-records').textContent = totalRecords.toLocaleString();
+          const rows = await Promise.all(
+            logs.map(async (log) => {
+              const botId = log.args.botId;
+              const kind = KIND_NAMES[Number(log.args.kind)] || "OTHER";
+              const signer = log.args.signer;
+              const count = await client.readContract({
+                address: ADDR_V1,
+                abi: RECORD_COUNT_ABI,
+                functionName: "recordCount",
+                args: [botId],
+              });
+              const n = Number(count);
+              if (n === 0) {
+                return {
+                  botId,
+                  kind,
+                  signer,
+                  count: 0,
+                  latestPnl: "—",
+                  spark: "",
+                  lastTs: null,
+                };
+              }
+              const start = n > SPARK_LAST_N ? n - SPARK_LAST_N : 0;
+              const idxs = [];
+              for (let i = start; i < n; i++) idxs.push(BigInt(i));
+              const records = await Promise.all(
+                idxs.map((idx) =>
+                  client.readContract({
+                    address: ADDR_V1,
+                    abi: RECORD_AT_ABI,
+                    functionName: "recordAt",
+                    args: [botId, idx],
+                  }),
+                ),
+              );
+              const pnls = records.map((r) => Number(r.pnlMicros));
+              const last = records[records.length - 1];
+              return {
+                botId,
+                kind,
+                signer,
+                count: n,
+                latestPnl: Number(last.pnlMicros).toLocaleString(),
+                spark: sparkSvg(pnls),
+                lastTs: Number(last.ts),
+              };
+            }),
+          );
 
-        const latestTs = rows.reduce((a, r) => r.lastTs && r.lastTs > a ? r.lastTs : a, 0);
-        document.getElementById('metric-latest').textContent = latestTs > 0 ? ago(latestTs) : '—';
+          const totalRecords = rows.reduce((a, r) => a + r.count, 0);
+          document.getElementById("metric-records").textContent =
+            totalRecords.toLocaleString();
 
-        body.innerHTML = rows.map((r) => `
+          const latestTs = rows.reduce(
+            (a, r) => (r.lastTs && r.lastTs > a ? r.lastTs : a),
+            0,
+          );
+          document.getElementById("metric-latest").textContent =
+            latestTs > 0 ? ago(latestTs) : "—";
+
+          body.innerHTML = rows
+            .map(
+              (r) => `
           <tr class="border-b border-forum-line2 last:border-0 row-hover">
             <td class="px-5 py-3"><span title="${r.botId}" class="text-forum-ink">${shortHash(r.botId)}</span></td>
             <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${r.kind}</span></td>
@@ -818,17 +1703,22 @@ forum.track_record.publish(bot_id, record, sig)</pre>
             <td class="px-5 py-3 text-right text-forum-ink tnum">${r.count}</td>
             <td class="px-5 py-3 text-right tnum text-forum-dim">${r.latestPnl}</td>
             <td class="px-5 py-3">${r.spark}</td>
-            <td class="px-5 py-3 text-forum-dim2">${r.lastTs ? ago(r.lastTs) : '—'}</td>
-          </tr>`).join('');
-      } catch (e) {
-        body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">Load error: ${e.message}</td></tr>`;
+            <td class="px-5 py-3 text-forum-dim2">${r.lastTs ? ago(r.lastTs) : "—"}</td>
+          </tr>`,
+            )
+            .join("");
+        } catch (e) {
+          body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">Load error: ${e.message}</td></tr>`;
+        }
       }
-    }
 
-    const client = createPublicClient({ chain: ARC_TESTNET, transport: http() });
-    renderContractsGrouped();
-    loadAll(client);
-    setInterval(() => loadAll(client), 30_000);
-  </script>
-</body>
+      const client = createPublicClient({
+        chain: ARC_TESTNET,
+        transport: http(),
+      });
+      renderContractsGrouped();
+      loadAll(client);
+      setInterval(() => loadAll(client), 30_000);
+    </script>
+  </body>
 </html>

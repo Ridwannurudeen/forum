@@ -11,24 +11,24 @@
 //
 // Designed to run as a systemd service alongside the v1 keeper.
 
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { keccak256, toHex } from 'viem';
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { keccak256, toHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..');
+const REPO_ROOT = resolve(__dirname, "..", "..");
 process.chdir(REPO_ROOT);
 
-const { pathToFileURL } = await import('node:url');
+const { pathToFileURL } = await import("node:url");
 const fileUrl = (p) => pathToFileURL(resolve(p)).href;
 
-const { PolymarketReader } = await import(fileUrl('keeper/src/polymarket.ts'));
-const { ForumV2Bridge } = await import(fileUrl('keeper/src/forum-v2.ts'));
+const { PolymarketReader } = await import(fileUrl("keeper/src/polymarket.ts"));
+const { ForumV2Bridge } = await import(fileUrl("keeper/src/forum-v2.ts"));
 const { MockLlmProvider, AnthropicProvider, reasoningHash } = await import(
-  fileUrl('keeper/src/agora-mind.ts')
+  fileUrl("keeper/src/agora-mind.ts")
 );
-const { buildReceipt } = await import(fileUrl('keeper/src/receipt.ts'));
+const { buildReceipt } = await import(fileUrl("keeper/src/receipt.ts"));
 
 function parseArgs() {
   const a = process.argv.slice(2);
@@ -37,38 +37,47 @@ function parseArgs() {
     return i >= 0 && a[i + 1] ? a[i + 1] : d;
   };
   return {
-    markets: Number(get('--markets', '3')),
-    intervalSec: Number(get('--interval', '60')),
-    publishEvery: Number(get('--publish-every', '10')),
-    label: get('--label', 'forum-agora-mind-v1'),
-    maxTicks: process.argv.includes('--max-ticks') ? Number(get('--max-ticks', '0')) : undefined,
-    provider: get('--provider', process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'mock'),
-    receiptsDir: get('--receipts-dir', '/opt/forum/web/receipts'),
-    receiptsBaseUrl: get('--receipts-base-url', 'https://forum.gudman.xyz/receipts'),
+    markets: Number(get("--markets", "3")),
+    intervalSec: Number(get("--interval", "60")),
+    publishEvery: Number(get("--publish-every", "10")),
+    label: get("--label", "forum-agora-mind-v1"),
+    maxTicks: process.argv.includes("--max-ticks")
+      ? Number(get("--max-ticks", "0"))
+      : undefined,
+    provider: get(
+      "--provider",
+      process.env.ANTHROPIC_API_KEY ? "anthropic" : "mock",
+    ),
+    receiptsDir: get("--receipts-dir", "/opt/forum/web/receipts"),
+    receiptsBaseUrl: get(
+      "--receipts-base-url",
+      "https://forum.gudman.xyz/receipts",
+    ),
   };
 }
 
 async function main() {
   const args = parseArgs();
-  console.log('AgoraMind keeper');
-  console.log('  label:           ', args.label);
-  console.log('  markets:         ', args.markets);
-  console.log('  interval:        ', args.intervalSec, 's');
-  console.log('  publishEvery:    ', args.publishEvery, 'ticks');
-  console.log('  provider:        ', args.provider);
-  console.log('  receiptsDir:     ', args.receiptsDir);
-  console.log('  receiptsBaseUrl: ', args.receiptsBaseUrl);
+  console.log("AgoraMind keeper");
+  console.log("  label:           ", args.label);
+  console.log("  markets:         ", args.markets);
+  console.log("  interval:        ", args.intervalSec, "s");
+  console.log("  publishEvery:    ", args.publishEvery, "ticks");
+  console.log("  provider:        ", args.provider);
+  console.log("  receiptsDir:     ", args.receiptsDir);
+  console.log("  receiptsBaseUrl: ", args.receiptsBaseUrl);
 
   mkdirSync(args.receiptsDir, { recursive: true });
 
   const reader = new PolymarketReader();
   const markets = await reader.discoverMarkets(args.markets, 5_000);
   if (markets.length === 0) {
-    console.error('no markets with sufficient liquidity');
+    console.error("no markets with sufficient liquidity");
     process.exit(1);
   }
   console.log(`booting on ${markets.length} markets:`);
-  for (const m of markets) console.log(`  ${m.slug} liq=$${m.liquidity.toFixed(0)}`);
+  for (const m of markets)
+    console.log(`  ${m.slug} liq=$${m.liquidity.toFixed(0)}`);
 
   const bridge = new ForumV2Bridge({
     deploymentPath: `${REPO_ROOT}/deployments/arc-testnet.json`,
@@ -76,52 +85,91 @@ async function main() {
     receiptsDir: args.receiptsDir,
     receiptsBaseUrl: args.receiptsBaseUrl,
   });
-  console.log('  signer:          ', bridge.account.address);
-  console.log('  botId:           ', bridge.botId);
+  console.log("  signer:          ", bridge.account.address);
+  console.log("  botId:           ", bridge.botId);
 
   const reg = await bridge.ensureRegistered(0);
   console.log(
-    reg.alreadyRegistered ? `bot already registered` : `registered in tx ${reg.txHash}`,
+    reg.alreadyRegistered
+      ? `bot already registered`
+      : `registered in tx ${reg.txHash}`,
   );
 
-  const llm = args.provider === 'anthropic' ? new AnthropicProvider() : new MockLlmProvider();
+  const llm =
+    args.provider === "anthropic"
+      ? new AnthropicProvider()
+      : new MockLlmProvider();
   let seq = (await bridge.lastSeq()) + 1;
   let prevHash = await bridge.lastRecordHash();
 
   // ----------------------------------------------------------------------
   // Covenant Account integration — only quote/publish while vault is ACTIVE.
   // ----------------------------------------------------------------------
-  const covenantAddr = JSON.parse(
-    readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, 'utf8'),
-  ).contracts?.CovenantVault?.address;
-  const riskKernelAddr = JSON.parse(
-    readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, 'utf8'),
-  ).contracts?.RiskKernel?.address;
-  const STATE_ABI = [{ type: 'function', name: 'state', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] }];
-  const ENFORCE_ABI = [{ type: 'function', name: 'enforce', stateMutability: 'nonpayable', inputs: [{ name: 'vault', type: 'address' }], outputs: [] }];
+  const deployment = JSON.parse(
+    readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, "utf8"),
+  );
+  const covenantAddr = (
+    deployment.contracts?.CovenantVaultV1_2 ??
+    deployment.contracts?.CovenantVault
+  )?.address;
+  const riskKernelAddr = (
+    deployment.contracts?.RiskKernelV2 ?? deployment.contracts?.RiskKernel
+  )?.address;
+  const STATE_ABI = [
+    {
+      type: "function",
+      name: "state",
+      stateMutability: "view",
+      inputs: [],
+      outputs: [{ type: "uint8" }],
+    },
+  ];
+  const ENFORCE_ABI = [
+    {
+      type: "function",
+      name: "enforce",
+      stateMutability: "nonpayable",
+      inputs: [{ name: "vault", type: "address" }],
+      outputs: [],
+    },
+  ];
   async function readVaultState() {
     if (!covenantAddr) return 0;
     try {
-      return Number(await bridge.publicClient.readContract({ address: covenantAddr, abi: STATE_ABI, functionName: 'state' }));
-    } catch { return 0; } // 0 == ACTIVE on read failure to avoid false-pause
+      return Number(
+        await bridge.publicClient.readContract({
+          address: covenantAddr,
+          abi: STATE_ABI,
+          functionName: "state",
+        }),
+      );
+    } catch (e) {
+      console.error("vault state read failed:", e.message);
+      return 0;
+    }
   }
   async function nudgeRiskKernel() {
     if (!covenantAddr || !riskKernelAddr) return;
     try {
       await bridge.walletClient.writeContract({
-        address: riskKernelAddr, abi: ENFORCE_ABI, functionName: 'enforce',
-        args: [covenantAddr], chain: bridge.publicClient.chain,
+        address: riskKernelAddr,
+        abi: ENFORCE_ABI,
+        functionName: "enforce",
+        args: [covenantAddr],
+        chain: bridge.publicClient.chain,
       });
-    } catch { /* enforce reverts if state unchanged; that's fine */ }
+    } catch (e) {
+      console.error("risk kernel enforce failed:", e.message);
+    }
   }
   if (covenantAddr) {
-    console.log('  bound to vault:  ', covenantAddr);
-    console.log('  risk kernel:     ', riskKernelAddr);
+    console.log("  bound to vault:  ", covenantAddr);
+    console.log("  risk kernel:     ", riskKernelAddr);
   }
   console.log(`  starting seq:    `, seq);
   console.log(`  prev record hash:`, prevHash);
 
-  const strategyConfigHash = keccak256(toHex('agora-mind-v1-default-config'));
+  const strategyConfigHash = keccak256(toHex("agora-mind-v1-default-config"));
 
   let tick = 0;
   let cumulativeFills = 0;
@@ -168,10 +216,25 @@ async function main() {
 
         cycleBookSnapshots.push({
           marketId: m.yesToken,
-          start: { bids: [{ price: bid.price, size: bid.size }], asks: [{ price: ask.price, size: ask.size }], ts, source: 'polymarket-clob-v2' },
-          end: { bids: [{ price: bid.price, size: bid.size }], asks: [{ price: ask.price, size: ask.size }], ts, source: 'polymarket-clob-v2' },
+          start: {
+            bids: [{ price: bid.price, size: bid.size }],
+            asks: [{ price: ask.price, size: ask.size }],
+            ts,
+            source: "polymarket-clob-v2",
+          },
+          end: {
+            bids: [{ price: bid.price, size: bid.size }],
+            asks: [{ price: ask.price, size: ask.size }],
+            ts,
+            source: "polymarket-clob-v2",
+          },
         });
-        cycleDecisions.push({ trHash, action: decision.action, model: decision.model, marketSlug: m.slug });
+        cycleDecisions.push({
+          trHash,
+          action: decision.action,
+          model: decision.model,
+          marketSlug: m.slug,
+        });
       } catch (e) {
         console.error(`tick=${tick} ${m.slug} ERROR`, e.message);
       }
@@ -182,7 +245,9 @@ async function main() {
       await nudgeRiskKernel();
       const vaultState = await readVaultState();
       if (vaultState !== 0) {
-        console.log(`COVENANT-PAUSED state=${vaultState} skipping publish for seq=${seq}`);
+        console.log(
+          `COVENANT-PAUSED state=${vaultState} skipping publish for seq=${seq}`,
+        );
         cycleBookSnapshots = [];
         cycleFills = [];
         cycleDecisions = [];
@@ -196,10 +261,10 @@ async function main() {
         // sidecar JSON listing each per-tick decision.
         const traceListJson = JSON.stringify(cycleDecisions);
         const traceJsonHash = keccak256(toHex(traceListJson));
-        const traceFilename = `traces/${String(seq).padStart(6, '0')}.json`;
+        const traceFilename = `traces/${String(seq).padStart(6, "0")}.json`;
         const traceFullPath = `${args.receiptsDir}/${bridge.botId.slice(2, 14)}/${traceFilename}`;
         mkdirSync(dirname(traceFullPath), { recursive: true });
-        writeFileSync(traceFullPath, traceListJson + '\n');
+        writeFileSync(traceFullPath, traceListJson + "\n");
         const traceUri = `${args.receiptsBaseUrl}/${bridge.botId.slice(2, 14)}/${traceFilename}`;
 
         const receipt = buildReceipt({
@@ -210,16 +275,20 @@ async function main() {
           markets: markets.map((mm) => mm.slug),
           bookSnapshots: cycleBookSnapshots,
           fills: cycleFills,
-          inventory: markets.map((mm) => ({ marketId: mm.yesToken, openShares: 0, closeShares: 0 })),
+          inventory: markets.map((mm) => ({
+            marketId: mm.yesToken,
+            openShares: 0,
+            closeShares: 0,
+          })),
           pnl: {
             realizedUsdc: 0,
             unrealizedUsdc: 0,
             makerRebatesUsdc: 0,
             totalUsdcMicros: BigInt(Math.round(cumulativePnlUsdc * 1_000_000)),
-            formulaVersion: 'v1',
+            formulaVersion: "v1",
           },
           strategy: {
-            name: 'agora-mind-v1',
+            name: "agora-mind-v1",
             configHash: strategyConfigHash,
           },
           decisionTrace: { traceUri, traceHash: traceJsonHash },
@@ -231,7 +300,9 @@ async function main() {
         const { uri, hash, localPath } = bridge.writeReceipt(seq, receipt);
         console.log(`RECEIPT seq=${seq} hash=${hash} ${localPath}`);
 
-        const metaHash = keccak256(toHex(`seq=${seq};markets=${markets.map((mm) => mm.slug).join(',')}`));
+        const metaHash = keccak256(
+          toHex(`seq=${seq};markets=${markets.map((mm) => mm.slug).join(",")}`),
+        );
         // publishRecordAwait waits for the tx to mine + returns the digest the contract
         // stored as lastRecordHash. Using the returned digest as the next prevHash avoids
         // the read-after-write race that previously stalled the keeper at BadHashChain.
@@ -256,7 +327,7 @@ async function main() {
         cycleFills = [];
         cycleDecisions = [];
       } catch (e) {
-        console.error('PUBLISH-V2 failed:', e.message);
+        console.error("PUBLISH-V2 failed:", e.message);
       }
     }
 
@@ -265,6 +336,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error('FATAL:', e);
+  console.error("FATAL:", e);
   process.exit(1);
 });

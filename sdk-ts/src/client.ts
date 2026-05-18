@@ -9,16 +9,25 @@ import {
   toHex,
 } from "viem";
 import {
+  agentPoolAbi,
   builderCodeRegistryAbi,
+  covenantVaultAbi,
   keeperConfigAbi,
   trackRecordAbi,
   feeDistributorAbi,
+  riskKernelV2Abi,
+  slashBondAbi,
+  trackRecordV2Abi,
 } from "./abi.js";
 import {
   BOT_KIND_ENUM,
   type BotKind,
+  type CovenantMandate,
+  type CovenantState,
   type ForumAddresses,
+  type RiskVerdict,
   type TrackRecord,
+  type TrackRecordV2Record,
 } from "./types.js";
 
 export interface ForumClientOptions {
@@ -32,12 +41,22 @@ export class ForumClient {
   public readonly config: ConfigClient;
   public readonly trackRecord: TrackRecordClient;
   public readonly feeDistributor: FeeDistributorClient;
+  public readonly trackRecordV2: TrackRecordV2Client;
+  public readonly covenantVault: CovenantVaultClient;
+  public readonly riskKernel: RiskKernelClient;
+  public readonly slashBond: SlashBondClient;
+  public readonly agentPool: AgentPoolClient;
 
   constructor(opts: ForumClientOptions) {
     this.registry = new RegistryClient(opts);
     this.config = new ConfigClient(opts);
     this.trackRecord = new TrackRecordClient(opts);
     this.feeDistributor = new FeeDistributorClient(opts);
+    this.trackRecordV2 = new TrackRecordV2Client(opts);
+    this.covenantVault = new CovenantVaultClient(opts);
+    this.riskKernel = new RiskKernelClient(opts);
+    this.slashBond = new SlashBondClient(opts);
+    this.agentPool = new AgentPoolClient(opts);
   }
 }
 
@@ -59,6 +78,11 @@ abstract class BaseSubClient {
     const w = this.requireWallet();
     if (!w.account) throw new Error("ForumClient: walletClient has no account");
     return w.account;
+  }
+  protected requireAddress(key: keyof ForumAddresses): Address {
+    const addr = this.addresses[key];
+    if (!addr) throw new Error(`ForumClient: addresses.${key} is required`);
+    return addr;
   }
 }
 
@@ -293,6 +317,502 @@ export class TrackRecordClient extends BaseSubClient {
         },
         signature,
       ],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+const RECORD_V2_TYPEHASH = keccak256(
+  toHex(
+    "RecordV2(bytes32 botId,uint8 kind,uint64 seq,uint64 periodStart,uint64 periodEnd,int128 pnlMicros,uint64 fills,bytes32 metaHash,bytes32 evidenceUriHash,bytes32 evidenceHash,bytes32 prevRecordHash)",
+  ),
+);
+
+export interface TrackRecordV2PublishInput {
+  seq: number;
+  periodStart: number;
+  periodEnd: number;
+  pnlMicros: bigint;
+  fills: number;
+  metaHash: Hex;
+  evidenceUri: string;
+  evidenceHash: Hex;
+  prevRecordHash: Hex;
+}
+
+export class TrackRecordV2Client extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("trackRecordV2");
+  }
+
+  async domainSeparator(): Promise<Hex> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "DOMAIN_SEPARATOR",
+    })) as Hex;
+  }
+
+  async signer(botId: Hex): Promise<Address> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "botSigner",
+      args: [botId],
+    })) as Address;
+  }
+
+  async lastSeq(botId: Hex): Promise<number> {
+    const seq = (await this.publicClient.readContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "lastSeq",
+      args: [botId],
+    })) as bigint;
+    return Number(seq);
+  }
+
+  async lastRecordHash(botId: Hex): Promise<Hex> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "lastRecordHash",
+      args: [botId],
+    })) as Hex;
+  }
+
+  async registerBot(botId: Hex, kind: BotKind, signer: Address): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "registerBot",
+      args: [botId, BOT_KIND_ENUM[kind], signer],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async recordCount(botId: Hex): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "recordCount",
+      args: [botId],
+    })) as bigint;
+  }
+
+  async recordAt(botId: Hex, idx: bigint): Promise<TrackRecordV2Record> {
+    const r = (await this.publicClient.readContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "recordAt",
+      args: [botId, idx],
+    })) as {
+      seq: bigint;
+      periodStart: bigint;
+      periodEnd: bigint;
+      pnlMicros: bigint;
+      fills: bigint;
+      metaHash: Hex;
+      evidenceUriHash: Hex;
+      evidenceHash: Hex;
+      recordHash: Hex;
+    };
+    return {
+      seq: Number(r.seq),
+      periodStart: Number(r.periodStart),
+      periodEnd: Number(r.periodEnd),
+      pnlMicros: r.pnlMicros,
+      fills: Number(r.fills),
+      metaHash: r.metaHash,
+      evidenceUriHash: r.evidenceUriHash,
+      evidenceHash: r.evidenceHash,
+      recordHash: r.recordHash,
+    };
+  }
+
+  structHash(botId: Hex, kind: BotKind, rec: TrackRecordV2PublishInput): Hex {
+    const evidenceUriHash = keccak256(toHex(rec.evidenceUri));
+    return keccak256(
+      encodeAbiParameters(
+        [
+          { type: "bytes32" },
+          { type: "bytes32" },
+          { type: "uint8" },
+          { type: "uint64" },
+          { type: "uint64" },
+          { type: "uint64" },
+          { type: "int128" },
+          { type: "uint64" },
+          { type: "bytes32" },
+          { type: "bytes32" },
+          { type: "bytes32" },
+          { type: "bytes32" },
+        ],
+        [
+          RECORD_V2_TYPEHASH,
+          botId,
+          BOT_KIND_ENUM[kind],
+          BigInt(rec.seq),
+          BigInt(rec.periodStart),
+          BigInt(rec.periodEnd),
+          rec.pnlMicros,
+          BigInt(rec.fills),
+          rec.metaHash,
+          evidenceUriHash,
+          rec.evidenceHash,
+          rec.prevRecordHash,
+        ],
+      ),
+    );
+  }
+
+  digest(domainSeparator: Hex, structHash: Hex): Hex {
+    return keccak256(
+      `0x1901${domainSeparator.slice(2)}${structHash.slice(2)}` as Hex,
+    );
+  }
+
+  async publish(
+    botId: Hex,
+    rec: TrackRecordV2PublishInput,
+    signature: Hex,
+  ): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: trackRecordV2Abi,
+      functionName: "publish",
+      args: [
+        botId,
+        {
+          seq: BigInt(rec.seq),
+          periodStart: BigInt(rec.periodStart),
+          periodEnd: BigInt(rec.periodEnd),
+          pnlMicros: rec.pnlMicros,
+          fills: BigInt(rec.fills),
+          metaHash: rec.metaHash,
+          evidenceUri: rec.evidenceUri,
+          evidenceHash: rec.evidenceHash,
+          prevRecordHash: rec.prevRecordHash,
+        },
+        signature,
+      ],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+const COVENANT_STATE_NAMES: CovenantState[] = ["ACTIVE", "PAUSED"];
+const RISK_VERDICT_NAMES: RiskVerdict[] = [
+  "ALLOW",
+  "PAUSE_DRAWDOWN",
+  "PAUSE_OVERSUBSCRIBED",
+  "PAUSE_STALE",
+  "PAUSE_EXPIRED",
+];
+
+function covenantStateName(v: number): CovenantState {
+  const name = COVENANT_STATE_NAMES[v];
+  if (!name) throw new Error(`Unknown CovenantVault state: ${v}`);
+  return name;
+}
+
+function riskVerdictName(v: number): RiskVerdict {
+  const name = RISK_VERDICT_NAMES[v];
+  if (!name) throw new Error(`Unknown RiskKernel verdict: ${v}`);
+  return name;
+}
+
+function mandateFromTuple(m: readonly unknown[]): CovenantMandate {
+  return {
+    operator: m[0] as Address,
+    botId: m[1] as Hex,
+    budgetUsdc: m[2] as bigint,
+    maxDrawdownBps: Number(m[3]),
+    receiptFreshnessSec: Number(m[4]),
+    expiry: m[5] as bigint,
+    perfFeeBps: Number(m[6]),
+    bondContract: m[7] as Address,
+    riskKernel: m[8] as Address,
+    trackRecordV2: m[9] as Address,
+  };
+}
+
+export interface CovenantVaultSnapshot {
+  state: CovenantState;
+  mandate: CovenantMandate;
+  assets: bigint;
+  idle: bigint;
+  operatorOutstanding: bigint;
+  availableCredit: bigint;
+  totalShares: bigint;
+  highWaterMark: bigint;
+  operatorClaimable: bigint;
+}
+
+export class CovenantVaultClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("covenantVault");
+  }
+
+  async mandate(): Promise<CovenantMandate> {
+    const m = (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "mandate",
+    })) as readonly unknown[];
+    return mandateFromTuple(m);
+  }
+
+  async state(): Promise<CovenantState> {
+    const state = (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "state",
+    })) as number;
+    return covenantStateName(Number(state));
+  }
+
+  async snapshot(): Promise<CovenantVaultSnapshot> {
+    const [
+      state,
+      mandate,
+      assets,
+      idle,
+      operatorOutstanding,
+      availableCredit,
+      totalShares,
+      highWaterMark,
+      operatorClaimable,
+    ] = await Promise.all([
+      this.state(),
+      this.mandate(),
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "assets",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "depositTotalIdle",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "operatorOutstanding",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "availableCredit",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "totalShares",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "highWaterMark",
+      }) as Promise<bigint>,
+      this.publicClient.readContract({
+        address: this.address(),
+        abi: covenantVaultAbi,
+        functionName: "operatorClaimable",
+      }) as Promise<bigint>,
+    ]);
+    return {
+      state,
+      mandate,
+      assets,
+      idle,
+      operatorOutstanding,
+      availableCredit,
+      totalShares,
+      highWaterMark,
+      operatorClaimable,
+    };
+  }
+
+  async sharesOf(user: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "sharesOf",
+      args: [user],
+    })) as bigint;
+  }
+
+  async deposit(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "deposit",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async withdraw(shares: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "withdraw",
+      args: [shares],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async pullCredit(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "pullCredit",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async returnCapital(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: covenantVaultAbi,
+      functionName: "returnCapital",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export class RiskKernelClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("riskKernel");
+  }
+
+  async evaluate(vault?: Address): Promise<RiskVerdict> {
+    const verdict = (await this.publicClient.readContract({
+      address: this.address(),
+      abi: riskKernelV2Abi,
+      functionName: "evaluate",
+      args: [vault ?? this.requireAddress("covenantVault")],
+    })) as number;
+    return riskVerdictName(Number(verdict));
+  }
+
+  async enforce(vault?: Address): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: riskKernelV2Abi,
+      functionName: "enforce",
+      args: [vault ?? this.requireAddress("covenantVault")],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export class SlashBondClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("slashBond");
+  }
+
+  async bondBalance(): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashBondAbi,
+      functionName: "bondBalance",
+    })) as bigint;
+  }
+
+  async totalSlashed(): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: slashBondAbi,
+      functionName: "totalSlashed",
+    })) as bigint;
+  }
+
+  async bond(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashBondAbi,
+      functionName: "bond",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async requestUnbond(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: slashBondAbi,
+      functionName: "requestUnbond",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+}
+
+export class AgentPoolClient extends BaseSubClient {
+  private address(): Address {
+    return this.requireAddress("agentPool");
+  }
+
+  async assets(): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: agentPoolAbi,
+      functionName: "assets",
+    })) as bigint;
+  }
+
+  async sharesOf(user: Address): Promise<bigint> {
+    return (await this.publicClient.readContract({
+      address: this.address(),
+      abi: agentPoolAbi,
+      functionName: "sharesOf",
+      args: [user],
+    })) as bigint;
+  }
+
+  async deposit(amount: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: agentPoolAbi,
+      functionName: "deposit",
+      args: [amount],
+      account: this.account(),
+      chain: w.chain ?? null,
+    });
+  }
+
+  async withdraw(shares: bigint): Promise<Hex> {
+    const w = this.requireWallet();
+    return w.writeContract({
+      address: this.address(),
+      abi: agentPoolAbi,
+      functionName: "withdraw",
+      args: [shares],
       account: this.account(),
       chain: w.chain ?? null,
     });

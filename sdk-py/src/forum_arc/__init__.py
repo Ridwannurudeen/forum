@@ -4,22 +4,36 @@ Wraps the Forum operator-plane contracts on Arc testnet/mainnet.
 """
 
 from .abi import (
+    AGENT_POOL_ABI,
     BUILDER_CODE_REGISTRY_ABI,
+    COVENANT_VAULT_ABI,
     FEE_DISTRIBUTOR_ABI,
     KEEPER_CONFIG_ABI,
+    RISK_KERNEL_V2_ABI,
+    SLASH_BOND_ABI,
     TRACK_RECORD_ABI,
+    TRACK_RECORD_V2_ABI,
 )
 from .client import (
+    AgentPoolClient,
     BOT_KIND_ENUM,
     Attribution,
+    CovenantMandate,
+    CovenantVaultClient,
+    CovenantVaultSnapshot,
     ConfigClient,
     ConfigSnapshot,
     FeeDistributorClient,
     ForumAddresses,
     ForumClient,
     RegistryClient,
+    RiskKernelClient,
+    SlashBondClient,
     TrackRecordClient,
     TrackRecordEntry,
+    TrackRecordV2Client,
+    TrackRecordV2Entry,
+    TrackRecordV2Publish,
 )
 
 ARC_TESTNET = {
@@ -30,19 +44,33 @@ ARC_TESTNET = {
 
 __all__ = [
     "ARC_TESTNET",
+    "AGENT_POOL_ABI",
     "BOT_KIND_ENUM",
     "BUILDER_CODE_REGISTRY_ABI",
+    "COVENANT_VAULT_ABI",
     "FEE_DISTRIBUTOR_ABI",
     "KEEPER_CONFIG_ABI",
+    "RISK_KERNEL_V2_ABI",
+    "SLASH_BOND_ABI",
     "TRACK_RECORD_ABI",
+    "TRACK_RECORD_V2_ABI",
+    "AgentPoolClient",
     "Attribution",
+    "CovenantMandate",
+    "CovenantVaultClient",
+    "CovenantVaultSnapshot",
     "ConfigClient",
     "ConfigSnapshot",
     "FeeDistributorClient",
     "ForumAddresses",
     "ForumClient",
     "RegistryClient",
+    "RiskKernelClient",
+    "SlashBondClient",
     "TrackRecordClient",
     "TrackRecordEntry",
+    "TrackRecordV2Client",
+    "TrackRecordV2Entry",
+    "TrackRecordV2Publish",
 ]
 __version__ = "0.0.1"

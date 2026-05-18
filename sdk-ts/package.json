@@ -1,11 +1,35 @@
 {
   "name": "forum-arc-sdk",
   "version": "0.0.1",
-  "description": "Arc-native SDK for prediction-market bot operators — registry, config, track record, fee distribution",
+  "description": "Arc-native SDK for Covenant Accounts and prediction-market agent operators",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
-  "keywords": ["arc", "polymarket", "prediction-markets", "market-maker", "usdc", "viem"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./deployments": {
+      "types": "./dist/deployments.d.ts",
+      "import": "./dist/deployments.js"
+    },
+    "./abi": {
+      "types": "./dist/abi.d.ts",
+      "import": "./dist/abi.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "arc",
+    "polymarket",
+    "prediction-markets",
+    "market-maker",
+    "usdc",
+    "viem"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Ridwannurudeen/forum.git",

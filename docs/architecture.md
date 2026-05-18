@@ -1,42 +1,44 @@
-# Forum — Architecture
+# Forum Architecture
 
-## What this is
+Forum is a Covenant Account system for autonomous market agents on Arc.
 
-Arc-native operator and settlement plane for prediction-market bots. Polymarket V2 lives on Polygon; bots need a shared operator/settlement plane that doesn't live in the same place their inventory does. Arc provides sub-second finality + USDC-as-gas, which makes it the natural home.
+The core idea: depositors fund a USDC vault, the agent gets bounded execution credit, and a permissionless risk kernel can pause the vault and slash the operator bond when the mandate is breached.
 
-## On-chain (Arc testnet, chain 5042002)
+## On-Chain Surface
 
 | Contract | Purpose |
 |---|---|
-| `BuilderCodeRegistry` | First-claim-wins binding from `bytes32` Polymarket builder codes to owner addresses. Owners can transfer, revoke, set metadata URI. |
-| `KeeperConfig` | Per-`(operator, botId)` append-only config history. Operators write opaque `bytes`; bots poll the latest snapshot. |
-| `TrackRecord` | Per-`botId` append-only PnL records. Each record is EIP-712-signed by the bot's registered signer. Bot kind (`MAKER`/`TAKER`/`ARB`/`OTHER`) fixed at registration. |
-| `FeeDistributor` | Per-code attribution table (recipients + bps summing to 10_000). Pull-pattern USDC claim. |
+| `BuilderCodeRegistry` | First-claim-wins binding from a `bytes32` builder code to an owner address. |
+| `KeeperConfig` | Per-bot append-only config snapshots. |
+| `TrackRecord` | v1 signer-attributable PnL records. |
+| `FeeDistributor` | Pull-pattern USDC attribution split. |
+| `TrackRecordV2` | Strict sequence, monotonic time, hash-chain, replay protection, EIP-712 signer attribution, public evidence hash. |
+| `AgentPool` | Simple USDC pool with operator pull/return and high-water-mark performance fee. |
+| `CovenantVaultV1.2` | Live mandate-bounded USDC credit line for AgoraMind. |
+| `RiskKernelV2` | Permissionless evaluator/enforcer for drawdown, budget, staleness, and expiry rules. |
+| `SlashBondV1.1` | Operator USDC bond with `RiskKernelV2` as attestor. |
 
-## Off-chain SDKs
+## Off-Chain Surface
 
-- `forum-arc-sdk` (TypeScript / npm) — viem-based, used by the reference keeper and the PolyForge adapter.
-- `forum-arc` (Python / PyPI) — web3.py-based, used by the poly-lp-bot adapter.
+- `forum-arc-sdk`: TypeScript SDK for identity, receipts, vault, risk, bond, pool, and fee-distribution calls.
+- `forum-arc`: Python SDK with the same core surfaces.
+- `keeper`: reference keeper and AgoraMind service.
+- `frontend/index.html`: live static dashboard that reads Arc state and verifies the latest AgoraMind receipt hash in-browser.
 
-## Reference integration (demo workload)
+## Receipt Flow
 
-A V2-SDK-native, paper-mode, two-sided quoter that uses every Forum contract end-to-end. Lives in `keeper/`. Lands D2–D4.
+1. Keeper builds canonical receipt JSON.
+2. Receipt JSON is written under `/receipts/<bot>/<seq>.json`.
+3. Keeper computes `keccak256(canonical_json)`.
+4. `TrackRecordV2.publish()` stores the receipt evidence hash and the signed record hash.
+5. Anyone can fetch the JSON, recompute the hash, and compare it to `recordAt(bot, idx).evidenceHash`.
 
-## Third-party adapters (traction story)
+`keeper/scripts/verify-receipt.mjs` is the CLI verifier.
 
-- `adapter-poly-lp-bot` (Python) — wraps `Makabeez/poly-lp-bot` to publish its PnL to `TrackRecord`. Lands D3.
-- `adapter-polyforge` (TypeScript) — wraps `MitemsHub/PolyForge` similarly. Lands D4.
+## Current Scope
 
-## Why Arc specifically
-
-- **USDC-as-gas** — operators don't need a separate gas token; everything is denominated in the same unit they earn fees in.
-- **Sub-second finality** (Malachite BFT) — config updates take effect in the next block; the operator UI feels real-time.
-- **CCTP V2** — fees earned on Polygon (in pUSD post-V2-launch) can be bridged to Arc USDC with verified contracts already live.
-
-## Honest scope
-
-- v1: 9-day hackathon build (Agora Agents Hackathon, May 11–25 2026)
-- Contracts: immutable. No admin keys. No upgradability.
-- Reference keeper: paper-mode default — no money at risk
-- Polymarket V2 only. No HIP-3, no Pump.fun, no Kalshi in v1.
-- Arc testnet only until mainnet beta (Summer 2026)
+- Arc testnet only.
+- Reference trading is paper-mode by default.
+- External adapters are planned but not shipped.
+- CCTP, Gateway, USYC, and App Kit are roadmap integrations, not live dependencies.
+- Venue restrictions are not enforced on-chain yet; the current vault bounds amount and state.

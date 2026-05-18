@@ -29,11 +29,15 @@ export interface BookSnapshot {
 
 /** A simulated fill in paper mode, or a real fill in live mode. */
 export interface ReceiptFill {
+  /** Market/token id this fill belongs to. Required for multi-market receipts. */
+  marketId?: string;
   ts: number;
   side: "BUY" | "SELL";
   price: number;
   size: number;
   mode: "paper" | "live";
+  /** Maker reward credited by the venue for this fill, in USDC. */
+  makerRebateUsdc?: number;
   /** Polymarket order/trade id if live; null if paper. */
   externalId: string | null;
 }
@@ -56,7 +60,13 @@ export interface Receipt {
   /** Every fill (real or paper-simulated) during the window. */
   fills: ReceiptFill[];
   /** Opening and closing inventory per market (signed shares). */
-  inventory: { marketId: string; openShares: number; closeShares: number }[];
+  inventory: {
+    marketId: string;
+    openShares: number;
+    /** Weighted-average opening cost. Required when openShares is non-zero. */
+    openAvgPx?: number;
+    closeShares: number;
+  }[];
   /** PnL inputs sufficient to recompute pnlMicros. */
   pnl: {
     realizedUsdc: number;
@@ -127,7 +137,12 @@ export interface BuildReceiptInput {
   markets: string[];
   bookSnapshots: { marketId: string; start: BookSnapshot; end: BookSnapshot }[];
   fills: ReceiptFill[];
-  inventory: { marketId: string; openShares: number; closeShares: number }[];
+  inventory: {
+    marketId: string;
+    openShares: number;
+    openAvgPx?: number;
+    closeShares: number;
+  }[];
   pnl: {
     realizedUsdc: number;
     unrealizedUsdc: number;
@@ -164,6 +179,65 @@ export function buildReceipt(input: BuildReceiptInput): Receipt {
   };
 }
 
+interface PnlState {
+  net: number;
+  avgPx: number;
+  realizedUsdc: number;
+}
+
+const EPSILON_USDC = 0.000001;
+
+function closeEnough(a: number, b: number): boolean {
+  return Math.abs(a - b) <= EPSILON_USDC;
+}
+
+function toMicros(v: number): number {
+  return Math.round(v * 1_000_000);
+}
+
+function closingMark(book: BookSnapshot): number | null {
+  const bestBid = book.bids[0]?.price;
+  const bestAsk = book.asks[0]?.price;
+  if (typeof bestBid === "number" && typeof bestAsk === "number") {
+    return (bestBid + bestAsk) / 2;
+  }
+  if (typeof bestBid === "number") return bestBid;
+  if (typeof bestAsk === "number") return bestAsk;
+  return null;
+}
+
+function applyFill(state: PnlState, fill: ReceiptFill): void {
+  const signed = fill.side === "BUY" ? fill.size : -fill.size;
+  const prevNet = state.net;
+  const newNet = prevNet + signed;
+
+  if (prevNet === 0 || Math.sign(prevNet) === Math.sign(signed)) {
+    const absPrev = Math.abs(prevNet);
+    const absSigned = Math.abs(signed);
+    state.avgPx =
+      absPrev + absSigned > 0
+        ? (state.avgPx * absPrev + fill.price * absSigned) /
+          (absPrev + absSigned)
+        : fill.price;
+  } else {
+    const closing = Math.min(Math.abs(signed), Math.abs(prevNet));
+    const pnlPerShare =
+      prevNet > 0 ? fill.price - state.avgPx : state.avgPx - fill.price;
+    state.realizedUsdc += closing * pnlPerShare;
+    if (Math.abs(signed) > Math.abs(prevNet)) state.avgPx = fill.price;
+  }
+
+  state.net = newNet;
+  if (state.net === 0) state.avgPx = 0;
+}
+
+function fillMarketId(r: Receipt, fill: ReceiptFill): string | null {
+  if (fill.marketId) return fill.marketId;
+  if (r.inventory.length === 1) return r.inventory[0]!.marketId;
+  if (r.bookSnapshots.length === 1) return r.bookSnapshots[0]!.marketId;
+  return null;
+}
+
 /** Verify a previously-built receipt matches its claimed pnlMicros — i.e.,
  *  recompute realized + unrealized + rebates from fills + inventory + book
  *  snapshots and confirm the sum lines up with totalUsdcMicros.
@@ -171,24 +245,71 @@ export function buildReceipt(input: BuildReceiptInput): Receipt {
  *  Returns null if OK, or a string describing the discrepancy.
  *  This is the function a third-party verifier calls. */
 export function verifyReceipt(r: Receipt): string | null {
-  // 1. Re-derive realized PnL from fills using FIFO over inventory.
-  //    For v1, we trust the receipt's `pnl.realizedUsdc` since the formula
-  //    is documented in docs/backtest-notes.md and tested in keeper/test/.
-  //    A future v2 will re-run the InventoryTracker against `fills` here.
-  // 2. Re-derive unrealized at closing book midprice.
-  //    Same caveat applies.
-  // 3. Sum-check totalUsdcMicros == 1e6 * (realized + unrealized + rebates).
-  const expectedMicros = Math.round(
-    1_000_000 *
-      (r.pnl.realizedUsdc + r.pnl.unrealizedUsdc + r.pnl.makerRebatesUsdc),
-  );
-  if (expectedMicros !== r.pnl.totalUsdcMicros) {
-    return `pnl mismatch: expected ${expectedMicros} got ${r.pnl.totalUsdcMicros}`;
-  }
-  // 4. Re-derive sourceData hashes.
   const expectedBooks = keccak256(toHex(canonicalize(r.bookSnapshots)));
   if (expectedBooks !== r.sourceData.booksHash) return "booksHash mismatch";
   const expectedFills = keccak256(toHex(canonicalize(r.fills)));
   if (expectedFills !== r.sourceData.fillsHash) return "fillsHash mismatch";
+
+  const states = new Map<string, PnlState>();
+  for (const inv of r.inventory) {
+    if (inv.openShares !== 0 && typeof inv.openAvgPx !== "number") {
+      return `openAvgPx required for non-zero opening inventory: ${inv.marketId}`;
+    }
+    states.set(inv.marketId, {
+      net: inv.openShares,
+      avgPx: inv.openShares === 0 ? 0 : inv.openAvgPx!,
+      realizedUsdc: 0,
+    });
+  }
+
+  for (const fill of r.fills) {
+    const marketId = fillMarketId(r, fill);
+    if (!marketId) return "fill marketId required for multi-market receipt";
+    let state = states.get(marketId);
+    if (!state) {
+      state = { net: 0, avgPx: 0, realizedUsdc: 0 };
+      states.set(marketId, state);
+    }
+    applyFill(state, fill);
+  }
+
+  let realizedUsdc = 0;
+  let unrealizedUsdc = 0;
+  for (const inv of r.inventory) {
+    const state = states.get(inv.marketId);
+    if (!state) return `missing inventory state: ${inv.marketId}`;
+    if (!closeEnough(state.net, inv.closeShares)) {
+      return `inventory mismatch for ${inv.marketId}: expected ${state.net} got ${inv.closeShares}`;
+    }
+    realizedUsdc += state.realizedUsdc;
+
+    if (state.net === 0) continue;
+    const book = r.bookSnapshots.find((b) => b.marketId === inv.marketId);
+    if (!book) return `bookSnapshot missing for ${inv.marketId}`;
+    const mark = closingMark(book.end);
+    if (mark === null) return `closing mark unavailable for ${inv.marketId}`;
+    unrealizedUsdc += state.net * (mark - state.avgPx);
+  }
+
+  const makerRebatesUsdc = r.fills.reduce(
+    (sum, f) => sum + (f.makerRebateUsdc ?? 0),
+    0,
+  );
+  if (!closeEnough(realizedUsdc, r.pnl.realizedUsdc)) {
+    return `realized pnl mismatch: expected ${realizedUsdc} got ${r.pnl.realizedUsdc}`;
+  }
+  if (!closeEnough(unrealizedUsdc, r.pnl.unrealizedUsdc)) {
+    return `unrealized pnl mismatch: expected ${unrealizedUsdc} got ${r.pnl.unrealizedUsdc}`;
+  }
+  if (!closeEnough(makerRebatesUsdc, r.pnl.makerRebatesUsdc)) {
+    return `maker rebate mismatch: expected ${makerRebatesUsdc} got ${r.pnl.makerRebatesUsdc}`;
+  }
+
+  const expectedMicros = toMicros(
+    realizedUsdc + unrealizedUsdc + makerRebatesUsdc,
+  );
+  if (expectedMicros !== r.pnl.totalUsdcMicros) {
+    return `pnl mismatch: expected ${expectedMicros} got ${r.pnl.totalUsdcMicros}`;
+  }
   return null;
 }

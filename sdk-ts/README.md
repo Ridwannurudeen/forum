@@ -1,6 +1,9 @@
-# forum-arc-sdk (TypeScript)
+# forum-arc-sdk
 
-Arc-native SDK for prediction-market bot operators. Wraps the Forum operator-plane contracts (`BuilderCodeRegistry`, `KeeperConfig`, `TrackRecord`, `FeeDistributor`) on Arc testnet/mainnet.
+TypeScript SDK for Forum on Arc.
+
+It wraps the original operator-plane contracts plus the Covenant Account surface:
+`TrackRecordV2`, `CovenantVault`, `RiskKernelV2`, `SlashBond`, and `AgentPool`.
 
 ## Install
 
@@ -8,9 +11,31 @@ Arc-native SDK for prediction-market bot operators. Wraps the Forum operator-pla
 npm i forum-arc-sdk
 ```
 
-## Usage
+## Read the live Covenant Account
 
 ```typescript
-import { ARC_TESTNET, BOT_KIND_ENUM } from 'forum-arc-sdk';
-// Full ForumClient class lands D2.
+import { createPublicClient, http } from "viem";
+import { ARC_TESTNET, ForumClient } from "forum-arc-sdk";
+import { ARC_TESTNET_DEPLOYMENT } from "forum-arc-sdk/deployments";
+
+const publicClient = createPublicClient({
+  chain: {
+    id: ARC_TESTNET.chainId,
+    name: "Arc Testnet",
+    nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+    rpcUrls: { default: { http: [ARC_TESTNET.rpc] } },
+  },
+  transport: http(),
+});
+
+const forum = new ForumClient({
+  publicClient,
+  addresses: ARC_TESTNET_DEPLOYMENT,
+});
+
+const vault = await forum.covenantVault.snapshot();
+const verdict = await forum.riskKernel.evaluate();
+const bond = await forum.slashBond.bondBalance();
 ```
+
+Write calls require a Viem `walletClient` with an account.

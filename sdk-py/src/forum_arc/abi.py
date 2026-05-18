@@ -362,3 +362,111 @@ FEE_DISTRIBUTOR_ABI = [
         ],
     },
 ]
+
+TRACK_RECORD_V2_ABI = [
+    {"type": "function", "name": "botSigner", "stateMutability": "view", "inputs": [{"name": "botId", "type": "bytes32"}], "outputs": [{"type": "address"}]},
+    {"type": "function", "name": "lastSeq", "stateMutability": "view", "inputs": [{"name": "botId", "type": "bytes32"}], "outputs": [{"type": "uint64"}]},
+    {"type": "function", "name": "lastRecordHash", "stateMutability": "view", "inputs": [{"name": "botId", "type": "bytes32"}], "outputs": [{"type": "bytes32"}]},
+    {"type": "function", "name": "registerBot", "stateMutability": "nonpayable", "inputs": [{"name": "botId", "type": "bytes32"}, {"name": "kind", "type": "uint8"}, {"name": "signer", "type": "address"}], "outputs": []},
+    {
+        "type": "function",
+        "name": "publish",
+        "stateMutability": "nonpayable",
+        "inputs": [
+            {"name": "botId", "type": "bytes32"},
+            {
+                "name": "r",
+                "type": "tuple",
+                "components": [
+                    {"name": "seq", "type": "uint64"},
+                    {"name": "periodStart", "type": "uint64"},
+                    {"name": "periodEnd", "type": "uint64"},
+                    {"name": "pnlMicros", "type": "int128"},
+                    {"name": "fills", "type": "uint64"},
+                    {"name": "metaHash", "type": "bytes32"},
+                    {"name": "evidenceUri", "type": "string"},
+                    {"name": "evidenceHash", "type": "bytes32"},
+                    {"name": "prevRecordHash", "type": "bytes32"},
+                ],
+            },
+            {"name": "signature", "type": "bytes"},
+        ],
+        "outputs": [],
+    },
+    {"type": "function", "name": "recordCount", "stateMutability": "view", "inputs": [{"name": "botId", "type": "bytes32"}], "outputs": [{"type": "uint256"}]},
+    {
+        "type": "function",
+        "name": "recordAt",
+        "stateMutability": "view",
+        "inputs": [{"name": "botId", "type": "bytes32"}, {"name": "idx", "type": "uint256"}],
+        "outputs": [
+            {
+                "type": "tuple",
+                "components": [
+                    {"name": "seq", "type": "uint64"},
+                    {"name": "periodStart", "type": "uint64"},
+                    {"name": "periodEnd", "type": "uint64"},
+                    {"name": "pnlMicros", "type": "int128"},
+                    {"name": "fills", "type": "uint64"},
+                    {"name": "metaHash", "type": "bytes32"},
+                    {"name": "evidenceUriHash", "type": "bytes32"},
+                    {"name": "evidenceHash", "type": "bytes32"},
+                    {"name": "recordHash", "type": "bytes32"},
+                ],
+            }
+        ],
+    },
+]
+
+COVENANT_VAULT_ABI = [
+    {
+        "type": "function",
+        "name": "mandate",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+            {"name": "operator", "type": "address"},
+            {"name": "botId", "type": "bytes32"},
+            {"name": "budgetUsdc", "type": "uint128"},
+            {"name": "maxDrawdownBps", "type": "uint16"},
+            {"name": "receiptFreshnessSec", "type": "uint32"},
+            {"name": "expiry", "type": "uint64"},
+            {"name": "perfFeeBps", "type": "uint16"},
+            {"name": "bondContract", "type": "address"},
+            {"name": "riskKernel", "type": "address"},
+            {"name": "trackRecordV2", "type": "address"},
+        ],
+    },
+    {"type": "function", "name": "state", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint8"}]},
+    {"type": "function", "name": "assets", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "availableCredit", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "depositTotalIdle", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "operatorOutstanding", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "totalShares", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "highWaterMark", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "operatorClaimable", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "sharesOf", "stateMutability": "view", "inputs": [{"name": "user", "type": "address"}], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "deposit", "stateMutability": "nonpayable", "inputs": [{"name": "amount", "type": "uint256"}], "outputs": [{"name": "sharesMinted", "type": "uint256"}]},
+    {"type": "function", "name": "withdraw", "stateMutability": "nonpayable", "inputs": [{"name": "shares", "type": "uint256"}], "outputs": [{"name": "usdcOut", "type": "uint256"}]},
+    {"type": "function", "name": "pullCredit", "stateMutability": "nonpayable", "inputs": [{"name": "amount", "type": "uint256"}], "outputs": []},
+    {"type": "function", "name": "returnCapital", "stateMutability": "nonpayable", "inputs": [{"name": "amount", "type": "uint256"}], "outputs": []},
+]
+
+RISK_KERNEL_V2_ABI = [
+    {"type": "function", "name": "evaluate", "stateMutability": "view", "inputs": [{"name": "vaultAddr", "type": "address"}], "outputs": [{"type": "uint8"}]},
+    {"type": "function", "name": "enforce", "stateMutability": "nonpayable", "inputs": [{"name": "vaultAddr", "type": "address"}], "outputs": []},
+]
+
+SLASH_BOND_ABI = [
+    {"type": "function", "name": "bondBalance", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "totalSlashed", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "bond", "stateMutability": "nonpayable", "inputs": [{"name": "amount", "type": "uint256"}], "outputs": []},
+    {"type": "function", "name": "requestUnbond", "stateMutability": "nonpayable", "inputs": [{"name": "amount", "type": "uint256"}], "outputs": []},
+]
+
+AGENT_POOL_ABI = [
+    {"type": "function", "name": "assets", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "sharesOf", "stateMutability": "view", "inputs": [{"name": "user", "type": "address"}], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "deposit", "stateMutability": "nonpayable", "inputs": [{"name": "amount", "type": "uint256"}], "outputs": [{"name": "sharesMinted", "type": "uint256"}]},
+    {"type": "function", "name": "withdraw", "stateMutability": "nonpayable", "inputs": [{"name": "shares", "type": "uint256"}], "outputs": [{"name": "usdcOut", "type": "uint256"}]},
+]
