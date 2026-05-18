@@ -4,20 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>
-      Forum — Covenant Accounts. Programmable USDC credit lines for AI trading
-      agents.
+      Forum — Programmable USDC credit lines for AI trading agents
     </title>
     <meta
       name="description"
-      content="The settlement layer for autonomous market agents. Mandate-bounded USDC credit lines, on-chain pause + slash, recomputable EIP-712 receipts. 10 immutable contracts on Arc."
+      content="Forum is the settlement layer for autonomous market agents. Mandate-bounded USDC credit lines on Arc, permissionless pause + slash, recomputable EIP-712 receipts. Live on Arc testnet."
     />
-    <meta property="og:title" content="Forum — Covenant Accounts" />
+    <meta property="og:title" content="Forum — Covenant Accounts on Arc" />
     <meta
       property="og:description"
-      content="Programmable USDC credit lines for AI trading agents. Live on Arc, mandate-bounded, autonomously enforced."
+      content="Programmable USDC credit lines for AI trading agents. Mandate-bounded vaults, permissionless risk kernel, recomputable receipts. Live on Arc."
     />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#0a0b10" />
     <link rel="preconnect" href="https://rsms.me/" />
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <script>
+      // Suppress the noisy "cdn.tailwindcss.com should not be used in production"
+      // warning. The CDN is acceptable for a single-page static site of this size;
+      // a build step would not materially improve perf at this scale.
+      (function () {
+        const _w = console.warn;
+        console.warn = function () {
+          const m = arguments[0];
+          if (typeof m === "string" && m.includes("cdn.tailwindcss.com")) return;
+          return _w.apply(console, arguments);
+        };
+      })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -26,20 +40,25 @@
             fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
             colors: {
               forum: {
-                bg: "#0a0b10",
-                panel: "#13151f",
-                panel2: "#191b27",
-                ink: "#e6e8ed",
-                dim: "#9ba3b3",
-                dim2: "#6b7280",
-                accent: "#a06bff",
-                accent2: "#5dd6c3",
-                line: "rgba(255,255,255,0.08)",
-                line2: "rgba(255,255,255,0.05)",
+                bg: "#08090f",
+                panel: "#11131c",
+                panel2: "#171a26",
+                panel3: "#1d2030",
+                ink: "#eceef3",
+                dim: "#a0a8b8",
+                dim2: "#6d7587",
+                accent: "#a78bfa",
+                accent2: "#6ee7d3",
+                accent3: "#7c9eff",
+                line: "rgba(255,255,255,0.07)",
+                line2: "rgba(255,255,255,0.04)",
                 ok: "#4ade80",
-                warn: "#f59e0b",
+                warn: "#f5a623",
                 err: "#f87171",
               },
+            },
+            maxWidth: {
+              "8xl": "88rem",
             },
           },
         },
@@ -51,8 +70,8 @@
       }
       html,
       body {
-        background: #0a0b10;
-        color: #e6e8ed;
+        background: #08090f;
+        color: #eceef3;
         min-height: 100%;
         font-feature-settings: "cv11", "ss03", "ss01";
         -webkit-font-smoothing: antialiased;
@@ -61,9 +80,9 @@
       .grad-text {
         background: linear-gradient(
           135deg,
-          #c4a4ff 0%,
-          #a06bff 35%,
-          #5dd6c3 100%
+          #d1bfff 0%,
+          #a78bfa 35%,
+          #6ee7d3 100%
         );
         -webkit-background-clip: text;
         background-clip: text;
@@ -72,23 +91,45 @@
       .grad-bg-hero {
         background:
           radial-gradient(
-            70% 50% at 50% 0%,
-            rgba(160, 107, 255, 0.18) 0%,
+            65% 55% at 50% -5%,
+            rgba(167, 139, 250, 0.16) 0%,
+            transparent 65%
+          ),
+          radial-gradient(
+            45% 35% at 88% 18%,
+            rgba(110, 231, 211, 0.08) 0%,
             transparent 60%
           ),
           radial-gradient(
-            50% 35% at 90% 20%,
-            rgba(93, 214, 195, 0.1) 0%,
+            40% 30% at 5% 25%,
+            rgba(124, 158, 255, 0.06) 0%,
             transparent 60%
           ),
-          linear-gradient(180deg, #0a0b10 0%, #0a0b10 100%);
+          linear-gradient(180deg, #08090f 0%, #08090f 100%);
+      }
+      .grad-bg-cta {
+        background:
+          radial-gradient(
+            60% 80% at 50% 100%,
+            rgba(167, 139, 250, 0.12) 0%,
+            transparent 70%
+          ),
+          linear-gradient(180deg, #11131c 0%, #0a0c14 100%);
       }
       .grain {
         background-image: radial-gradient(
-          rgba(255, 255, 255, 0.025) 1px,
+          rgba(255, 255, 255, 0.022) 1px,
           transparent 1px
         );
-        background-size: 22px 22px;
+        background-size: 24px 24px;
+      }
+      .hairline {
+        background-image: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.08) 50%,
+          transparent 100%
+        );
       }
       .mono {
         font-family:
@@ -136,8 +177,51 @@
         );
       }
       .nav-blur {
-        backdrop-filter: blur(12px) saturate(180%);
-        background: rgba(10, 11, 16, 0.72);
+        backdrop-filter: blur(14px) saturate(180%);
+        background: rgba(8, 9, 15, 0.72);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.2rem 0.625rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.025);
+        font-size: 11px;
+        line-height: 1;
+        color: #a0a8b8;
+        font-feature-settings: "tnum";
+      }
+      .chip-live {
+        border-color: rgba(110, 231, 211, 0.3);
+        background: rgba(110, 231, 211, 0.07);
+        color: #6ee7d3;
+      }
+      .chip-accent {
+        border-color: rgba(167, 139, 250, 0.3);
+        background: rgba(167, 139, 250, 0.08);
+        color: #c4b5fd;
+      }
+      .stat-glow {
+        position: relative;
+      }
+      .stat-glow::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        background: linear-gradient(
+          135deg,
+          rgba(167, 139, 250, 0.18),
+          transparent 40%,
+          transparent 60%,
+          rgba(110, 231, 211, 0.18)
+        );
+        z-index: -1;
+        filter: blur(8px);
+        opacity: 0.4;
       }
       .sparkline {
         width: 120px;
@@ -165,20 +249,43 @@
           border-color 150ms ease;
       }
       .btn-primary {
-        background: linear-gradient(135deg, #a06bff 0%, #8c4dff 100%);
+        background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
         color: white;
-        box-shadow: 0 8px 24px -8px rgba(160, 107, 255, 0.4);
+        box-shadow:
+          0 1px 0 0 rgba(255, 255, 255, 0.12) inset,
+          0 8px 24px -8px rgba(167, 139, 250, 0.55);
       }
       .btn-primary:hover {
         transform: translateY(-1px);
+        box-shadow:
+          0 1px 0 0 rgba(255, 255, 255, 0.18) inset,
+          0 12px 28px -8px rgba(167, 139, 250, 0.65);
       }
       .btn-ghost {
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        color: #e6e8ed;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #eceef3;
+        background: rgba(255, 255, 255, 0.015);
       }
       .btn-ghost:hover {
         background: rgba(255, 255, 255, 0.04);
-        border-color: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+      .btn-sm {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.8rem;
+      }
+      .section-eyebrow {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: #6d7587;
+      }
+      .section-title {
+        font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
       }
       .row-hover:hover {
         background: rgba(255, 255, 255, 0.025);
@@ -200,61 +307,58 @@
   </head>
   <body class="grad-bg-hero">
     <div class="grain min-h-screen">
-      <nav class="sticky top-0 z-30 nav-blur border-b border-forum-line">
+      <nav class="sticky top-0 z-30 nav-blur">
         <div
-          class="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between"
+          class="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between gap-4"
         >
-          <a href="#" class="flex items-center gap-2 group">
-            <span
-              class="inline-block w-2.5 h-2.5 rounded-full bg-forum-accent2 pulse"
-            ></span>
-            <span class="text-base font-medium tracking-tight">Forum</span>
-            <span class="hidden sm:inline text-xs text-forum-dim2 ml-1"
-              >on Arc</span
-            >
-          </a>
-          <div class="flex items-center gap-4 sm:gap-6 text-sm">
-            <a
-              href="#how"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >How it works</a
-            >
-            <a
-              href="#proof"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Live proof</a
-            >
-            <a
-              href="#app"
-              class="hidden md:inline text-forum-accent hover:text-forum-ink"
-              >App</a
-            >
-            <a
-              href="#architecture"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Architecture</a
-            >
-            <a
-              href="#integrate"
-              class="hidden md:inline text-forum-dim hover:text-forum-ink"
-              >Integrate</a
-            >
+          <div class="flex items-center gap-5">
+            <a href="#" class="flex items-center gap-2 group">
+              <span
+                class="inline-block w-2 h-2 rounded-full bg-forum-accent2 pulse"
+              ></span>
+              <span class="text-base font-semibold tracking-tight">Forum</span>
+              <span class="hidden sm:inline text-[11px] text-forum-dim2 ml-0.5">
+                on Arc
+              </span>
+            </a>
+            <span id="nav-block-chip" class="chip hidden sm:inline-flex">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2 pulse"></span>
+              <span class="mono">block —</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-5 text-sm">
+            <a href="#how" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+              How it works
+            </a>
+            <a href="#app" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+              Console
+            </a>
+            <a href="#developers" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+              Developers
+            </a>
+            <a href="#architecture" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
+              Architecture
+            </a>
+            <a href="#security" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
+              Security
+            </a>
             <a
               href="https://github.com/Ridwannurudeen/forum"
               target="_blank"
               rel="noopener"
-              class="text-forum-dim hover:text-forum-ink"
+              class="text-forum-dim hover:text-forum-ink transition"
               aria-label="GitHub"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"
                 />
+              </svg>
+            </a>
+            <a href="#app" class="btn btn-primary btn-sm hidden sm:inline-flex">
+              Launch app
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
             </a>
           </div>
@@ -262,106 +366,99 @@
       </nav>
 
       <main class="mx-auto max-w-7xl px-6">
-        <section class="pt-20 pb-16 sm:pt-28 sm:pb-24">
+        <section class="pt-20 pb-14 sm:pt-28 sm:pb-20">
           <div class="max-w-4xl">
             <a
-              href="#proof"
-              class="inline-flex items-center gap-2 rounded-full border border-forum-accent/30 bg-forum-accent/10 px-3 py-1 text-xs text-forum-accent hover:bg-forum-accent/15"
+              href="#slash-proof"
+              class="inline-flex items-center gap-2 rounded-full border border-forum-accent/25 bg-forum-accent/[0.06] px-3 py-1 text-xs text-forum-accent hover:bg-forum-accent/[0.1] transition"
             >
-              <span
-                class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent pulse"
-              ></span>
-              Live on Arc · 10 immutable contracts · autonomous pause + slash in one tx
-              <span aria-hidden="true">→</span>
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent pulse"></span>
+              First autonomous pause + slash settled on Arc
+              <span aria-hidden="true" class="text-forum-accent/60">→</span>
             </a>
             <h1
-              class="mt-6 text-5xl sm:text-7xl font-semibold tracking-tight leading-[1.02]"
+              class="mt-6 text-5xl sm:text-7xl font-semibold tracking-[-0.03em] leading-[1.02]"
             >
-              <span class="grad-text">Programmable credit</span><br />
+              <span class="grad-text">Programmable USDC credit</span><br />
               <span class="text-forum-ink">for AI trading agents.</span>
             </h1>
             <p
               class="mt-7 text-lg sm:text-xl text-forum-dim max-w-2xl leading-relaxed"
             >
-              The settlement layer for autonomous market agents. Depositors
-              fund a USDC vault bound by an on-chain mandate. Operators get
-              bounded credit, not your private key. A public risk kernel
-              pauses the vault and slashes the operator bond the moment the
-              mandate is breached — one transaction, no admin click.
+              Forum is the settlement layer for autonomous market agents.
+              Depositors fund a USDC vault bound by an on-chain mandate.
+              Operators get bounded credit, not your private key. A public risk
+              kernel pauses the vault and slashes the operator bond the moment
+              the mandate breaks — same transaction, no admin click.
             </p>
             <div class="mt-9 flex flex-wrap items-center gap-3">
-              <a href="#proof" class="btn btn-primary">
-                See the live demo
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                >
+              <a href="#app" class="btn btn-primary">
+                Open the live console
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path d="M5 12h14M13 5l7 7-7 7" />
                 </svg>
               </a>
-              <a
-                href="https://github.com/Ridwannurudeen/forum/issues/new?labels=operator-interest&title=Operator+interest&body=Hi+%E2%80%94+I%27d+like+to+run+my+bot+under+a+Forum+Covenant+Account.%0A%0AStrategy%3A%0AVenue%3A%0AExpected+drawdown%3A%0AContact%3A"
-                target="_blank"
-                rel="noopener"
-                class="btn btn-ghost"
-              >
-                Become an operator
+              <a href="#developers" class="btn btn-ghost">
+                Read the docs
                 <span aria-hidden="true">→</span>
               </a>
               <a
                 href="https://github.com/Ridwannurudeen/forum"
                 target="_blank"
                 rel="noopener"
-                class="text-sm text-forum-dim hover:text-forum-ink ml-1"
-                >GitHub</a
+                class="text-sm text-forum-dim hover:text-forum-ink ml-1 transition"
               >
-              <a
-                href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md"
-                target="_blank"
-                rel="noopener"
-                class="text-sm text-forum-dim hover:text-forum-ink"
-                >Read the deck →</a
-              >
+                View source ↗
+              </a>
+            </div>
+
+            <!-- Inline live counters -->
+            <div class="mt-10 flex flex-wrap items-center gap-2 text-xs">
+              <span id="hero-chip-tvl" class="chip chip-accent">
+                <span class="mono">TVL —</span>
+              </span>
+              <span id="hero-chip-receipts" class="chip">
+                <span class="text-forum-dim2 uppercase tracking-wider text-[10px] mr-1">Receipts</span>
+                <span class="mono text-forum-ink">—</span>
+              </span>
+              <span id="hero-chip-publish" class="chip chip-live">
+                <span class="inline-block w-1 h-1 rounded-full bg-forum-accent2 pulse"></span>
+                <span class="mono">Latest publish —</span>
+              </span>
+              <span id="hero-chip-bots" class="chip">
+                <span class="text-forum-dim2 uppercase tracking-wider text-[10px] mr-1">Agents</span>
+                <span class="mono text-forum-ink">—</span>
+              </span>
             </div>
 
             <div
-              class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-forum-dim2"
+              class="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-forum-dim2"
             >
-              <span class="flex items-center gap-2">
-                <span
-                  class="inline-block w-1 h-1 rounded-full bg-forum-dim2"
-                ></span>
+              <span>
                 Built for
                 <a
                   href="https://agora.thecanteenapp.com/"
                   target="_blank"
                   rel="noopener"
-                  class="text-forum-dim hover:text-forum-ink"
-                  >Agora Agents Hackathon</a
-                >
+                  class="text-forum-dim hover:text-forum-ink transition"
+                >Agora Agents Hackathon</a>
               </span>
-              <span class="flex items-center gap-2">
-                <span
-                  class="inline-block w-1 h-1 rounded-full bg-forum-dim2"
-                ></span>
-                Canteen × Circle × Arc · May 11–25 2026
-              </span>
-              <span class="flex items-center gap-2">
-                <span
-                  class="inline-block w-1 h-1 rounded-full bg-forum-dim2"
-                ></span>
-                Chain
-                <span class="mono text-forum-dim">5042002</span>
-              </span>
+              <span class="text-forum-line">·</span>
+              <span>Canteen × Circle × Arc · May 11–25 2026</span>
+              <span class="text-forum-line">·</span>
+              <span>Chain <span class="mono text-forum-dim">5042002</span></span>
             </div>
+          </div>
+        </section>
 
-            <div class="mt-12 pt-6 border-t border-forum-line/40">
-              <div class="text-[10px] uppercase tracking-[0.2em] text-forum-dim2 mb-3">Settles on</div>
-              <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+        <!-- 2. PROOF STRIP — built on the Circle stack -->
+        <section class="pb-16">
+          <div class="rounded-2xl ring-soft bg-forum-panel/60 px-6 sm:px-8 py-5">
+            <div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+              <div class="text-[10px] uppercase tracking-[0.22em] text-forum-dim2 shrink-0">
+                Built on the Circle stack
+              </div>
+              <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                 <span class="mono text-forum-ink">Arc</span>
                 <span class="text-forum-line">·</span>
                 <span class="mono text-forum-ink">USDC</span>
@@ -372,80 +469,58 @@
                 <span class="text-forum-line">·</span>
                 <span class="mono text-forum-ink">EIP-712 receipts</span>
                 <span class="text-forum-line">·</span>
-                <span class="mono text-forum-ink">10 immutable contracts</span>
+                <span class="mono text-forum-ink">Foundry</span>
               </div>
             </div>
           </div>
         </section>
 
-        <section class="pb-20">
+        <section class="pb-24">
           <div
-            class="grid grid-cols-2 md:grid-cols-5 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
+            class="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
           >
-            <div class="bg-forum-panel p-6">
-              <div
-                class="text-[11px] uppercase tracking-widest text-forum-dim2"
-              >
-                Product modules
+            <div class="bg-forum-panel p-6 sm:p-7">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] uppercase tracking-[0.18em] text-forum-dim2">
+                  Active agents
+                </div>
+                <span class="text-[10px] text-forum-dim2 mono">/api/agents</span>
               </div>
-              <div class="mt-3 text-3xl font-medium tnum">10</div>
-              <div class="text-xs text-forum-dim2 mt-1">All immutable</div>
+              <div id="metric-bots" class="mt-4 text-3xl sm:text-4xl font-medium tnum text-forum-ink">—</div>
+              <div class="text-xs text-forum-dim2 mt-1.5">Registered on TrackRecord</div>
             </div>
-            <div class="bg-forum-panel p-6">
-              <div
-                class="text-[11px] uppercase tracking-widest text-forum-dim2"
-              >
-                Bots registered
+            <div class="bg-forum-panel p-6 sm:p-7">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] uppercase tracking-[0.18em] text-forum-dim2">
+                  Receipts published
+                </div>
+                <span class="text-[10px] text-forum-dim2 mono">on-chain</span>
               </div>
-              <div
-                id="metric-bots"
-                class="mt-3 text-3xl font-medium tnum text-forum-ink"
-              >
-                —
-              </div>
-              <div class="text-xs text-forum-dim2 mt-1">On TrackRecord</div>
+              <div id="metric-records" class="mt-4 text-3xl sm:text-4xl font-medium tnum text-forum-ink">—</div>
+              <div class="text-xs text-forum-dim2 mt-1.5">Recomputable, EIP-712 signed</div>
             </div>
-            <div class="bg-forum-panel p-6">
-              <div
-                class="text-[11px] uppercase tracking-widest text-forum-dim2"
-              >
-                Receipts published
+            <div class="bg-forum-panel p-6 sm:p-7">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] uppercase tracking-[0.18em] text-forum-dim2">
+                  Latest publish
+                </div>
+                <span class="text-[10px] text-forum-dim2 mono inline-flex items-center gap-1">
+                  <span class="inline-block w-1 h-1 rounded-full bg-forum-accent2 pulse"></span>
+                  live
+                </span>
               </div>
-              <div
-                id="metric-records"
-                class="mt-3 text-3xl font-medium tnum text-forum-ink"
-              >
-                —
-              </div>
-              <div class="text-xs text-forum-dim2 mt-1">Recomputable</div>
+              <div id="metric-latest" class="mt-4 text-3xl sm:text-4xl font-medium tnum text-forum-ink">—</div>
+              <div class="text-xs text-forum-dim2 mt-1.5">Keeper heartbeat</div>
             </div>
-            <div class="bg-forum-panel p-6">
-              <div
-                class="text-[11px] uppercase tracking-widest text-forum-dim2"
-              >
-                Latest publish
+            <div class="bg-forum-panel p-6 sm:p-7">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] uppercase tracking-[0.18em] text-forum-dim2">
+                  Arc block
+                </div>
+                <span class="text-[10px] text-forum-dim2 mono">5042002</span>
               </div>
-              <div
-                id="metric-latest"
-                class="mt-3 text-3xl font-medium tnum text-forum-ink"
-              >
-                —
-              </div>
-              <div class="text-xs text-forum-dim2 mt-1">Live keeper</div>
-            </div>
-            <div class="bg-forum-panel p-6 col-span-2 md:col-span-1">
-              <div
-                class="text-[11px] uppercase tracking-widest text-forum-dim2"
-              >
-                Arc block
-              </div>
-              <div
-                id="metric-block"
-                class="mt-3 text-3xl font-medium tnum text-forum-ink"
-              >
-                —
-              </div>
-              <div class="text-xs text-forum-dim2 mt-1">Sub-second BFT</div>
+              <div id="metric-block" class="mt-4 text-3xl sm:text-4xl font-medium tnum text-forum-ink">—</div>
+              <div class="text-xs text-forum-dim2 mt-1.5">Sub-second BFT finality</div>
             </div>
           </div>
         </section>
@@ -501,6 +576,65 @@
                 funds out of the bond. Same tx. Permissionless. No operator
                 click required.
               </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- PERSONAS — built for -->
+        <section id="for" class="pb-24">
+          <div class="max-w-2xl mb-10">
+            <div class="section-eyebrow">Built for</div>
+            <h2 class="mt-3 section-title">Three sides of one credit network.</h2>
+          </div>
+          <div class="grid md:grid-cols-3 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden">
+            <div class="bg-forum-panel p-8 flex flex-col">
+              <div class="flex items-center gap-2">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent"></span>
+                <span class="section-eyebrow text-forum-accent">Agent builders</span>
+              </div>
+              <h3 class="mt-4 text-xl font-medium tracking-tight">Ship a bot, not a wallet.</h3>
+              <p class="mt-3 text-sm text-forum-dim leading-relaxed">
+                Spin up a mandate-bounded credit line in one transaction. Your bot
+                pulls capped USDC, trades, returns funds, publishes a signed receipt
+                each cycle. Capital can fire you — they cannot drain you.
+              </p>
+              <a href="#app" class="mt-6 inline-flex items-center gap-1 text-sm text-forum-accent hover:text-forum-ink transition">
+                Launch a Covenant Account
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+            <div class="bg-forum-panel p-8 flex flex-col">
+              <div class="flex items-center gap-2">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2"></span>
+                <span class="section-eyebrow text-forum-accent2">Capital allocators</span>
+              </div>
+              <h3 class="mt-4 text-xl font-medium tracking-tight">Underwrite agents, not keys.</h3>
+              <p class="mt-3 text-sm text-forum-dim leading-relaxed">
+                AgentScore ranks every bot by drawdown, freshness, slash history,
+                streak length. Receipts are recomputable. Withdraw your shares in any
+                state — depositors are never trapped, no admin signer can override.
+              </p>
+              <a href="#app=agents" class="mt-6 inline-flex items-center gap-1 text-sm text-forum-accent2 hover:text-forum-ink transition">
+                Browse the leaderboard
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+            <div class="bg-forum-panel p-8 flex flex-col">
+              <div class="flex items-center gap-2">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent3"></span>
+                <span class="section-eyebrow" style="color:#7c9eff">Venues &amp; aggregators</span>
+              </div>
+              <h3 class="mt-4 text-xl font-medium tracking-tight">Route fees by receipt.</h3>
+              <p class="mt-3 text-sm text-forum-dim leading-relaxed">
+                The FeeRouter pays operators, researchers, and referrers from a single
+                <code class="mono text-xs">pay(splitId, amount)</code> call. Splits are
+                permissionless and recipients pull accrual across every split via one
+                <code class="mono text-xs">claim()</code>.
+              </p>
+              <a href="#app=fees" class="mt-6 inline-flex items-center gap-1 text-sm hover:text-forum-ink transition" style="color:#7c9eff">
+                Inspect the fee router
+                <span aria-hidden="true">→</span>
+              </a>
             </div>
           </div>
         </section>
@@ -576,7 +710,7 @@
           </div>
         </section>
 
-        <section id="proof" class="pb-24">
+        <section id="slash-proof" class="pb-24">
           <div class="text-center max-w-2xl mx-auto mb-12">
             <div
               class="text-[11px] uppercase tracking-widest text-forum-accent2"
@@ -1193,17 +1327,24 @@ node keeper/scripts/demo-violation.mjs</pre>
         </section>
 
         <section id="architecture" class="pb-24">
-          <details class="group rounded-2xl ring-soft bg-forum-panel p-6 sm:p-8">
-            <summary class="cursor-pointer list-none flex items-baseline justify-between gap-4 flex-wrap">
-              <div>
-                <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Architecture · all bytecode verifiable on testnet.arcscan.app</div>
-                <h2 class="mt-1 text-2xl font-medium tracking-tight">Live Arc contract set <span class="text-forum-dim2 text-sm font-normal">(10 modules)</span></h2>
-              </div>
-              <span class="text-forum-accent text-xs mono group-open:hidden">expand ↓</span>
-              <span class="text-forum-accent text-xs mono hidden group-open:inline">collapse ↑</span>
-            </summary>
-            <div id="contracts-grouped" class="space-y-8 mt-8"></div>
-          </details>
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
+            <div>
+              <div class="section-eyebrow">Architecture · all bytecode verifiable on testnet.arcscan.app</div>
+              <h2 class="mt-2 section-title">
+                The live Arc contract set
+                <span class="text-forum-dim2 text-base font-normal">(10 immutable modules)</span>
+              </h2>
+            </div>
+            <a
+              href="https://testnet.arcscan.app/address/0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26"
+              target="_blank"
+              rel="noopener"
+              class="text-xs text-forum-accent hover:text-forum-ink mono transition"
+            >
+              factory ↗
+            </a>
+          </div>
+          <div id="contracts-grouped" class="space-y-10"></div>
         </section>
 
 
@@ -1345,166 +1486,391 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
         </section>
 
-        <section id="integrate" class="pb-24">
-          <details class="group rounded-2xl ring-soft bg-forum-panel p-6 sm:p-8">
-            <summary class="cursor-pointer list-none flex items-baseline justify-between gap-4 flex-wrap mb-2">
-              <div>
-                <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Integrate · SDK snippets</div>
-                <h2 class="mt-1 text-2xl font-medium tracking-tight">Fork the SDK. Ship in 5 minutes.</h2>
-              </div>
-              <span class="text-forum-accent text-xs mono group-open:hidden">expand ↓</span>
-              <span class="text-forum-accent text-xs mono hidden group-open:inline">collapse ↑</span>
-            </summary>
-          <div class="grid md:grid-cols-2 gap-6 mt-6">
-            <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
-              <div
-                class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between"
-              >
-                <span>TypeScript · forum-arc-sdk</span>
-                <span class="text-forum-dim2">npm</span>
-              </div>
-              <pre
-                class="mono p-5 text-xs leading-relaxed overflow-x-auto"
-              ><span class="text-forum-dim2">// install: npm i forum-arc-sdk</span>
-<span class="text-forum-accent2">import</span> { ForumClient } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">'forum-arc-sdk'</span>;
-<span class="text-forum-accent2">import</span> { ARC_TESTNET_DEPLOYMENT } <span class="text-forum-accent2">from</span>
-  <span class="text-forum-ok">'forum-arc-sdk/deployments'</span>;
+        <section id="developers" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
+            <div class="max-w-2xl">
+              <div class="section-eyebrow">Developers · SDKs + verifier</div>
+              <h2 class="mt-2 section-title">Fork it. Ship in five minutes.</h2>
+              <p class="mt-3 text-forum-dim leading-relaxed text-sm">
+                Same primitives, three runtimes. TypeScript and Python clients wrap
+                every contract. The verifier recomputes receipt hashes from the
+                published JSON and checks them against TrackRecordV2 on-chain — no
+                trust required.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <a href="https://www.npmjs.com/package/forum-arc-sdk" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">npm · forum-arc-sdk</a>
+              <a href="https://pypi.org/project/forum-arc/" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">PyPI · forum-arc</a>
+              <a href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">GitHub ↗</a>
+            </div>
+          </div>
 
-<span class="text-forum-accent2">const</span> forum = <span class="text-forum-accent2">new</span> ForumClient({
-  publicClient, walletClient,
-  addresses: ARC_TESTNET_DEPLOYMENT,
+          <div id="dev-tabs" class="flex flex-wrap gap-1 mb-4 border-b border-forum-line" role="tablist">
+            <button data-dev-tab="ts" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">TypeScript</button>
+            <button data-dev-tab="py" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Python</button>
+            <button data-dev-tab="sol" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Solidity</button>
+            <button data-dev-tab="cli" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Verifier CLI</button>
+          </div>
+
+          <div data-dev-panel="ts" class="dev-tab-panel rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+            <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
+              <span>sdk-ts/examples/open-covenant.ts</span>
+              <span class="text-forum-dim2">v0.3 · npm i forum-arc-sdk</span>
+            </div>
+            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2">// 1. install</span>
+<span class="text-forum-dim2">//    npm i forum-arc-sdk viem</span>
+
+<span class="text-forum-accent2">import</span> { createPublicClient, createWalletClient, custom, http } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">"viem"</span>;
+<span class="text-forum-accent2">import</span> { ForumClient } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">"forum-arc-sdk"</span>;
+<span class="text-forum-accent2">import</span> { ARC_TESTNET_DEPLOYMENT, ARC_TESTNET } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">"forum-arc-sdk/deployments"</span>;
+
+<span class="text-forum-accent2">const</span> publicClient = createPublicClient({ chain: ARC_TESTNET, transport: http() });
+<span class="text-forum-accent2">const</span> walletClient = createWalletClient({ chain: ARC_TESTNET, transport: custom(window.ethereum) });
+
+<span class="text-forum-accent2">const</span> forum = <span class="text-forum-accent2">new</span> ForumClient({ publicClient, walletClient, addresses: ARC_TESTNET_DEPLOYMENT });
+
+<span class="text-forum-dim2">// 2. open a mandate-bounded credit line</span>
+<span class="text-forum-accent2">const</span> { vault } = <span class="text-forum-accent2">await</span> forum.factory.createVault({
+  operator,
+  botLabel:           <span class="text-forum-ok">"my-poly-mm-v1"</span>,
+  budgetUsdc:         200n,
+  maxDrawdownBps:     500,        <span class="text-forum-dim2">// 5%</span>
+  receiptFreshnessSec: 1800,       <span class="text-forum-dim2">// 30 min</span>
+  perfFeeBps:         2000,       <span class="text-forum-dim2">// 20% &gt; HWM</span>
 });
 
-<span class="text-forum-accent2">const</span> vault = <span class="text-forum-accent2">await</span> forum.covenantVault.snapshot();
-<span class="text-forum-accent2">const</span> verdict = <span class="text-forum-accent2">await</span> forum.riskKernel.evaluate();</pre>
+<span class="text-forum-dim2">// 3. read live state · anyone can call this</span>
+<span class="text-forum-accent2">const</span> snapshot = <span class="text-forum-accent2">await</span> forum.covenantVault(vault).snapshot();
+<span class="text-forum-accent2">const</span> verdict  = <span class="text-forum-accent2">await</span> forum.riskKernel.evaluate(vault);
+<span class="text-forum-dim2">// → { state: "ACTIVE", verdict: "ALLOW", outstanding: 0n, idle: 1_000_000n }</span></pre>
+          </div>
+
+          <div data-dev-panel="py" class="dev-tab-panel hidden rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+            <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
+              <span>sdk_py/examples/open_covenant.py</span>
+              <span class="text-forum-dim2">v0.3 · pip install forum-arc</span>
             </div>
-            <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
-              <div
-                class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between"
-              >
-                <span>Python · forum-arc</span>
-                <span class="text-forum-dim2">PyPI</span>
-              </div>
-              <pre
-                class="mono p-5 text-xs leading-relaxed overflow-x-auto"
-              ><span class="text-forum-dim2"># install: pip install forum-arc</span>
+            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2"># 1. install</span>
+<span class="text-forum-dim2">#    pip install forum-arc web3</span>
+
+<span class="text-forum-accent2">from</span> web3 <span class="text-forum-accent2">import</span> Web3
 <span class="text-forum-accent2">from</span> forum_arc <span class="text-forum-accent2">import</span> ForumClient
-<span class="text-forum-accent2">from</span> forum_arc.deployments <span class="text-forum-accent2">import</span> \
-  ARC_TESTNET_DEPLOYMENT
+<span class="text-forum-accent2">from</span> forum_arc.deployments <span class="text-forum-accent2">import</span> ARC_TESTNET_DEPLOYMENT
 
+w3 = Web3(Web3.HTTPProvider(<span class="text-forum-ok">"https://rpc.testnet.arc.network"</span>))
 forum = ForumClient(w3, ARC_TESTNET_DEPLOYMENT, acct)
-vault = forum.covenant_vault.snapshot()
-verdict = forum.risk_kernel.evaluate(
-    ARC_TESTNET_DEPLOYMENT.covenant_vault
-)</pre>
-            </div>
+
+<span class="text-forum-dim2"># 2. open a mandate-bounded credit line</span>
+vault = forum.factory.create_vault(
+    operator=operator,
+    bot_label=<span class="text-forum-ok">"my-poly-mm-v1"</span>,
+    budget_usdc=200,
+    max_drawdown_bps=500,         <span class="text-forum-dim2"># 5%</span>
+    receipt_freshness_sec=1800,    <span class="text-forum-dim2"># 30 min</span>
+    perf_fee_bps=2000,            <span class="text-forum-dim2"># 20% &gt; HWM</span>
+)
+
+<span class="text-forum-dim2"># 3. read live state</span>
+snap = forum.covenant_vault(vault).snapshot()
+verdict = forum.risk_kernel.evaluate(vault)
+<span class="text-forum-accent2">print</span>(snap.state, verdict)
+<span class="text-forum-dim2"># → State.ACTIVE Verdict.ALLOW</span></pre>
           </div>
-          </details>
+
+          <div data-dev-panel="sol" class="dev-tab-panel hidden rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+            <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
+              <span>src/RiskKernelV2.sol · enforce(vault)</span>
+              <span class="text-forum-dim2">live · 0x0af356f2…feec4055</span>
+            </div>
+            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2">// Permissionless: any third party can call this.</span>
+<span class="text-forum-dim2">// Single tx flips vault to PAUSED *and* slashes 25% of the operator bond</span>
+<span class="text-forum-dim2">// on operator-fault verdicts. No admin signer. No fallback.</span>
+
+<span class="text-forum-accent2">function</span> enforce(<span class="text-forum-accent2">address</span> vault) <span class="text-forum-accent2">external</span> {
+    Verdict v = evaluate(vault);
+    <span class="text-forum-accent2">if</span> (v == Verdict.ALLOW) <span class="text-forum-accent2">revert</span> NoViolation();
+
+    CovenantVault(vault).pause(<span class="text-forum-accent2">uint8</span>(v));
+    <span class="text-forum-accent2">emit</span> EnforcementTriggered(vault, v, msg.sender);
+
+    <span class="text-forum-dim2">// Skip slash on PAUSE_EXPIRED — that's timeout, not fault</span>
+    <span class="text-forum-accent2">if</span> (v == Verdict.PAUSE_EXPIRED) <span class="text-forum-accent2">return</span>;
+
+    _trySlash(vault, v);
+}
+
+<span class="text-forum-accent2">function</span> _trySlash(<span class="text-forum-accent2">address</span> vault, Verdict v) <span class="text-forum-accent2">internal</span> {
+    <span class="text-forum-accent2">address</span> bond = bondOf[vault];
+    <span class="text-forum-accent2">uint256</span> bal  = SlashBond(bond).bondBalance();
+    <span class="text-forum-accent2">uint256</span> amt  = (bal * SLASH_BPS) / 10_000;  <span class="text-forum-dim2">// 25%</span>
+    <span class="text-forum-accent2">try</span> SlashBond(bond).slash(amt, <span class="text-forum-accent2">uint8</span>(v)) {
+        <span class="text-forum-accent2">emit</span> SlashTriggered(vault, bond, amt, v);
+    } <span class="text-forum-accent2">catch</span> { <span class="text-forum-dim2">/* bond drained or paused; pause still landed */</span> }
+}</pre>
+          </div>
+
+          <div data-dev-panel="cli" class="dev-tab-panel hidden rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+            <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
+              <span>keeper/scripts/verify-receipt.mjs</span>
+              <span class="text-forum-dim2">node ≥ 20 · zero deps beyond viem</span>
+            </div>
+            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2"># 1. download any receipt JSON from /receipts/&lt;botId12&gt;/&lt;seq&gt;.json</span>
+$ curl -sO https://forum.gudman.xyz/receipts/201c8909dca1/000071.json
+
+<span class="text-forum-dim2"># 2. run the verifier against the live TrackRecordV2 contract on Arc</span>
+$ node keeper/scripts/verify-receipt.mjs 000071.json
+
+  receipt seq        71
+  evidenceHash       0x30bc2a76…ab9952
+  on-chain hash      0x30bc2a76…ab9952
+  hash match         ✓
+  pnl recompute      valid (3 fills, realized +0 USDC, unrealized +0 USDC)
+  signer ∈ botSigner ✓
+  sequence ok        seq = lastSeq + 1
+  monotonic time     ✓ (periodEnd &gt; lastPeriodEnd)
+
+  <span class="text-forum-ok">RECEIPT VERIFIED</span></pre>
+          </div>
         </section>
 
-        <section class="pb-24">
-          <div
-            class="rounded-2xl border border-forum-warn/20 bg-forum-warn/[0.04] p-10"
-          >
-            <div class="text-[11px] uppercase tracking-widest text-forum-accent2">
-              Trust layer · why receipts beat screenshots
+        <!-- SECURITY · honest about where we are -->
+        <section id="security" class="pb-24">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
+            <div class="max-w-2xl">
+              <div class="section-eyebrow">Security &amp; honesty</div>
+              <h2 class="mt-2 section-title">Forum is hackathon-grade. Here's exactly where.</h2>
+              <p class="mt-3 text-forum-dim leading-relaxed text-sm">
+                Every claim on this page is verifiable on Arc. Every gap is in this
+                section. Capital should walk in knowing both.
+              </p>
             </div>
-            <h2 class="mt-2 text-2xl font-medium text-forum-ink">
-              Forum isn't a strategy. Forum is the layer that makes any
-              strategy fundable.
-            </h2>
-            <div class="mt-6 grid lg:grid-cols-3 gap-6">
-              <div
-                class="lg:col-span-2 text-forum-dim space-y-3 leading-relaxed"
-              >
-                <p>
-                  Bad strategies self-disqualify on chain in 30 minutes —
-                  stale receipt, drawdown breach, oversubscription — and the
-                  same transaction slashes the operator bond. Good strategies
-                  prove themselves with signed, recomputable receipts.
-                  Allocators decide on cryptographic evidence, not Sharpe
-                  screenshots.
-                </p>
-                <p>
-                  We tested it on ourselves. Our v1 keeper is a naive
-                  Avellaneda-Stoikov market maker on 16 Polymarket V2 books:
-                  57 fills over 7 days, mean Sharpe <span class="text-forum-err">−5.05</span>,
-                  total PnL <span class="text-forum-err">−$77.93</span>. Exactly
-                  what the literature predicts for an MM without maker rebates
-                  or microstructure tuning — and exactly the kind of strategy
-                  Forum is designed to surface, contain, and replace.
-                </p>
-                <p class="text-xs text-forum-dim2">
-                  Reproduce:
-                  <code class="mono text-forum-dim"
-                    >node keeper/scripts/pull-prices.mjs --markets 20 --days 7
-                    --fidelity 1</code
-                  >
-                  then
-                  <code class="mono text-forum-dim"
-                    >tsx scripts/run-backtest.mjs</code
-                  >. Full framing in
-                  <a
-                    class="text-forum-accent"
-                    href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md"
-                    target="_blank"
-                    rel="noopener"
-                    >docs/backtest-notes.md</a
-                  >.
-                </p>
+          </div>
+
+          <div class="grid lg:grid-cols-3 gap-6 mb-8">
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-ok"></span>
+                <span class="section-eyebrow text-forum-ok">Shipped</span>
               </div>
-              <div
-                class="rounded-xl bg-forum-panel2 ring-soft p-6 mono text-sm leading-relaxed text-forum-ink"
-              >
-                <span class="text-forum-dim2">total fills</span> 57
-                <span class="text-forum-dim2">mean Sharpe</span>
-                <span class="text-forum-err">−5.05</span>
-                <span class="text-forum-dim2">total PnL</span>
-                <span class="text-forum-err">−$77.93</span>
-                <span class="text-forum-dim2">sum max DD</span> $81.32
+              <ul class="space-y-2.5 text-sm text-forum-dim leading-relaxed">
+                <li class="flex gap-2"><span class="text-forum-ok">✓</span> Immutable contracts on Arc testnet (10 modules, no proxy, no upgradeability)</li>
+                <li class="flex gap-2"><span class="text-forum-ok">✓</span> Permissionless <code class="mono text-xs">enforce(vault)</code> · live pause + slash demoed</li>
+                <li class="flex gap-2"><span class="text-forum-ok">✓</span> EIP-712 receipts: strict sequence, hash chain, replay rejection, monotonic time</li>
+                <li class="flex gap-2"><span class="text-forum-ok">✓</span> Depositor withdraw works in any state · operator cannot trap depositors</li>
+                <li class="flex gap-2"><span class="text-forum-ok">✓</span> CovenantVaultFactory · permissionless self-serve vault creation</li>
+              </ul>
+            </div>
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-warn"></span>
+                <span class="section-eyebrow" style="color:#f5a623">Caveats we won't hide</span>
+              </div>
+              <ul class="space-y-2.5 text-sm text-forum-dim leading-relaxed">
+                <li class="flex gap-2"><span class="text-forum-warn">!</span> No third-party audit yet. Suitable for testnet / demo capital only.</li>
+                <li class="flex gap-2"><span class="text-forum-warn">!</span> No on-chain venue allow-list yet — operator can route pulled USDC anywhere it's wired.</li>
+                <li class="flex gap-2"><span class="text-forum-warn">!</span> Receipt PnL recomputation is per-fill where data exists; full unrealized PnL is in progress.</li>
+                <li class="flex gap-2"><span class="text-forum-warn">!</span> Live AgoraMind keeper is paper-mode by default. Real Polymarket fee capture is roadmap.</li>
+                <li class="flex gap-2"><span class="text-forum-warn">!</span> Bug bounty: open via GitHub Issues. Formal program post-audit.</li>
+              </ul>
+            </div>
+            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2"></span>
+                <span class="section-eyebrow text-forum-accent2">Test coverage</span>
+              </div>
+              <div class="space-y-3">
+                <div class="flex justify-between items-baseline border-b border-forum-line2 pb-2">
+                  <span class="text-xs text-forum-dim">Foundry (Solidity)</span>
+                  <span class="mono text-forum-ink">61 / 61</span>
+                </div>
+                <div class="flex justify-between items-baseline border-b border-forum-line2 pb-2">
+                  <span class="text-xs text-forum-dim">Keeper (Vitest)</span>
+                  <span class="mono text-forum-ink">44 / 44</span>
+                </div>
+                <div class="flex justify-between items-baseline border-b border-forum-line2 pb-2">
+                  <span class="text-xs text-forum-dim">TS SDK typecheck</span>
+                  <span class="mono text-forum-ok">pass</span>
+                </div>
+                <div class="flex justify-between items-baseline border-b border-forum-line2 pb-2">
+                  <span class="text-xs text-forum-dim">Python SDK import</span>
+                  <span class="mono text-forum-ok">pass</span>
+                </div>
+                <div class="flex justify-between items-baseline">
+                  <span class="text-xs text-forum-dim">GitHub Actions</span>
+                  <a href="https://github.com/Ridwannurudeen/forum/actions" target="_blank" rel="noopener" class="mono text-forum-ok hover:underline">green ↗</a>
+                </div>
               </div>
             </div>
           </div>
-        </section>
 
-        <footer class="pt-10 pb-12 border-t border-forum-line">
-          <div
-            class="flex flex-wrap items-center justify-between gap-4 text-xs text-forum-dim2"
-          >
-            <div class="flex flex-wrap items-center gap-2">
-              <span>MIT</span><span>·</span> <span>Paper-mode default</span
-              ><span>·</span> <span>Arc testnet only</span><span>·</span>
-              <span>Not financial advice</span>
-            </div>
-            <div class="flex flex-wrap items-center gap-4">
+          <!-- Self-test honesty block -->
+          <div class="rounded-2xl border border-forum-warn/20 bg-forum-warn/[0.03] p-8 sm:p-10">
+            <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
+              <div>
+                <div class="section-eyebrow text-forum-accent2">We tested it on ourselves</div>
+                <h3 class="mt-2 text-xl font-medium tracking-tight">Forum's own v1 bot fails. That is the point.</h3>
+              </div>
               <a
-                class="text-forum-dim hover:text-forum-ink"
-                href="https://github.com/Ridwannurudeen/forum"
-                target="_blank"
-                rel="noopener"
-                >repo</a
-              >
-              <a
-                class="text-forum-dim hover:text-forum-ink"
-                href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md"
-                target="_blank"
-                rel="noopener"
-                >deck</a
-              >
-              <a
-                class="text-forum-dim hover:text-forum-ink"
-                href="https://github.com/Ridwannurudeen/forum/blob/main/SUBMISSION.md"
-                target="_blank"
-                rel="noopener"
-                >submission</a
-              >
-              <a
-                class="text-forum-dim hover:text-forum-ink"
                 href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md"
                 target="_blank"
                 rel="noopener"
-                >backtest</a
+                class="text-xs text-forum-accent hover:text-forum-ink mono transition"
               >
+                docs/backtest-notes.md ↗
+              </a>
+            </div>
+            <div class="grid lg:grid-cols-3 gap-6">
+              <div class="lg:col-span-2 text-forum-dim space-y-3 leading-relaxed text-sm">
+                <p>
+                  Bad strategies self-disqualify on chain in 30 minutes — stale
+                  receipt, drawdown breach, oversubscription — and the same
+                  transaction slashes the operator bond. Good strategies prove
+                  themselves with signed, recomputable receipts. Allocators decide on
+                  cryptographic evidence, not Sharpe screenshots.
+                </p>
+                <p>
+                  Our v1 keeper is a naive Avellaneda-Stoikov market maker on 16
+                  Polymarket V2 books: 57 fills over 7 days, mean Sharpe
+                  <span class="text-forum-err">−5.05</span>, total PnL
+                  <span class="text-forum-err">−$77.93</span>. Exactly what the
+                  literature predicts for an MM without maker rebates or
+                  microstructure tuning — and exactly the kind of strategy Forum is
+                  designed to surface, contain, and replace.
+                </p>
+                <p class="text-xs text-forum-dim2">
+                  Reproduce locally:
+                  <code class="mono text-forum-dim">node keeper/scripts/pull-prices.mjs --markets 20 --days 7 --fidelity 1</code>
+                  then
+                  <code class="mono text-forum-dim">tsx scripts/run-backtest.mjs</code>.
+                </p>
+              </div>
+              <div class="rounded-xl bg-forum-panel2 ring-soft p-6 mono text-sm leading-relaxed">
+                <div class="flex justify-between"><span class="text-forum-dim2">total fills</span> <span class="text-forum-ink">57</span></div>
+                <div class="flex justify-between mt-2"><span class="text-forum-dim2">mean Sharpe</span> <span class="text-forum-err">−5.05</span></div>
+                <div class="flex justify-between mt-2"><span class="text-forum-dim2">total PnL</span> <span class="text-forum-err">−$77.93</span></div>
+                <div class="flex justify-between mt-2"><span class="text-forum-dim2">sum max DD</span> <span class="text-forum-ink">$81.32</span></div>
+                <div class="mt-4 pt-3 border-t border-forum-line2 text-[10px] text-forum-dim2 uppercase tracking-wider">7-day window · 16 markets</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRE-FOOTER CTA -->
+        <section class="pb-24">
+          <div class="rounded-2xl ring-soft grad-bg-cta p-10 sm:p-14 text-center">
+            <div class="section-eyebrow inline-flex items-center gap-2">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2 pulse"></span>
+              Live on Arc · permissionless
+            </div>
+            <h2 class="mt-4 text-3xl sm:text-5xl font-semibold tracking-[-0.025em] leading-[1.05]">
+              <span class="grad-text">Open your first Covenant Account</span><br />
+              <span class="text-forum-ink">in under sixty seconds.</span>
+            </h2>
+            <p class="mt-5 text-forum-dim max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+              Connect a wallet. Set a mandate. Click create. A fresh immutable vault
+              ships with RiskKernelV2 and SlashBondV1.1 pre-wired. No admin signer.
+              No fallback path. No screenshots.
+            </p>
+            <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <a href="#app" class="btn btn-primary">
+                Launch the console
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </a>
+              <a href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener" class="btn btn-ghost">
+                View source ↗
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <footer class="pt-16 pb-12 border-t border-forum-line">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            <div class="col-span-2 md:col-span-1">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="inline-block w-2 h-2 rounded-full bg-forum-accent2 pulse"></span>
+                <span class="text-base font-semibold tracking-tight">Forum</span>
+              </div>
+              <p class="text-xs text-forum-dim2 leading-relaxed max-w-xs">
+                Programmable USDC credit lines for autonomous AI trading agents.
+                Live on Arc.
+              </p>
+              <div class="mt-5 flex items-center gap-3">
+                <a href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener" class="text-forum-dim2 hover:text-forum-ink transition" aria-label="GitHub">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 .5C5.7.5.6 5.6.6 11.9c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.6-3.9-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.4 5.6 18.3.5 12 .5z"/>
+                  </svg>
+                </a>
+                <a href="https://testnet.arcscan.app/address/0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26" target="_blank" rel="noopener" class="text-forum-dim2 hover:text-forum-ink transition text-xs mono" aria-label="Arc explorer">
+                  arcscan ↗
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <div class="section-eyebrow mb-4">Product</div>
+              <ul class="space-y-2.5 text-sm">
+                <li><a href="#app" class="text-forum-dim hover:text-forum-ink transition">Console</a></li>
+                <li><a href="#app=create" class="text-forum-dim hover:text-forum-ink transition">Create vault</a></li>
+                <li><a href="#app=agents" class="text-forum-dim hover:text-forum-ink transition">AgentScore</a></li>
+                <li><a href="#app=markets" class="text-forum-dim hover:text-forum-ink transition">Risk markets</a></li>
+                <li><a href="#app=router" class="text-forum-dim hover:text-forum-ink transition">Capital router</a></li>
+                <li><a href="#app=fees" class="text-forum-dim hover:text-forum-ink transition">Fee router</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <div class="section-eyebrow mb-4">Developers</div>
+              <ul class="space-y-2.5 text-sm">
+                <li><a href="#developers" class="text-forum-dim hover:text-forum-ink transition">SDK overview</a></li>
+                <li><a href="https://www.npmjs.com/package/forum-arc-sdk" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">TypeScript · npm</a></li>
+                <li><a href="https://pypi.org/project/forum-arc/" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Python · PyPI</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/scripts/verify-receipt.mjs" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Verifier CLI</a></li>
+                <li><a href="https://forum.gudman.xyz/api/health" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Indexer API</a></li>
+                <li><a href="#architecture" class="text-forum-dim hover:text-forum-ink transition">Contract addresses</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <div class="section-eyebrow mb-4">Resources</div>
+              <ul class="space-y-2.5 text-sm">
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/README.md" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">README</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/docs/architecture.md" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Architecture</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/docs/pitch-deck.md" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Pitch deck</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/docs/backtest-notes.md" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Backtest notes</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/AI_USAGE.md" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">AI usage</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/SUBMISSION.md" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Submission</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <div class="section-eyebrow mb-4">Company</div>
+              <ul class="space-y-2.5 text-sm">
+                <li><a href="https://agora.thecanteenapp.com/" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Hackathon</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/issues" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Issues</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/issues/new?labels=operator-interest&title=Operator+interest" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Become operator</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/issues/new?labels=allocator-interest&title=Allocator+interest" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Become allocator</a></li>
+                <li><a href="#security" class="text-forum-dim hover:text-forum-ink transition">Security</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-forum-line2 text-[11px] text-forum-dim2">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>MIT licensed</span>
+              <span class="text-forum-line">·</span>
+              <span>Paper-mode default</span>
+              <span class="text-forum-line">·</span>
+              <span>Arc testnet only</span>
+              <span class="text-forum-line">·</span>
+              <span>Not investment advice</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 text-forum-dim2">
+              <span>Built for</span>
+              <a href="https://agora.thecanteenapp.com/" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">
+                Agora Agents Hackathon · Canteen × Circle × Arc · May 2026
+              </a>
             </div>
           </div>
         </footer>
@@ -2073,7 +2439,6 @@ verdict = forum.risk_kernel.evaluate(
       // ============================================================
       const FACTORY_ADDR = "0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26";
       const RISK_KERNEL_V2 = "0x0af356f280af1d8b7a43f0746c581614feec4055";
-      const SLASH_BOND_V11 = "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939";
       const TRACK_RECORD_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
       const ARC_CHAIN_HEX = "0x" + (5042002).toString(16); // 0x4cf132
 
@@ -3137,6 +3502,113 @@ verdict = forum.risk_kernel.evaluate(
         const h = location.hash.replace(/^#/, "");
         if (h.startsWith("app=")) activateAppTab(h.slice(4), { updateHash: false });
       });
+
+      // ── Developers section · code-tab switcher ──────────────────────
+      const DEV_TABS = ["ts", "py", "sol", "cli"];
+      function activateDevTab(name) {
+        if (!DEV_TABS.includes(name)) name = "ts";
+        document.querySelectorAll(".dev-tab-panel").forEach((p) => {
+          if (p.dataset.devPanel === name) p.classList.remove("hidden");
+          else p.classList.add("hidden");
+        });
+        document.querySelectorAll(".dev-tab-btn").forEach((b) => {
+          const active = b.dataset.devTab === name;
+          b.classList.toggle("border-forum-accent", active);
+          b.classList.toggle("text-forum-accent", active);
+          b.classList.toggle("border-transparent", !active);
+          b.classList.toggle("text-forum-dim", !active);
+        });
+      }
+      document.querySelectorAll(".dev-tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => activateDevTab(btn.dataset.devTab));
+      });
+
+      // ── Hero live counter chips + metric tiles ──────────────────────
+      // Both pull from /api/agents (single source of truth, instant — same
+      // payload that drives the leaderboard). The on-chain getLogs scan in
+      // loadAll() still runs and will overwrite these values once it finishes,
+      // but users see numbers immediately instead of waiting 30s for chunked
+      // RPC pagination.
+      const fmtAgo = (s) =>
+        s < 60 ? `${s}s ago`
+          : s < 3600 ? `${Math.floor(s / 60)}m ago`
+          : s < 86400 ? `${Math.floor(s / 3600)}h ago`
+          : `${Math.floor(s / 86400)}d ago`;
+      async function loadHeroChips() {
+        const setHtml = (id, html) => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = html;
+        };
+        const setText = (id, text) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = text;
+        };
+        try {
+          const res = await fetch("/api/agents");
+          if (!res.ok) throw new Error("agents " + res.status);
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            const totalReceipts = list.reduce((a, x) => a + (x.recordCount || 0), 0);
+            const latestSecondsSince = Math.min(
+              ...list
+                .map((x) => x.secondsSinceLastReceipt)
+                .filter((x) => Number.isFinite(x)),
+            );
+            // Hero chips
+            setHtml(
+              "hero-chip-receipts",
+              `<span class="text-forum-dim2 uppercase tracking-wider text-[10px] mr-1">Receipts</span><span class="mono text-forum-ink">${totalReceipts.toLocaleString()}</span>`,
+            );
+            setHtml(
+              "hero-chip-bots",
+              `<span class="text-forum-dim2 uppercase tracking-wider text-[10px] mr-1">Agents</span><span class="mono text-forum-ink">${list.length}</span>`,
+            );
+            setHtml(
+              "hero-chip-publish",
+              `<span class="inline-block w-1 h-1 rounded-full bg-forum-accent2 pulse"></span><span class="mono">Latest publish ${fmtAgo(latestSecondsSince)}</span>`,
+            );
+            // Big metric tiles — same data, no waiting on chunked getLogs
+            setText("metric-bots", String(list.length));
+            setText("metric-records", totalReceipts.toLocaleString());
+            setText("metric-latest", fmtAgo(latestSecondsSince));
+          }
+        } catch (e) {
+          // silent; tiles remain at placeholder text
+        }
+        // TVL chip — read directly from CovenantVaultV1.2
+        try {
+          const [idle, outstanding] = await Promise.all([
+            client.readContract({ address: COVENANT_V12, abi: IDLE_ABI, functionName: "depositTotalIdle" }),
+            client.readContract({ address: COVENANT_V12, abi: OUTSTND_ABI, functionName: "operatorOutstanding" }),
+          ]);
+          const tvl = (Number(BigInt(idle) + BigInt(outstanding)) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 });
+          setHtml(
+            "hero-chip-tvl",
+            `<span class="mono">TVL <span class="text-forum-ink">${tvl} USDC</span></span>`,
+          );
+        } catch (e) {
+          // silent
+        }
+      }
+      loadHeroChips();
+      setInterval(loadHeroChips, 30_000);
+
+      // ── Nav · live block chip ───────────────────────────────────────
+      async function updateNavBlockChip() {
+        try {
+          const block = await client.getBlockNumber();
+          const el = document.getElementById("nav-block-chip");
+          if (el) {
+            el.innerHTML = `
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2 pulse"></span>
+              <span class="mono">block ${block.toLocaleString()}</span>`;
+          }
+        } catch (e) {
+          // silent
+        }
+      }
+      updateNavBlockChip();
+      setInterval(updateNavBlockChip, 6_000);
     </script>
   </body>
 </html>
