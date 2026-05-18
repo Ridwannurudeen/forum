@@ -1,8 +1,8 @@
 /**
- * AgentScore v0 — pure scoring function extracted from forum-indexer so
- * it's unit-testable without HTTP / RPC / disk side effects.
+ * AgentScore v0 + v1 — pure scoring functions extracted from forum-indexer
+ * so they're unit-testable without HTTP / RPC / disk side effects.
  *
- * Score formula (transparent, in source, no oracles):
+ * v0 formula (kept stable for back-compat + regression):
  *   start = 100
  *   - if recordCount == 0:            -40
  *   - drawdown penalty:               -min(40, drawdownBps / 100)
@@ -11,8 +11,36 @@
  *   - bond bonus:                     +10 if bondBalanceMicros > 0
  *   clamp 0..100
  *
- * Future versions should add per-vault bond attribution, longest-
- * uninterrupted-streak, and verified-fill PnL recompute.
+ * v1 ADDITIVE hardenings (Phase 4 ship items):
+ *   1. Longest uninterrupted streak — reward boring consistency
+ *      input: longestStreak (number of consecutive publishes within an
+ *      expected interval, counted by the indexer)
+ *      bonus: +min(15, longestStreak * 0.3)  // saturates at 50 publishes
+ *
+ *   2. Risk-adjusted return (Sharpe-like) over recent PnL deltas
+ *      input: recentPnls (last N pnlMicros values, in order)
+ *      sharpeLike = mean(returns) / std(returns) where returns = pnl[i] - pnl[i-1]
+ *      Mapped to a bounded score impact: +min(15, max(-15, sharpeLike * 5))
+ *      Skipped (0) when recentPnls.length < 3 (insufficient data).
+ *
+ *   3. Real per-vault bond attribution
+ *      input: bondBalancesMicros (array of bond balances of every bond
+ *      linked to a vault this bot is bound to)
+ *      bonus:
+ *        +0  if total = 0
+ *        +5  if total > 0 but < 1 USDC
+ *        +10 if total >= 1 USDC
+ *        +15 if total >= 10 USDC AND at least one of the linked bonds
+ *             has been slashed before (proven enforcement)
+ *
+ *   4. (Deferred to Phase 3) verified-fill PnL recompute requires real fills
+ *      in receipts. Currently every published receipt has fills = 0
+ *      (paper mode), so v1 marks verifiedFillCount = 0 + notes
+ *      verifiedPnl = 'unverified-paper-mode' in the breakdown for honesty.
+ *
+ *   scoreV1 = scoreV0 + streakBonus + riskAdjustedAdjustment +
+ *             (perVaultBondBonus - v0BondBonus)   // replace, don't double-count
+ *   clamp 0..100
  */
 
 export interface AgentScoreInput {
@@ -27,6 +55,19 @@ export interface AgentScoreInput {
   freshnessGraceSec?: number;
 }
 
+export interface AgentScoreV1Input extends AgentScoreInput {
+  /** Indexer-tracked count of consecutive receipts within expected interval. */
+  longestStreak?: number;
+  /** Last N pnlMicros values, oldest first. Need >=3 for Sharpe-like. */
+  recentPnls?: number[];
+  /** Balances (microUSDC) of every bond contract referenced by a vault bound to this bot. */
+  bondBalancesMicros?: (bigint | string | number)[];
+  /** True if at least one of the linked bonds has totalSlashed > 0 (proves enforcement actually fires). */
+  anyBondEverSlashed?: boolean;
+  /** Sum of fills with venue-attributed order IDs. Phase 3. Default 0. */
+  verifiedFillCount?: number;
+}
+
 export interface AgentScoreBreakdown {
   scoreV0: number;
   drawdownBps: number;
@@ -37,6 +78,20 @@ export interface AgentScoreBreakdown {
     slash: number;
   };
   bonuses: { bond: number };
+}
+
+export interface AgentScoreV1Breakdown extends AgentScoreBreakdown {
+  scoreV1: number;
+  v1Adjustments: {
+    streakBonus: number;
+    riskAdjusted: number;
+    perVaultBondBonus: number;
+    v0BondBonusReplaced: number;
+  };
+  sharpeLike: number | null;
+  longestStreak: number;
+  verifiedFillCount: number;
+  verifiedPnl: "unverified-paper-mode" | "recomputed-from-fills";
 }
 
 export function drawdownBps(
@@ -79,5 +134,96 @@ export function computeAgentScore(input: AgentScoreInput): AgentScoreBreakdown {
       slash: slashPenalty,
     },
     bonuses: { bond: bondBonus },
+  };
+}
+
+// ----------------------------------------------------------------------------
+// v1 additions
+// ----------------------------------------------------------------------------
+
+/**
+ * Sharpe-like ratio over per-period PnL deltas.
+ *
+ * Returns null if insufficient data (need >= 3 records => >= 2 returns).
+ * Returns 0 when std is 0 (e.g. constant PnL — neither rewarded nor penalised).
+ */
+export function sharpeLike(recentPnls: number[]): number | null {
+  if (!recentPnls || recentPnls.length < 3) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < recentPnls.length; i++) {
+    returns.push(recentPnls[i] - recentPnls[i - 1]);
+  }
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance =
+    returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length;
+  const std = Math.sqrt(variance);
+  if (std === 0) return 0;
+  return mean / std;
+}
+
+export function streakBonus(longestStreak: number): number {
+  if (!longestStreak || longestStreak < 1) return 0;
+  return Math.min(15, Math.floor(longestStreak * 0.3));
+}
+
+export function riskAdjustedScore(sharpe: number | null): number {
+  if (sharpe === null) return 0;
+  // bounded [-15, +15]
+  return Math.max(-15, Math.min(15, Math.round(sharpe * 5)));
+}
+
+export function perVaultBondBonus(
+  bondBalancesMicros: (bigint | string | number)[] | undefined,
+  anyBondEverSlashed: boolean | undefined,
+): number {
+  if (!bondBalancesMicros || bondBalancesMicros.length === 0) return 0;
+  const total = bondBalancesMicros.reduce((a: bigint, b) => a + BigInt(b), 0n);
+  if (total === 0n) return 0;
+  // 1 USDC = 1_000_000 micros
+  if (total < 1_000_000n) return 5;
+  if (total >= 10_000_000n && anyBondEverSlashed) return 15;
+  return 10;
+}
+
+export function computeAgentScoreV1(
+  input: AgentScoreV1Input,
+): AgentScoreV1Breakdown {
+  const v0 = computeAgentScore(input);
+
+  const longest = Math.max(0, input.longestStreak ?? 0);
+  const streak = streakBonus(longest);
+
+  const sharpe = sharpeLike(input.recentPnls ?? []);
+  const risk = riskAdjustedScore(sharpe);
+
+  const perVault = perVaultBondBonus(
+    input.bondBalancesMicros,
+    input.anyBondEverSlashed,
+  );
+
+  // Replace the v0 bond bonus with the more granular v1 per-vault bonus.
+  // Net delta = perVault - v0Bond.
+  const v0Bond = v0.bonuses.bond;
+  const v1Delta = streak + risk + (perVault - v0Bond);
+
+  let scoreV1 = v0.scoreV0 + v1Delta;
+  scoreV1 = Math.max(0, Math.min(100, scoreV1));
+
+  return {
+    ...v0,
+    scoreV1,
+    v1Adjustments: {
+      streakBonus: streak,
+      riskAdjusted: risk,
+      perVaultBondBonus: perVault,
+      v0BondBonusReplaced: v0Bond,
+    },
+    sharpeLike: sharpe,
+    longestStreak: longest,
+    verifiedFillCount: input.verifiedFillCount ?? 0,
+    verifiedPnl:
+      (input.verifiedFillCount ?? 0) > 0
+        ? "recomputed-from-fills"
+        : "unverified-paper-mode",
   };
 }

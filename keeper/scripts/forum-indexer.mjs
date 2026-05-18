@@ -28,7 +28,7 @@ import { createServer } from 'node:http';
 import {
   createPublicClient, defineChain, http, parseAbi, parseAbiItem,
 } from 'viem';
-import { computeAgentScore as scoreFn } from '../src/agent-score.ts';
+import { computeAgentScoreV1 as scoreFnV1 } from '../src/agent-score.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.3.0'; // adds /api/agents + AgentScore v0
+const VERSION = 'forum-indexer/0.4.0'; // AgentScore v1: streak + sharpe + per-vault bond
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -176,8 +176,11 @@ async function indexBots(fromBlock, toBlock) {
   }
 }
 
+const RECENT_RECORDS_N = 10; // window for sharpe-like + streak
+const STREAK_GAP_SEC = 1800; // gaps over this break the streak (matches default freshness)
+
 async function refreshBotStats() {
-  // For every known bot, refresh recordCount + most recent record stats
+  // For every known bot, refresh recordCount + recent record window for v1 score
   const now = Math.floor(Date.now() / 1000);
   const botIds = Object.keys(state.bots);
   await Promise.all(botIds.map(async (botId) => {
@@ -188,17 +191,36 @@ async function refreshBotStats() {
       const n = Number(count);
       state.bots[botId].recordCount = n;
       if (n > 0) {
-        const r = await pub.readContract({
-          address: TR_V1, abi: RECORD_AT_V1_ABI, functionName: 'recordAt',
-          args: [botId, BigInt(n - 1)],
-        });
+        // Fetch the last min(N, n) records for sharpe + streak
+        const start = n > RECENT_RECORDS_N ? n - RECENT_RECORDS_N : 0;
+        const idxs = [];
+        for (let i = start; i < n; i++) idxs.push(BigInt(i));
+        const records = await Promise.all(idxs.map((idx) =>
+          pub.readContract({ address: TR_V1, abi: RECORD_AT_V1_ABI, functionName: 'recordAt', args: [botId, idx] }),
+        ));
+        const recentPnls = records.map((r) => Number(r.pnlMicros));
+        const recentTs = records.map((r) => Number(r.ts));
+        // Longest streak across this window: count consecutive records where ts gap < STREAK_GAP_SEC
+        let longestStreak = recentTs.length > 0 ? 1 : 0;
+        let cur = 1;
+        for (let i = 1; i < recentTs.length; i++) {
+          if (recentTs[i] - recentTs[i - 1] < STREAK_GAP_SEC) {
+            cur += 1;
+            if (cur > longestStreak) longestStreak = cur;
+          } else {
+            cur = 1;
+          }
+        }
+        const last = records[records.length - 1];
         state.bots[botId].lastSeq = n;
-        state.bots[botId].lastPnlMicros = Number(r.pnlMicros);
-        state.bots[botId].lastPeriodEnd = Number(r.ts);
+        state.bots[botId].lastPnlMicros = Number(last.pnlMicros);
+        state.bots[botId].lastPeriodEnd = Number(last.ts);
+        state.bots[botId].recentPnls = recentPnls;
+        state.bots[botId].longestStreak = longestStreak;
         // Running peak across all observed cycles — for drawdown computation.
-        const cur = Number(r.pnlMicros);
-        const prevPeak = Number(state.bots[botId].peakPnlMicros ?? cur);
-        state.bots[botId].peakPnlMicros = Math.max(prevPeak, cur);
+        const curPnl = Number(last.pnlMicros);
+        const prevPeak = Number(state.bots[botId].peakPnlMicros ?? curPnl);
+        state.bots[botId].peakPnlMicros = Math.max(prevPeak, curPnl);
       }
       state.bots[botId].lastUpdate = now;
     } catch (e) {
@@ -472,18 +494,44 @@ const server = createServer((req, res) => {
     const slashEventCount = botSlashEvents.length;
     const totalSlashedMicros = botSlashEvents.reduce((a, e) => a + BigInt(e.slashedMicros), 0n).toString();
 
-    // Bond coverage — sum across linked bonds (proxy: SlashBondV1.1 only for v0)
+    // Per-vault bond attribution — walk every linked vault, look up its
+    // declared bondContract in the indexed bond set. v0 used SlashBondV1.1 as
+    // a proxy for everyone; v1 is real.
+    const linkedBondAddrs = new Set();
+    for (const lv of linkedVaults) {
+      const fullVault = state.vaults[lv.address];
+      if (fullVault?.mandate?.bondContract) linkedBondAddrs.add(fullVault.mandate.bondContract);
+    }
+    const bondBalancesMicros = [];
+    let anyBondEverSlashed = false;
+    for (const bondAddr of linkedBondAddrs) {
+      const bondEntry = Object.entries(state.bonds).find(
+        ([k]) => k.toLowerCase() === bondAddr.toLowerCase(),
+      )?.[1];
+      if (!bondEntry) continue;
+      bondBalancesMicros.push(bondEntry.bondBalanceMicros);
+      if (bondEntry.totalSlashedMicros && bondEntry.totalSlashedMicros !== '0') {
+        anyBondEverSlashed = true;
+      }
+    }
+
+    // Back-compat alias for /api/agents consumers (v0 used a single scalar)
     let bondBalanceMicros = '0';
     const bondLabels = Object.keys(state.bonds);
     if (bondLabels.length > 0) bondBalanceMicros = state.bonds[bondLabels[0]].bondBalanceMicros;
 
-    const breakdown = scoreFn({
+    const breakdown = scoreFnV1({
       recordCount: records,
       lastPnlMicros: lastPnl,
       peakPnlMicros: peak,
       secondsSinceLastReceipt: secondsSince,
       slashEventCount,
       bondBalanceMicros,
+      longestStreak: bot.longestStreak ?? 0,
+      recentPnls: bot.recentPnls ?? [],
+      bondBalancesMicros,
+      anyBondEverSlashed,
+      verifiedFillCount: 0, // Phase 3 wire-up: needs real fills
     });
 
     return {
@@ -500,8 +548,19 @@ const server = createServer((req, res) => {
       totalSlashedMicros,
       linkedVaults,
       bondBalanceMicros,
+      bondBalancesMicros: bondBalancesMicros.map(String),
+      anyBondEverSlashed,
+      longestStreak: breakdown.longestStreak,
+      sharpeLike: breakdown.sharpeLike,
+      verifiedPnl: breakdown.verifiedPnl,
+      verifiedFillCount: breakdown.verifiedFillCount,
       scoreV0: breakdown.scoreV0,
-      scoreBreakdown: { penalties: breakdown.penalties, bonuses: breakdown.bonuses },
+      scoreV1: breakdown.scoreV1,
+      scoreBreakdown: {
+        penalties: breakdown.penalties,
+        bonuses: breakdown.bonuses,
+        v1Adjustments: breakdown.v1Adjustments,
+      },
       asOf: now,
     };
   }
