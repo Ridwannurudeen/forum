@@ -130,6 +130,22 @@
       "txHash": "0x16bd4c3b3a23ab04faace3f830fa18fb6f6c7f26be8f25764ce243c9f3d4a19e",
       "block": "42824603",
       "note": "Self-serve creation of Covenant Accounts. Anyone can call createVault(mandate) and get a fresh CovenantVault. USDC pinned at factory deploy time. Emits VaultCreated for indexer subscription."
+    },
+    "CapitalRouter": {
+      "address": "0x13617989cd443147b6f14ff98e492c6175bb0afc",
+      "txHash": "0xfc7acd01612accfa3d364119c0c74ddc6f0b65628060d481e165a79f15433bc8",
+      "block": "42843308",
+      "strategist": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "initialStrategy": {
+        "vaults": [
+          "0x80384963c0c93414ff16e018c6618a64bc94df6d"
+        ],
+        "weightsBps": [
+          10000
+        ],
+        "setTx": "0xb6b78ebab14d2928716762dbea3d3788195a1cfe8d4ea7399c933de0431df7e9"
+      },
+      "note": "Phase 5 allocator product. Pools USDC, routes to target vaults per strategist-set weights. Permissionless rebalance()."
     }
   },
   "circle": {

@@ -62,6 +62,7 @@ Live contracts on Arc testnet:
 | `CovenantVaultV1.2` | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | live AgoraMind credit line |
 | `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP V2 bridge-friendly deposit wrapper; deposits incoming USDC into a vault for a designated recipient |
 | `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | self-serve vault creation — anyone calls `createVault(mandate)` to launch a fresh Covenant Account; emits `VaultCreated` for indexer auto-discovery |
+| `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator product. Pools depositor USDC and routes across strategist-whitelisted `CovenantVault` instances per weight table. Permissionless `rebalance()` enforces targets. Initial strategy: 100% → CovenantVaultV1.2. |
 
 Live services:
 

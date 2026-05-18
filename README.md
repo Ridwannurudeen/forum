@@ -39,6 +39,7 @@ Chain: Arc testnet `5042002`
 | `CovenantVaultV1.2` | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | live AgoraMind Covenant Account |
 | `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP V2 bridge-friendly deposit wrapper |
 | `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | self-serve creation, anyone can call `createVault(mandate)` |
+| `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator. Pools USDC, routes across strategist-whitelisted vaults per weight table, permissionless `rebalance()` |
 
 Deployment metadata is in `deployments/arc-testnet.json`.
 
