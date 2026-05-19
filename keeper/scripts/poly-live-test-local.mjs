@@ -41,6 +41,18 @@ const arg = (k, d) => {
 const MAX_NOTIONAL = Number(arg("--max-notional", "2"));
 const MID_MIN = Number(arg("--target-mid-min", "0.10"));
 const MID_MAX = Number(arg("--target-mid-max", "0.90"));
+// Optional Polymarket builder code (bytes32, public). When provided, the
+// SDK attaches it to the order so fees can attribute to your builder
+// account. NOTE: attaching a code without Polymarket Builders Service
+// approval has NO fee-capture effect — fees route to Polymarket's
+// default pool. The code is just metadata until the operator behind it
+// is registered in Polymarket's backend. Apply at
+// docs.polymarket.com/cust/builders for the onboarding flow.
+const BUILDER_CODE = arg("--builder-code", "") || process.env.POLY_BUILDER_CODE || "";
+if (BUILDER_CODE && !/^0x[0-9a-fA-F]{64}$/.test(BUILDER_CODE)) {
+  console.error(`--builder-code must be 0x + 64 hex chars; got: ${BUILDER_CODE.slice(0, 12)}...`);
+  process.exit(2);
+}
 
 const pk = readFileSync(PATHS.signer, "utf8").trim();
 const apiKey = readFileSync(PATHS.apiKey, "utf8").trim();
@@ -115,10 +127,12 @@ const userOrder = {
   side: Side.BUY,
   orderType: OrderType.FOK,
   userUSDCBalance: balUsdc,
+  ...(BUILDER_CODE ? { builderCode: BUILDER_CODE } : {}),
 };
 console.log(`\norder:`);
 console.log(`  tokenID:   ${userOrder.tokenID}`);
 console.log(`  side:      ${userOrder.side} amount=$${userOrder.amount} type=${userOrder.orderType}`);
+console.log(`  builderCode: ${BUILDER_CODE || "(none — fees route to Polymarket default)"}`);
 console.log(`  expected: ~${(MAX_NOTIONAL / chosen.ask.price).toFixed(3)} shares @ ~${chosen.ask.price}`);
 
 if (!BROADCAST) {

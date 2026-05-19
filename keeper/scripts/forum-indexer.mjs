@@ -41,7 +41,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.10.0'; // + /api/router/activity (Phase 5 reallocation receipts feed)
+const VERSION = 'forum-indexer/0.11.0'; // + per-bot verifiedFillCount fetched from receipt JSON (Phase 3 wire-up)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -323,6 +323,36 @@ async function refreshBotStats() {
         const curPnl = Number(last.pnlMicros);
         const prevPeak = Number(state.bots[botId].peakPnlMicros ?? curPnl);
         state.bots[botId].peakPnlMicros = Math.max(prevPeak, curPnl);
+
+        // Verified-fill refresh: fetch the latest receipt JSON at the
+        // canonical URL and count fills with mode === 'live'. Cached per
+        // (botId, seq) so we only re-fetch when a new record lands.
+        // Bots whose receipt URL doesn't follow the canonical pattern (or
+        // hasn't been uploaded yet) gracefully stay at verifiedFillCount=0
+        // until the URL serves; no exception bubbles up.
+        const cachedSeq = state.bots[botId].verifiedFillCountAtSeq ?? 0;
+        if (n > cachedSeq) {
+          const botHex = botId.slice(2, 14);
+          const seqStr = String(n).padStart(6, '0');
+          const url = `https://forum.gudman.xyz/receipts/${botHex}/${seqStr}.json`;
+          try {
+            const r = await fetch(url);
+            if (r.ok) {
+              const json = await r.json();
+              const liveFills = Array.isArray(json.fills)
+                ? json.fills.filter((f) => f && f.mode === 'live').length
+                : 0;
+              // Verified count is cumulative across all the bot's receipts;
+              // a single bad URL doesn't reset history. Take max so a
+              // late-uploaded receipt can only ever ADD verified fills.
+              const prev = state.bots[botId].verifiedFillCount ?? 0;
+              state.bots[botId].verifiedFillCount = Math.max(prev, liveFills);
+              state.bots[botId].verifiedFillCountAtSeq = n;
+            }
+          } catch {
+            /* network blip — retry next poll */
+          }
+        }
       }
       state.bots[botId].lastUpdate = now;
     } catch (e) {
@@ -906,7 +936,7 @@ const server = createServer((req, res) => {
       recentPnls: bot.recentPnls ?? [],
       bondBalancesMicros,
       anyBondEverSlashed,
-      verifiedFillCount: 0, // Phase 3 wire-up: needs real fills
+      verifiedFillCount: bot.verifiedFillCount ?? 0,
     });
 
     return {
