@@ -50,7 +50,7 @@ const STATE_PATH =
   process.env.FORUM_INDEXER_STATE || "/opt/forum/indexer-state.json";
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = "forum-indexer/0.12.0"; // + /api/proof (Phase 3 live-fill artifact surfacing)
+const VERSION = "forum-indexer/0.13.0"; // + Phase 4 anti-gaming inputs (mandateDrifted + maxExposureChangeBps)
 
 const ARC = defineChain({
   id: 5042002,
@@ -443,6 +443,44 @@ async function refreshBotStats() {
                 const prev = state.bots[botId].verifiedFillCount ?? 0;
                 state.bots[botId].verifiedFillCount = Math.max(prev, liveFills);
                 state.bots[botId].verifiedFillCountAtSeq = n;
+
+                // Phase 4 anti-gaming: compare against the previous receipt
+                // to detect mandate drift (configHash change) and sudden
+                // exposure changes (closeShares jump cycle-over-cycle).
+                // Single-record bots default to no-drift/no-change.
+                let mandateDrifted = false;
+                let maxExposureChangeBps = 0;
+                if (n >= 2) {
+                  const prevSeqStr = String(n - 1).padStart(6, "0");
+                  const prevUrl = `https://forum.gudman.xyz/receipts/${botHex}/${prevSeqStr}.json`;
+                  try {
+                    const pr = await fetch(prevUrl);
+                    if (pr.ok) {
+                      const prevJson = await pr.json();
+                      const curHash = json.strategy?.configHash;
+                      const prevHash = prevJson.strategy?.configHash;
+                      if (curHash && prevHash && curHash.toLowerCase() !== prevHash.toLowerCase()) {
+                        mandateDrifted = true;
+                      }
+                      // Union of marketIds; compare closeShares per market.
+                      // Position-out-of-thin-air = full swing (cap at 10000 bps).
+                      const curInv = new Map((json.inventory ?? []).map((i) => [String(i.marketId), Number(i.closeShares ?? 0)]));
+                      const prevInv = new Map((prevJson.inventory ?? []).map((i) => [String(i.marketId), Number(i.closeShares ?? 0)]));
+                      const mids = new Set([...curInv.keys(), ...prevInv.keys()]);
+                      for (const mid of mids) {
+                        const a = prevInv.get(mid) ?? 0;
+                        const b = curInv.get(mid) ?? 0;
+                        const denom = Math.max(Math.abs(a), 1);
+                        const bps = Math.round((Math.abs(b - a) / denom) * 10_000);
+                        if (bps > maxExposureChangeBps) maxExposureChangeBps = Math.min(10_000, bps);
+                      }
+                    }
+                  } catch {
+                    /* prev receipt not fetchable — default no-drift */
+                  }
+                }
+                state.bots[botId].mandateDrifted = mandateDrifted;
+                state.bots[botId].maxExposureChangeBps = maxExposureChangeBps;
               }
             } catch {
               /* network blip — retry next poll */
@@ -1257,6 +1295,8 @@ const server = createServer((req, res) => {
       bondBalancesMicros,
       anyBondEverSlashed,
       verifiedFillCount: bot.verifiedFillCount ?? 0,
+      mandateDrifted: bot.mandateDrifted ?? false,
+      maxExposureChangeBps: bot.maxExposureChangeBps ?? 0,
     });
 
     return {
@@ -1286,6 +1326,8 @@ const server = createServer((req, res) => {
       sharpeLike: breakdown.sharpeLike,
       verifiedPnl: breakdown.verifiedPnl,
       verifiedFillCount: breakdown.verifiedFillCount,
+      mandateDrifted: breakdown.mandateDrifted,
+      maxExposureChangeBps: breakdown.maxExposureChangeBps,
       scoreV0: breakdown.scoreV0,
       scoreV1: breakdown.scoreV1,
       scoreBreakdown: {

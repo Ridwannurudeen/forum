@@ -299,4 +299,46 @@ describe("computeAgentScoreV1", () => {
     expect(r.v1Adjustments.streakBonus).toBe(15);
     expect(r.v1Adjustments.perVaultBondBonus).toBe(15);
   });
+
+  // Phase 4 anti-gaming penalties.
+  it("mandateDrift penalty subtracts 10 pts when flagged", () => {
+    const clean = computeAgentScoreV1({ ...base, mandateDrifted: false });
+    const drifted = computeAgentScoreV1({ ...base, mandateDrifted: true });
+    expect(clean.scoreV1).toBe(drifted.scoreV1 + 10);
+    expect(drifted.v1Adjustments.mandateDriftPenalty).toBe(10);
+    expect(drifted.mandateDrifted).toBe(true);
+  });
+
+  it("exposureChange penalty scales 0..15 pts linearly with bps", () => {
+    const stable = computeAgentScoreV1({ ...base, maxExposureChangeBps: 0 });
+    const half = computeAgentScoreV1({ ...base, maxExposureChangeBps: 5000 });
+    const full = computeAgentScoreV1({ ...base, maxExposureChangeBps: 10_000 });
+    expect(stable.v1Adjustments.exposureChangePenalty).toBe(0);
+    expect(half.v1Adjustments.exposureChangePenalty).toBe(8);
+    expect(full.v1Adjustments.exposureChangePenalty).toBe(15);
+  });
+
+  it("anti-gaming stress: lucky PnL spike + mandate drift scores BELOW boring fresh receipts", () => {
+    // Bot A: high PnL spike, but silently swapped strategy + threw a wild exposure
+    const luckyButDrifty = computeAgentScoreV1({
+      lastPnlMicros: 100_000_000, // $100 PnL — looks impressive
+      peakPnlMicros: 100_000_000,
+      recordCount: 5,
+      secondsSinceLastReceipt: 60,
+      slashEventCount: 0,
+      mandateDrifted: true, // silently swapped strategy mid-flight
+      maxExposureChangeBps: 8000, // 80% exposure swing
+    });
+    // Bot B: boring, no PnL, no slashes, no drift
+    const boringReliable = computeAgentScoreV1({
+      lastPnlMicros: 0,
+      peakPnlMicros: 0,
+      recordCount: 5,
+      secondsSinceLastReceipt: 60,
+      slashEventCount: 0,
+      longestStreak: 5,
+    });
+    // Reward boring reliability over lucky spike with hidden gaming.
+    expect(boringReliable.scoreV1).toBeGreaterThan(luckyButDrifty.scoreV1);
+  });
 });

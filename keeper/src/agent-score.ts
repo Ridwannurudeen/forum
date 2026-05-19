@@ -66,6 +66,13 @@ export interface AgentScoreV1Input extends AgentScoreInput {
   anyBondEverSlashed?: boolean;
   /** Sum of fills with venue-attributed order IDs. Phase 3. Default 0. */
   verifiedFillCount?: number;
+  /** Phase 4 anti-gaming: true if strategy.configHash changed between the
+   *  latest and previous receipt (silent mandate swap). */
+  mandateDrifted?: boolean;
+  /** Phase 4 anti-gaming: largest closeShares delta across markets between
+   *  the latest and previous receipt, in basis points of the prior position
+   *  (5000 = 50% of prior position changed in one cycle). */
+  maxExposureChangeBps?: number;
 }
 
 export interface AgentScoreBreakdown {
@@ -80,6 +87,18 @@ export interface AgentScoreBreakdown {
   bonuses: { bond: number };
 }
 
+/** Phase 4 anti-gaming penalty helpers. */
+export function mandateDriftPenalty(drifted: boolean | undefined): number {
+  return drifted ? 10 : 0;
+}
+
+export function exposureChangePenalty(bps: number | undefined): number {
+  if (!bps || bps <= 0) return 0;
+  // Linear ramp: 0 bps -> 0 penalty, 10000 bps (full position swing) -> 15 pts.
+  // Capped so a single explosive cycle can't zero a bot's score.
+  return Math.min(15, Math.round((bps / 10_000) * 15));
+}
+
 export interface AgentScoreV1Breakdown extends AgentScoreBreakdown {
   scoreV1: number;
   v1Adjustments: {
@@ -87,11 +106,17 @@ export interface AgentScoreV1Breakdown extends AgentScoreBreakdown {
     riskAdjusted: number;
     perVaultBondBonus: number;
     v0BondBonusReplaced: number;
+    /** Phase 4 anti-gaming penalty (subtracted). */
+    mandateDriftPenalty: number;
+    /** Phase 4 anti-gaming penalty (subtracted). */
+    exposureChangePenalty: number;
   };
   sharpeLike: number | null;
   longestStreak: number;
   verifiedFillCount: number;
   verifiedPnl: "unverified-paper-mode" | "recomputed-from-fills";
+  mandateDrifted: boolean;
+  maxExposureChangeBps: number;
 }
 
 export function drawdownBps(
@@ -204,7 +229,10 @@ export function computeAgentScoreV1(
   // Replace the v0 bond bonus with the more granular v1 per-vault bonus.
   // Net delta = perVault - v0Bond.
   const v0Bond = v0.bonuses.bond;
-  const v1Delta = streak + risk + (perVault - v0Bond);
+  // Phase 4 anti-gaming penalties — subtracted from v1 score.
+  const mdPenalty = mandateDriftPenalty(input.mandateDrifted);
+  const ecPenalty = exposureChangePenalty(input.maxExposureChangeBps);
+  const v1Delta = streak + risk + (perVault - v0Bond) - mdPenalty - ecPenalty;
 
   let scoreV1 = v0.scoreV0 + v1Delta;
   scoreV1 = Math.max(0, Math.min(100, scoreV1));
@@ -217,9 +245,13 @@ export function computeAgentScoreV1(
       riskAdjusted: risk,
       perVaultBondBonus: perVault,
       v0BondBonusReplaced: v0Bond,
+      mandateDriftPenalty: mdPenalty,
+      exposureChangePenalty: ecPenalty,
     },
     sharpeLike: sharpe,
     longestStreak: longest,
+    mandateDrifted: Boolean(input.mandateDrifted),
+    maxExposureChangeBps: input.maxExposureChangeBps ?? 0,
     verifiedFillCount: input.verifiedFillCount ?? 0,
     verifiedPnl:
       (input.verifiedFillCount ?? 0) > 0
