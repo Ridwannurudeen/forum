@@ -41,3 +41,17 @@ export function longestStreak(timestamps: number[], gapSec: number): number {
   }
   return longest;
 }
+
+/** Parse and clamp public API `limit` query params.
+ *  Invalid, non-integer, zero, and negative values fall back instead of
+ *  bypassing caps through `NaN` or negative Array.slice semantics. */
+export function clampedLimit(
+  raw: string | null | undefined,
+  fallback: number,
+  max: number,
+): number {
+  const n =
+    raw === null || raw === undefined || raw === "" ? fallback : Number(raw);
+  if (!Number.isInteger(n) || n < 1) return fallback;
+  return Math.min(n, max);
+}

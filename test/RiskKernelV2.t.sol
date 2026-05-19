@@ -110,6 +110,27 @@ contract RiskKernelV2Test is Test {
         assertEq(bond.totalSlashed(), 25e6);
     }
 
+    function test_enforce_first_negative_loss_triggers_pause_and_slash() public {
+        // No positive peak yet. A 30 USDC loss is 6% of the 500 USDC budget,
+        // so the 5% max drawdown mandate should still pause and slash.
+        mockTr.pushRecord(BOT, -30e6, uint64(block.timestamp));
+
+        kernel.enforce(address(vault));
+
+        assertEq(uint8(vault.state()), uint8(CovenantVault.State.PAUSED));
+        assertEq(bond.totalSlashed(), 25e6);
+    }
+
+    function test_enforce_first_negative_loss_within_budget_allows() public {
+        // No positive peak yet. A 10 USDC loss is 2% of the 500 USDC budget.
+        mockTr.pushRecord(BOT, -10e6, uint64(block.timestamp));
+
+        kernel.enforce(address(vault));
+
+        assertEq(uint8(vault.state()), uint8(CovenantVault.State.ACTIVE));
+        assertEq(bond.totalSlashed(), 0);
+    }
+
     function test_enforce_expired_pauses_but_does_not_slash() public {
         // Mandate has expiry=0 by default — build a vault with explicit expiry here.
         SlashBond sb3 = new SlashBond(

@@ -32,6 +32,8 @@ contract FeeDistributor {
     error LengthMismatch();
     error BpsMismatch();
     error NoAttribution();
+    error ZeroAmount();
+    error ZeroAddress();
     error TransferFailed();
     error NothingToClaim();
 
@@ -44,19 +46,27 @@ contract FeeDistributor {
         if (registry.ownerOf(code) != msg.sender) revert NotCodeOwner();
         if (r.length != bps.length) revert LengthMismatch();
         uint256 sum;
-        for (uint256 i; i < bps.length; ++i) sum += bps[i];
+        for (uint256 i; i < bps.length; ++i) {
+            if (r[i] == address(0)) revert ZeroAddress();
+            sum += bps[i];
+        }
         if (sum != 10_000) revert BpsMismatch();
         _attr[code] = Attribution(r, bps);
         emit AttributionSet(code, r, bps);
     }
 
     function distribute(bytes32 code, uint256 amount) external {
+        if (amount == 0) revert ZeroAmount();
         Attribution storage a = _attr[code];
         if (a.recipients.length == 0) revert NoAttribution();
         if (!usdc.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
-        for (uint256 i; i < a.recipients.length; ++i) {
-            claimable[a.recipients[i]] += (amount * a.bps[i]) / 10_000;
+        uint256 allocated;
+        for (uint256 i = 1; i < a.recipients.length; ++i) {
+            uint256 portion = (amount * a.bps[i]) / 10_000;
+            claimable[a.recipients[i]] += portion;
+            allocated += portion;
         }
+        claimable[a.recipients[0]] += amount - allocated;
         emit Distributed(code, amount);
     }
 

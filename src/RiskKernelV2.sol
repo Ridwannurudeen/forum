@@ -83,7 +83,7 @@ contract RiskKernelV2 {
             return Verdict.PAUSE_STALE;
         }
 
-        return _drawdownVerdict(tr, botId, count, last.pnlMicros, maxDrawdownBps);
+        return _drawdownVerdict(tr, botId, count, last.pnlMicros, maxDrawdownBps, budgetUsdc);
     }
 
     function _drawdownVerdict(
@@ -91,7 +91,8 @@ contract RiskKernelV2 {
         bytes32 botId,
         uint256 count,
         int128 cur,
-        uint16 maxDrawdownBps
+        uint16 maxDrawdownBps,
+        uint128 budgetUsdc
     ) private view returns (Verdict) {
         int128 peak = type(int128).min;
         uint256 lookback = count > 64 ? count - 64 : 0;
@@ -99,8 +100,15 @@ contract RiskKernelV2 {
             int128 v = tr.recordAt(botId, i).pnlMicros;
             if (v > peak) peak = v;
         }
+        if (peak <= 0) {
+            if (cur < 0 && budgetUsdc > 0) {
+                uint256 lossBps = uint256(-int256(cur)) * 10_000 / uint256(budgetUsdc);
+                if (lossBps >= maxDrawdownBps) return Verdict.PAUSE_DRAWDOWN;
+            }
+            return Verdict.ALLOW;
+        }
         if (peak > 0 && cur < peak) {
-            uint256 ddBps = uint256(uint128(peak - cur)) * 10_000 / uint256(uint128(peak));
+            uint256 ddBps = uint256(int256(peak) - int256(cur)) * 10_000 / uint256(uint128(peak));
             if (ddBps >= maxDrawdownBps) return Verdict.PAUSE_DRAWDOWN;
         }
         return Verdict.ALLOW;

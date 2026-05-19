@@ -99,6 +99,19 @@ contract RiskKernelTest is Test {
         assertEq(uint8(kernel.evaluate(address(vault))), uint8(RiskKernel.Verdict.PAUSE_DRAWDOWN));
     }
 
+    function test_evaluate_pause_first_negative_loss_against_budget() public {
+        // No positive peak yet. A 30 USDC loss is 6% of the 500 USDC budget,
+        // so the 5% max drawdown mandate should still pause.
+        mockTr.pushRecord(BOT, -30e6, uint64(block.timestamp));
+        assertEq(uint8(kernel.evaluate(address(vault))), uint8(RiskKernel.Verdict.PAUSE_DRAWDOWN));
+    }
+
+    function test_evaluate_allow_first_negative_loss_within_budget() public {
+        // No positive peak yet. A 10 USDC loss is 2% of the 500 USDC budget.
+        mockTr.pushRecord(BOT, -10e6, uint64(block.timestamp));
+        assertEq(uint8(kernel.evaluate(address(vault))), uint8(RiskKernel.Verdict.ALLOW));
+    }
+
     function test_evaluate_allow_within_drawdown_limit() public {
         // peak 1000_000_000, dropped to 970_000_000 = 3% drawdown < 5% threshold
         mockTr.pushRecord(BOT, 500_000_000, uint64(block.timestamp));

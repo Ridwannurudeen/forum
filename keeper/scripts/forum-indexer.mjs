@@ -21,35 +21,53 @@
 // Persistence: keeps a single JSON snapshot on disk. Reloads on boot.
 // Polling interval: 30s. Log fetch chunk: 9500 blocks (matches Arc RPC cap).
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname, resolve, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createServer } from 'node:http';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createServer } from "node:http";
 import {
-  createPublicClient, defineChain, http, parseAbi, parseAbiItem,
-} from 'viem';
-import { computeAgentScoreV1 as scoreFnV1 } from '../src/agent-score.ts';
-import { recordTs as recordTsPure, longestStreak as longestStreakPure } from '../src/indexer-pure.ts';
+  createPublicClient,
+  defineChain,
+  http,
+  parseAbi,
+  parseAbiItem,
+} from "viem";
+import { computeAgentScoreV1 as scoreFnV1 } from "../src/agent-score.ts";
+import {
+  clampedLimit,
+  recordTs as recordTsPure,
+  longestStreak as longestStreakPure,
+} from "../src/indexer-pure.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..');
+const REPO_ROOT = resolve(__dirname, "..", "..");
 process.chdir(REPO_ROOT);
 
 // ---- CONFIG ----------------------------------------------------------------
 
 const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
-const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
+const STATE_PATH =
+  process.env.FORUM_INDEXER_STATE || "/opt/forum/indexer-state.json";
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.12.0'; // + /api/proof (Phase 3 live-fill artifact surfacing)
+const VERSION = "forum-indexer/0.12.0"; // + /api/proof (Phase 3 live-fill artifact surfacing)
 
 const ARC = defineChain({
-  id: 5042002, name: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-  rpcUrls: { default: { http: [process.env.FORUM_INDEXER_RPC || 'https://rpc.testnet.arc.network'] } },
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        process.env.FORUM_INDEXER_RPC || "https://rpc.testnet.arc.network",
+      ],
+    },
+  },
 });
 
-const deployment = JSON.parse(readFileSync('deployments/arc-testnet.json', 'utf8'));
+const deployment = JSON.parse(
+  readFileSync("deployments/arc-testnet.json", "utf8"),
+);
 const TR_V1 = deployment.contracts.TrackRecord.address;
 const TR_V2 = deployment.contracts.TrackRecordV2.address;
 const KERNEL_V2 = deployment.contracts.RiskKernelV2.address;
@@ -75,130 +93,173 @@ const TR_V2_DEPLOY_BLOCK = deployment.contracts.TrackRecordV2?.block
 
 // ---- ABIs ------------------------------------------------------------------
 
-const RECORD_COUNT_ABI = parseAbi(['function recordCount(bytes32) view returns (uint256)']);
+const RECORD_COUNT_ABI = parseAbi([
+  "function recordCount(bytes32) view returns (uint256)",
+]);
 // viem human-readable parseAbi rejects inline tuple(...) for outputs; use JSON ABI.
-const RECORD_AT_V1_ABI = [{
-  type: 'function',
-  name: 'recordAt',
-  stateMutability: 'view',
-  inputs: [{ name: 'botId', type: 'bytes32' }, { name: 'idx', type: 'uint256' }],
-  outputs: [{
-    type: 'tuple',
-    components: [
-      { name: 'ts', type: 'uint64' },
-      { name: 'pnlMicros', type: 'int128' },
-      { name: 'fills', type: 'uint64' },
-      { name: 'metaHash', type: 'bytes32' },
+const RECORD_AT_V1_ABI = [
+  {
+    type: "function",
+    name: "recordAt",
+    stateMutability: "view",
+    inputs: [
+      { name: "botId", type: "bytes32" },
+      { name: "idx", type: "uint256" },
     ],
-  }],
-}];
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "ts", type: "uint64" },
+          { name: "pnlMicros", type: "int128" },
+          { name: "fills", type: "uint64" },
+          { name: "metaHash", type: "bytes32" },
+        ],
+      },
+    ],
+  },
+];
 // V2 StoredRecord is wider: full seq/periodStart/periodEnd window + the evidence
 // + recordHash fields. The indexer only reads pnlMicros / fills / periodEnd
 // (treated as the cycle ts) for scoring; the rest is decoded but ignored.
-const RECORD_AT_V2_ABI = [{
-  type: 'function',
-  name: 'recordAt',
-  stateMutability: 'view',
-  inputs: [{ name: 'botId', type: 'bytes32' }, { name: 'idx', type: 'uint256' }],
-  outputs: [{
-    type: 'tuple',
-    components: [
-      { name: 'seq', type: 'uint64' },
-      { name: 'periodStart', type: 'uint64' },
-      { name: 'periodEnd', type: 'uint64' },
-      { name: 'pnlMicros', type: 'int128' },
-      { name: 'fills', type: 'uint64' },
-      { name: 'metaHash', type: 'bytes32' },
-      { name: 'evidenceUriHash', type: 'bytes32' },
-      { name: 'evidenceHash', type: 'bytes32' },
-      { name: 'recordHash', type: 'bytes32' },
+const RECORD_AT_V2_ABI = [
+  {
+    type: "function",
+    name: "recordAt",
+    stateMutability: "view",
+    inputs: [
+      { name: "botId", type: "bytes32" },
+      { name: "idx", type: "uint256" },
     ],
-  }],
-}];
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "seq", type: "uint64" },
+          { name: "periodStart", type: "uint64" },
+          { name: "periodEnd", type: "uint64" },
+          { name: "pnlMicros", type: "int128" },
+          { name: "fills", type: "uint64" },
+          { name: "metaHash", type: "bytes32" },
+          { name: "evidenceUriHash", type: "bytes32" },
+          { name: "evidenceHash", type: "bytes32" },
+          { name: "recordHash", type: "bytes32" },
+        ],
+      },
+    ],
+  },
+];
 const VAULT_ABI = parseAbi([
-  'function state() view returns (uint8)',
-  'function assets() view returns (uint256)',
-  'function depositTotalIdle() view returns (uint256)',
-  'function operatorOutstanding() view returns (uint256)',
-  'function mandate() view returns (address operator, bytes32 botId, uint128 budgetUsdc, uint16 maxDrawdownBps, uint32 receiptFreshnessSec, uint64 expiry, uint16 perfFeeBps, address bondContract, address riskKernel, address trackRecordV2)',
+  "function state() view returns (uint8)",
+  "function assets() view returns (uint256)",
+  "function depositTotalIdle() view returns (uint256)",
+  "function operatorOutstanding() view returns (uint256)",
+  "function mandate() view returns (address operator, bytes32 botId, uint128 budgetUsdc, uint16 maxDrawdownBps, uint32 receiptFreshnessSec, uint64 expiry, uint16 perfFeeBps, address bondContract, address riskKernel, address trackRecordV2)",
 ]);
 // Read-only fee-statement surface — separate from VAULT_ABI to keep the hot
 // polling path lean (these reads only run on /api/fee-statement requests).
 const VAULT_FEE_ABI = parseAbi([
-  'function perSharePrice() view returns (uint256)',
-  'function highWaterMark() view returns (uint256)',
-  'function operatorClaimable() view returns (uint256)',
+  "function perSharePrice() view returns (uint256)",
+  "function highWaterMark() view returns (uint256)",
+  "function operatorClaimable() view returns (uint256)",
 ]);
 const FACTORY_ALL_VAULTS_ABI = parseAbi([
-  'function allVaults() view returns (address[])',
+  "function allVaults() view returns (address[])",
 ]);
 const ROUTER_VIEW_ABI = parseAbi([
-  'function strategist() view returns (address)',
-  'function totalShares() view returns (uint256)',
-  'function idleUsdc() view returns (uint256)',
-  'function assets() view returns (uint256)',
-  'function perSharePrice() view returns (uint256)',
-  'function strategyVersion() view returns (uint64)',
-  'function lastRebalanceAt() view returns (uint64)',
-  'function targetVaultCount() view returns (uint256)',
-  'function targetVaults(uint256) view returns (address)',
-  'function targetWeightsBps(address) view returns (uint16)',
+  "function strategist() view returns (address)",
+  "function totalShares() view returns (uint256)",
+  "function idleUsdc() view returns (uint256)",
+  "function assets() view returns (uint256)",
+  "function perSharePrice() view returns (uint256)",
+  "function strategyVersion() view returns (uint64)",
+  "function lastRebalanceAt() view returns (uint64)",
+  "function targetVaultCount() view returns (uint256)",
+  "function targetVaults(uint256) view returns (address)",
+  "function targetWeightsBps(address) view returns (uint16)",
 ]);
-const ROUTER_DEPOSIT_EVENT = parseAbiItem('event Deposit(address indexed user, uint256 usdcIn, uint256 sharesMinted)');
-const ROUTER_WITHDRAW_EVENT = parseAbiItem('event Withdraw(address indexed user, uint256 sharesBurned, uint256 usdcOut)');
-const ROUTER_REBALANCED_EVENT = parseAbiItem('event Rebalanced(uint64 indexed at, uint256 totalAssets, uint256 vaultsTouched)');
-const ROUTER_STRATEGY_SET_EVENT = parseAbiItem('event StrategySet(uint64 indexed version, address[] vaults, uint16[] weightsBps)');
+const ROUTER_DEPOSIT_EVENT = parseAbiItem(
+  "event Deposit(address indexed user, uint256 usdcIn, uint256 sharesMinted)",
+);
+const ROUTER_WITHDRAW_EVENT = parseAbiItem(
+  "event Withdraw(address indexed user, uint256 sharesBurned, uint256 usdcOut)",
+);
+const ROUTER_REBALANCED_EVENT = parseAbiItem(
+  "event Rebalanced(uint64 indexed at, uint256 totalAssets, uint256 vaultsTouched)",
+);
+const ROUTER_STRATEGY_SET_EVENT = parseAbiItem(
+  "event StrategySet(uint64 indexed version, address[] vaults, uint16[] weightsBps)",
+);
 const BOND_ABI = parseAbi([
-  'function bondBalance() view returns (uint256)',
-  'function totalSlashed() view returns (uint256)',
+  "function bondBalance() view returns (uint256)",
+  "function totalSlashed() view returns (uint256)",
 ]);
 const FEE_ROUTER_READ_ABI = parseAbi([
-  'function splitCount() view returns (uint256)',
-  'function totalClaimableOf(address) view returns (uint256)',
+  "function splitCount() view returns (uint256)",
+  "function totalClaimableOf(address) view returns (uint256)",
 ]);
 // viem human-readable parseAbi rejects inline tuple outputs; use JSON ABI.
-const FEE_ROUTER_SPLIT_ABI = [{
-  type: 'function', name: 'splitAt', stateMutability: 'view',
-  inputs: [{ name: 'splitId', type: 'uint256' }],
-  outputs: [{
-    type: 'tuple',
-    components: [
-      { name: 'creator', type: 'address' },
-      { name: 'recipients', type: 'address[]' },
-      { name: 'bps', type: 'uint16[]' },
-      { name: 'totalRouted', type: 'uint256' },
-      { name: 'createdAt', type: 'uint64' },
+const FEE_ROUTER_SPLIT_ABI = [
+  {
+    type: "function",
+    name: "splitAt",
+    stateMutability: "view",
+    inputs: [{ name: "splitId", type: "uint256" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "creator", type: "address" },
+          { name: "recipients", type: "address[]" },
+          { name: "bps", type: "uint16[]" },
+          { name: "totalRouted", type: "uint256" },
+          { name: "createdAt", type: "uint64" },
+        ],
+      },
     ],
-  }],
-}];
+  },
+];
 
 const BOT_REGISTERED_EVENT = parseAbiItem(
-  'event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)',
+  "event BotRegistered(bytes32 indexed botId, uint8 kind, address indexed signer)",
 );
 const ENFORCED_EVENT = parseAbiItem(
-  'event Enforced(address indexed vault, uint8 verdict, uint8 newState, uint256 slashedUsdc)',
+  "event Enforced(address indexed vault, uint8 verdict, uint8 newState, uint256 slashedUsdc)",
 );
 const VAULT_CREATED_EVENT = parseAbiItem(
-  'event VaultCreated(address indexed vault, address indexed creator, address indexed operator, bytes32 botId, uint128 budgetUsdc, uint64 createdAt)',
+  "event VaultCreated(address indexed vault, address indexed creator, address indexed operator, bytes32 botId, uint128 budgetUsdc, uint64 createdAt)",
 );
 
-const KIND_NAMES = ['MAKER', 'TAKER', 'ARB', 'OTHER'];
-const STATE_NAMES = ['ACTIVE', 'PAUSED', 'EXPIRED'];
-const VERDICT_NAMES = ['ALLOW', 'PAUSE_DRAWDOWN', 'PAUSE_OVERSUBSCRIBED', 'PAUSE_STALE', 'PAUSE_EXPIRED'];
+const KIND_NAMES = ["MAKER", "TAKER", "ARB", "OTHER"];
+const STATE_NAMES = ["ACTIVE", "PAUSED", "EXPIRED"];
+const VERDICT_NAMES = [
+  "ALLOW",
+  "PAUSE_DRAWDOWN",
+  "PAUSE_OVERSUBSCRIBED",
+  "PAUSE_STALE",
+  "PAUSE_EXPIRED",
+];
 
 // ---- STATE -----------------------------------------------------------------
 
 const initial = {
   cursor: { lastBlock: DEPLOY_BLOCK.toString() },
-  bots: {},            // botId -> { kind, signer, recordCount, lastSeq, lastPnlMicros, lastPeriodEnd, lastUpdate }
-  vaults: {},          // address -> { state, assets, idle, outstanding, mandate, lastUpdate, source }
-  bonds: {},           // address -> { bondBalance, totalSlashed, lastUpdate }
-  slashEvents: [],     // newest first, capped at 200
-  factoryVaults: [],   // [{ vault, creator, operator, botId, budgetMicros, createdAt, blockNumber, txHash }] newest first
-  router: {            // Phase 5 allocator performance profile (CapitalRouter)
-    depositCount: 0, withdrawCount: 0, rebalanceCount: 0, strategySetCount: 0,
-    totalDepositedMicros: '0', totalWithdrawnMicros: '0',
-    lastDepositAt: 0, lastWithdrawAt: 0, lastRebalanceAt: 0,
+  bots: {}, // botId -> { kind, signer, recordCount, lastSeq, lastPnlMicros, lastPeriodEnd, lastUpdate }
+  vaults: {}, // address -> { state, assets, idle, outstanding, mandate, lastUpdate, source }
+  bonds: {}, // address -> { bondBalance, totalSlashed, lastUpdate }
+  slashEvents: [], // newest first, capped at 200
+  factoryVaults: [], // [{ vault, creator, operator, botId, budgetMicros, createdAt, blockNumber, txHash }] newest first
+  router: {
+    // Phase 5 allocator performance profile (CapitalRouter)
+    depositCount: 0,
+    withdrawCount: 0,
+    rebalanceCount: 0,
+    strategySetCount: 0,
+    totalDepositedMicros: "0",
+    totalWithdrawnMicros: "0",
+    lastDepositAt: 0,
+    lastWithdrawAt: 0,
+    lastRebalanceAt: 0,
     backfilledAt: 0,
     // Phase 5 reallocation receipts: newest-first activity feed across all
     // four router events. Capped at 100 entries to keep state.json small.
@@ -211,26 +272,28 @@ const initial = {
 let state;
 try {
   if (existsSync(STATE_PATH)) {
-    state = { ...initial, ...JSON.parse(readFileSync(STATE_PATH, 'utf8')) };
+    state = { ...initial, ...JSON.parse(readFileSync(STATE_PATH, "utf8")) };
     // Backfill sub-objects added in later indexer versions so old state files
     // don't crash the polling loop on first poll.
     if (!state.router) state.router = initial.router;
     if (!Array.isArray(state.router.activity)) state.router.activity = [];
-    console.log(`[indexer] resumed from ${STATE_PATH} (lastBlock=${state.cursor.lastBlock})`);
+    console.log(
+      `[indexer] resumed from ${STATE_PATH} (lastBlock=${state.cursor.lastBlock})`,
+    );
   } else {
     state = initial;
     mkdirSync(dirname(STATE_PATH), { recursive: true });
   }
 } catch (e) {
-  console.error('[indexer] state load failed, starting fresh:', e.message);
+  console.error("[indexer] state load failed, starting fresh:", e.message);
   state = initial;
 }
 
 function persist() {
   try {
-    writeFileSync(STATE_PATH, JSON.stringify(state, null, 0) + '\n');
+    writeFileSync(STATE_PATH, JSON.stringify(state, null, 0) + "\n");
   } catch (e) {
-    console.error('[indexer] persist failed:', e.message);
+    console.error("[indexer] persist failed:", e.message);
   }
 }
 
@@ -242,8 +305,16 @@ async function getLogsChunked({ address, event, fromBlock, toBlock }) {
   const logs = [];
   let cursor = fromBlock;
   while (cursor <= toBlock) {
-    const chunkTo = cursor + LOG_CHUNK - 1n > toBlock ? toBlock : cursor + LOG_CHUNK - 1n;
-    logs.push(...await pub.getLogs({ address, event, fromBlock: cursor, toBlock: chunkTo }));
+    const chunkTo =
+      cursor + LOG_CHUNK - 1n > toBlock ? toBlock : cursor + LOG_CHUNK - 1n;
+    logs.push(
+      ...(await pub.getLogs({
+        address,
+        event,
+        fromBlock: cursor,
+        toBlock: chunkTo,
+      })),
+    );
     cursor = chunkTo + 1n;
   }
   return logs;
@@ -256,17 +327,29 @@ async function indexBots(fromBlock, toBlock) {
   // First-seen wins if a botId somehow exists in both (shouldn't, since
   // botId = keccak(signer:label) is deterministic and registerBot reverts
   // AlreadyRegistered on the second call within the same contract).
-  for (const [address, version] of [[TR_V1, 'v1'], [TR_V2, 'v2']]) {
+  for (const [address, version] of [
+    [TR_V1, "v1"],
+    [TR_V2, "v2"],
+  ]) {
     const logs = await getLogsChunked({
-      address, event: BOT_REGISTERED_EVENT, fromBlock, toBlock,
+      address,
+      event: BOT_REGISTERED_EVENT,
+      fromBlock,
+      toBlock,
     });
     for (const log of logs) {
       const botId = log.args.botId;
       if (!state.bots[botId]) {
         state.bots[botId] = {
-          botId, kind: KIND_NAMES[Number(log.args.kind)] || 'OTHER',
-          signer: log.args.signer, version, recordCount: 0,
-          lastSeq: 0, lastPnlMicros: 0, lastPeriodEnd: 0, lastUpdate: 0,
+          botId,
+          kind: KIND_NAMES[Number(log.args.kind)] || "OTHER",
+          signer: log.args.signer,
+          version,
+          recordCount: 0,
+          lastSeq: 0,
+          lastPnlMicros: 0,
+          lastPeriodEnd: 0,
+          lastUpdate: 0,
         };
       }
     }
@@ -288,87 +371,106 @@ async function refreshBotStats() {
   // For every known bot, refresh recordCount + recent record window for v1 score
   const now = Math.floor(Date.now() / 1000);
   const botIds = Object.keys(state.bots);
-  await Promise.all(botIds.map(async (botId) => {
-    try {
-      // Bots persisted before v0.6.0 have no `version` field; default to v1.
-      const version = state.bots[botId].version || 'v1';
-      const address = version === 'v2' ? TR_V2 : TR_V1;
-      const recordAtAbi = version === 'v2' ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
-      const count = await pub.readContract({
-        address, abi: RECORD_COUNT_ABI, functionName: 'recordCount', args: [botId],
-      });
-      const n = Number(count);
-      state.bots[botId].recordCount = n;
-      if (n > 0) {
-        // Fetch the last min(N, n) records for sharpe + streak
-        const start = n > RECENT_RECORDS_N ? n - RECENT_RECORDS_N : 0;
-        const idxs = [];
-        for (let i = start; i < n; i++) idxs.push(BigInt(i));
-        const records = await Promise.all(idxs.map((idx) =>
-          pub.readContract({ address, abi: recordAtAbi, functionName: 'recordAt', args: [botId, idx] }),
-        ));
-        const recentPnls = records.map((r) => Number(r.pnlMicros));
-        const recentTs = records.map((r) => recordTs(version, r));
-        // Longest sliding-window streak — pure helper covered by
-        // keeper/test/indexer-pure.test.ts.
-        const longestStreak = longestStreakPure(recentTs, STREAK_GAP_SEC);
-        const last = records[records.length - 1];
-        state.bots[botId].lastSeq = n;
-        state.bots[botId].lastPnlMicros = Number(last.pnlMicros);
-        state.bots[botId].lastPeriodEnd = recordTs(version, last);
-        state.bots[botId].recentPnls = recentPnls;
-        state.bots[botId].recentTs = recentTs;
-        state.bots[botId].longestStreak = longestStreak;
-        // Running peak across all observed cycles — for drawdown computation.
-        const curPnl = Number(last.pnlMicros);
-        const prevPeak = Number(state.bots[botId].peakPnlMicros ?? curPnl);
-        state.bots[botId].peakPnlMicros = Math.max(prevPeak, curPnl);
+  await Promise.all(
+    botIds.map(async (botId) => {
+      try {
+        // Bots persisted before v0.6.0 have no `version` field; default to v1.
+        const version = state.bots[botId].version || "v1";
+        const address = version === "v2" ? TR_V2 : TR_V1;
+        const recordAtAbi =
+          version === "v2" ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
+        const count = await pub.readContract({
+          address,
+          abi: RECORD_COUNT_ABI,
+          functionName: "recordCount",
+          args: [botId],
+        });
+        const n = Number(count);
+        state.bots[botId].recordCount = n;
+        if (n > 0) {
+          // Fetch the last min(N, n) records for sharpe + streak
+          const start = n > RECENT_RECORDS_N ? n - RECENT_RECORDS_N : 0;
+          const idxs = [];
+          for (let i = start; i < n; i++) idxs.push(BigInt(i));
+          const records = await Promise.all(
+            idxs.map((idx) =>
+              pub.readContract({
+                address,
+                abi: recordAtAbi,
+                functionName: "recordAt",
+                args: [botId, idx],
+              }),
+            ),
+          );
+          const recentPnls = records.map((r) => Number(r.pnlMicros));
+          const recentTs = records.map((r) => recordTs(version, r));
+          // Longest sliding-window streak — pure helper covered by
+          // keeper/test/indexer-pure.test.ts.
+          const longestStreak = longestStreakPure(recentTs, STREAK_GAP_SEC);
+          const last = records[records.length - 1];
+          state.bots[botId].lastSeq = n;
+          state.bots[botId].lastPnlMicros = Number(last.pnlMicros);
+          state.bots[botId].lastPeriodEnd = recordTs(version, last);
+          state.bots[botId].recentPnls = recentPnls;
+          state.bots[botId].recentTs = recentTs;
+          state.bots[botId].longestStreak = longestStreak;
+          // Running peak across all observed cycles — for drawdown computation.
+          const curPnl = Number(last.pnlMicros);
+          const prevPeak = Number(state.bots[botId].peakPnlMicros ?? curPnl);
+          state.bots[botId].peakPnlMicros = Math.max(prevPeak, curPnl);
 
-        // Verified-fill refresh: fetch the latest receipt JSON at the
-        // canonical URL and count fills with mode === 'live'. Cached per
-        // (botId, seq) so we only re-fetch when a new record lands.
-        // Bots whose receipt URL doesn't follow the canonical pattern (or
-        // hasn't been uploaded yet) gracefully stay at verifiedFillCount=0
-        // until the URL serves; no exception bubbles up.
-        const cachedSeq = state.bots[botId].verifiedFillCountAtSeq ?? 0;
-        if (n > cachedSeq) {
-          const botHex = botId.slice(2, 14);
-          const seqStr = String(n).padStart(6, '0');
-          const url = `https://forum.gudman.xyz/receipts/${botHex}/${seqStr}.json`;
-          try {
-            const r = await fetch(url);
-            if (r.ok) {
-              const json = await r.json();
-              const liveFills = Array.isArray(json.fills)
-                ? json.fills.filter((f) => f && f.mode === 'live').length
-                : 0;
-              // Verified count is cumulative across all the bot's receipts;
-              // a single bad URL doesn't reset history. Take max so a
-              // late-uploaded receipt can only ever ADD verified fills.
-              const prev = state.bots[botId].verifiedFillCount ?? 0;
-              state.bots[botId].verifiedFillCount = Math.max(prev, liveFills);
-              state.bots[botId].verifiedFillCountAtSeq = n;
+          // Verified-fill refresh: fetch the latest receipt JSON at the
+          // canonical URL and count fills with mode === 'live'. Cached per
+          // (botId, seq) so we only re-fetch when a new record lands.
+          // Bots whose receipt URL doesn't follow the canonical pattern (or
+          // hasn't been uploaded yet) gracefully stay at verifiedFillCount=0
+          // until the URL serves; no exception bubbles up.
+          const cachedSeq = state.bots[botId].verifiedFillCountAtSeq ?? 0;
+          if (n > cachedSeq) {
+            const botHex = botId.slice(2, 14);
+            const seqStr = String(n).padStart(6, "0");
+            const url = `https://forum.gudman.xyz/receipts/${botHex}/${seqStr}.json`;
+            try {
+              const r = await fetch(url);
+              if (r.ok) {
+                const json = await r.json();
+                const liveFills = Array.isArray(json.fills)
+                  ? json.fills.filter((f) => f && f.mode === "live").length
+                  : 0;
+                // Verified count is cumulative across all the bot's receipts;
+                // a single bad URL doesn't reset history. Take max so a
+                // late-uploaded receipt can only ever ADD verified fills.
+                const prev = state.bots[botId].verifiedFillCount ?? 0;
+                state.bots[botId].verifiedFillCount = Math.max(prev, liveFills);
+                state.bots[botId].verifiedFillCountAtSeq = n;
+              }
+            } catch {
+              /* network blip — retry next poll */
             }
-          } catch {
-            /* network blip — retry next poll */
           }
         }
+        state.bots[botId].lastUpdate = now;
+      } catch (e) {
+        // Skip on read failure; will retry next cycle
       }
-      state.bots[botId].lastUpdate = now;
-    } catch (e) {
-      // Skip on read failure; will retry next cycle
-    }
-  }));
+    }),
+  );
 }
 
 async function indexFactoryVaults(fromBlock, toBlock) {
   if (!FACTORY || !FACTORY_DEPLOY_BLOCK) return;
-  const start = fromBlock > FACTORY_DEPLOY_BLOCK ? fromBlock : FACTORY_DEPLOY_BLOCK;
+  const start =
+    fromBlock > FACTORY_DEPLOY_BLOCK ? fromBlock : FACTORY_DEPLOY_BLOCK;
   if (toBlock < start) return;
   const logs = await getLogsChunked({
-    address: FACTORY, event: VAULT_CREATED_EVENT, fromBlock: start, toBlock,
+    address: FACTORY,
+    event: VAULT_CREATED_EVENT,
+    fromBlock: start,
+    toBlock,
   });
-  const knownVaults = new Set(state.factoryVaults.map((v) => v.vault.toLowerCase()));
+  const knownVaults = new Set(
+    state.factoryVaults.map((v) => v.vault.toLowerCase()),
+  );
   for (const log of logs) {
     const addr = log.args.vault;
     if (knownVaults.has(addr.toLowerCase())) continue;
@@ -390,15 +492,35 @@ async function indexFactoryVaults(fromBlock, toBlock) {
 async function refreshOneVault(addr, label) {
   try {
     const [s, a, idle, out, m] = await Promise.all([
-      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'state' }),
-      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'assets' }),
-      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'depositTotalIdle' }),
-      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'operatorOutstanding' }),
-      pub.readContract({ address: addr, abi: VAULT_ABI, functionName: 'mandate' }),
+      pub.readContract({
+        address: addr,
+        abi: VAULT_ABI,
+        functionName: "state",
+      }),
+      pub.readContract({
+        address: addr,
+        abi: VAULT_ABI,
+        functionName: "assets",
+      }),
+      pub.readContract({
+        address: addr,
+        abi: VAULT_ABI,
+        functionName: "depositTotalIdle",
+      }),
+      pub.readContract({
+        address: addr,
+        abi: VAULT_ABI,
+        functionName: "operatorOutstanding",
+      }),
+      pub.readContract({
+        address: addr,
+        abi: VAULT_ABI,
+        functionName: "mandate",
+      }),
     ]);
     state.vaults[addr] = {
       label,
-      source: label.startsWith('factory') ? 'factory' : 'hardcoded',
+      source: label.startsWith("factory") ? "factory" : "hardcoded",
       state: STATE_NAMES[Number(s)] || `S${s}`,
       assetsMicros: a.toString(),
       idleMicros: idle.toString(),
@@ -439,11 +561,19 @@ async function refreshBonds() {
   if (!BOND_V11) return;
   try {
     const [bal, slashed] = await Promise.all([
-      pub.readContract({ address: BOND_V11, abi: BOND_ABI, functionName: 'bondBalance' }),
-      pub.readContract({ address: BOND_V11, abi: BOND_ABI, functionName: 'totalSlashed' }),
+      pub.readContract({
+        address: BOND_V11,
+        abi: BOND_ABI,
+        functionName: "bondBalance",
+      }),
+      pub.readContract({
+        address: BOND_V11,
+        abi: BOND_ABI,
+        functionName: "totalSlashed",
+      }),
     ]);
     state.bonds[BOND_V11] = {
-      label: 'SlashBondV1.1',
+      label: "SlashBondV1.1",
       bondBalanceMicros: bal.toString(),
       totalSlashedMicros: slashed.toString(),
       lastUpdate: now,
@@ -455,47 +585,62 @@ async function refreshBonds() {
 
 async function indexRouterEvents(fromBlock, toBlock) {
   if (!CAPITAL_ROUTER || !CAPITAL_ROUTER_DEPLOY_BLOCK) return;
-  const start = fromBlock > CAPITAL_ROUTER_DEPLOY_BLOCK ? fromBlock : CAPITAL_ROUTER_DEPLOY_BLOCK;
+  const start =
+    fromBlock > CAPITAL_ROUTER_DEPLOY_BLOCK
+      ? fromBlock
+      : CAPITAL_ROUTER_DEPLOY_BLOCK;
   if (toBlock < start) return;
   const r = state.router;
   for (const [event, kind] of [
-    [ROUTER_DEPOSIT_EVENT, 'deposit'],
-    [ROUTER_WITHDRAW_EVENT, 'withdraw'],
-    [ROUTER_REBALANCED_EVENT, 'rebalance'],
-    [ROUTER_STRATEGY_SET_EVENT, 'strategy'],
+    [ROUTER_DEPOSIT_EVENT, "deposit"],
+    [ROUTER_WITHDRAW_EVENT, "withdraw"],
+    [ROUTER_REBALANCED_EVENT, "rebalance"],
+    [ROUTER_STRATEGY_SET_EVENT, "strategy"],
   ]) {
     const logs = await getLogsChunked({
-      address: CAPITAL_ROUTER, event, fromBlock: start, toBlock,
+      address: CAPITAL_ROUTER,
+      event,
+      fromBlock: start,
+      toBlock,
     });
     if (logs.length > 0 || process.env.FORUM_INDEXER_DEBUG) {
-      console.log(`[indexer] router ${kind} events: ${logs.length} (range ${start}..${toBlock})`);
+      console.log(
+        `[indexer] router ${kind} events: ${logs.length} (range ${start}..${toBlock})`,
+      );
     }
     for (const log of logs) {
       const blockNumber = Number(log.blockNumber);
       const entry = {
-        kind, blockNumber, txHash: log.transactionHash, logIndex: Number(log.logIndex),
+        kind,
+        blockNumber,
+        txHash: log.transactionHash,
+        logIndex: Number(log.logIndex),
       };
-      if (kind === 'deposit') {
+      if (kind === "deposit") {
         r.depositCount += 1;
-        r.totalDepositedMicros = (BigInt(r.totalDepositedMicros) + BigInt(log.args.usdcIn)).toString();
+        r.totalDepositedMicros = (
+          BigInt(r.totalDepositedMicros) + BigInt(log.args.usdcIn)
+        ).toString();
         r.lastDepositAt = blockNumber;
         entry.user = log.args.user;
         entry.usdcInMicros = log.args.usdcIn.toString();
         entry.sharesMintedMicros = log.args.sharesMinted.toString();
-      } else if (kind === 'withdraw') {
+      } else if (kind === "withdraw") {
         r.withdrawCount += 1;
-        r.totalWithdrawnMicros = (BigInt(r.totalWithdrawnMicros) + BigInt(log.args.usdcOut)).toString();
+        r.totalWithdrawnMicros = (
+          BigInt(r.totalWithdrawnMicros) + BigInt(log.args.usdcOut)
+        ).toString();
         r.lastWithdrawAt = blockNumber;
         entry.user = log.args.user;
         entry.sharesBurnedMicros = log.args.sharesBurned.toString();
         entry.usdcOutMicros = log.args.usdcOut.toString();
-      } else if (kind === 'rebalance') {
+      } else if (kind === "rebalance") {
         r.rebalanceCount += 1;
         r.lastRebalanceAt = blockNumber;
         entry.atTs = Number(log.args.at);
         entry.totalAssetsMicros = log.args.totalAssets.toString();
         entry.vaultsTouched = Number(log.args.vaultsTouched);
-      } else if (kind === 'strategy') {
+      } else if (kind === "strategy") {
         r.strategySetCount += 1;
         entry.version = Number(log.args.version);
         entry.vaults = [...(log.args.vaults || [])];
@@ -504,7 +649,9 @@ async function indexRouterEvents(fromBlock, toBlock) {
       // Insert newest-first, dedupe by (txHash, logIndex) so re-runs are
       // idempotent — important because the backfill resets counters AND
       // pollOnce may re-cover overlapping blocks across restarts.
-      const dupeIdx = r.activity.findIndex((a) => a.txHash === entry.txHash && a.logIndex === entry.logIndex);
+      const dupeIdx = r.activity.findIndex(
+        (a) => a.txHash === entry.txHash && a.logIndex === entry.logIndex,
+      );
       if (dupeIdx >= 0) r.activity.splice(dupeIdx, 1);
       r.activity.unshift(entry);
     }
@@ -514,13 +661,18 @@ async function indexRouterEvents(fromBlock, toBlock) {
 
 async function indexSlashEvents(fromBlock, toBlock) {
   const logs = await getLogsChunked({
-    address: KERNEL_V2, event: ENFORCED_EVENT, fromBlock, toBlock,
+    address: KERNEL_V2,
+    event: ENFORCED_EVENT,
+    fromBlock,
+    toBlock,
   });
   for (const log of logs) {
     state.slashEvents.unshift({
       vault: log.args.vault,
-      verdict: VERDICT_NAMES[Number(log.args.verdict)] || `V${log.args.verdict}`,
-      newState: STATE_NAMES[Number(log.args.newState)] || `S${log.args.newState}`,
+      verdict:
+        VERDICT_NAMES[Number(log.args.verdict)] || `V${log.args.verdict}`,
+      newState:
+        STATE_NAMES[Number(log.args.newState)] || `S${log.args.newState}`,
       slashedMicros: log.args.slashedUsdc.toString(),
       blockNumber: log.blockNumber.toString(),
       txHash: log.transactionHash,
@@ -550,9 +702,11 @@ async function pollOnce() {
     state.lastBlock = Number(block);
     state.lastPollAt = Math.floor(Date.now() / 1000);
     persist();
-    console.log(`[indexer] poll OK block=${block} bots=${Object.keys(state.bots).length} vaults=${Object.keys(state.vaults).length} slashes=${state.slashEvents.length}`);
+    console.log(
+      `[indexer] poll OK block=${block} bots=${Object.keys(state.bots).length} vaults=${Object.keys(state.vaults).length} slashes=${state.slashEvents.length}`,
+    );
   } catch (e) {
-    console.error('[indexer] poll failed:', e.message);
+    console.error("[indexer] poll failed:", e.message);
   } finally {
     polling = false;
   }
@@ -561,77 +715,92 @@ async function pollOnce() {
 // ---- HTTP ------------------------------------------------------------------
 
 function jsonReply(res, status, body) {
-  const json = JSON.stringify(body, (_k, v) => typeof v === 'bigint' ? v.toString() : v);
+  const json = JSON.stringify(body, (_k, v) =>
+    typeof v === "bigint" ? v.toString() : v,
+  );
   res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Cache-Control': 'public, max-age=10',
-    'X-Indexer-Version': VERSION,
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Cache-Control": "public, max-age=10",
+    "X-Indexer-Version": VERSION,
   });
   res.end(json);
 }
 
 const server = createServer((req, res) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': '*',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
     });
     return res.end();
   }
-  if (req.method !== 'GET') {
-    return jsonReply(res, 405, { error: 'method not allowed' });
+  if (req.method !== "GET") {
+    return jsonReply(res, 405, { error: "method not allowed" });
   }
 
-  const url = new URL(req.url, 'http://localhost');
-  const path = url.pathname.replace(/^\/api/, '');
-  const freshness = state.lastPollAt > 0 ? Math.floor(Date.now() / 1000) - state.lastPollAt : null;
+  const url = new URL(req.url, "http://localhost");
+  const path = url.pathname.replace(/^\/api/, "");
+  const freshness =
+    state.lastPollAt > 0
+      ? Math.floor(Date.now() / 1000) - state.lastPollAt
+      : null;
 
-  if (path === '/health' || path === '/health/') {
+  if (path === "/health" || path === "/health/") {
     return jsonReply(res, 200, {
       ok: true,
       version: VERSION,
       lastPollAt: state.lastPollAt,
       lastBlock: state.lastBlock,
       freshnessSec: freshness,
-      stale: freshness === null || freshness > POLL_MS / 1000 * 3,
+      stale: freshness === null || freshness > (POLL_MS / 1000) * 3,
     });
   }
 
-  if (path === '/state' || path === '/state/') {
+  if (path === "/state" || path === "/state/") {
     return jsonReply(res, 200, state);
   }
 
-  if (path === '/bots' || path === '/bots/') {
+  if (path === "/bots" || path === "/bots/") {
     return jsonReply(res, 200, Object.values(state.bots));
   }
 
   const botMatch = path.match(/^\/bots\/(0x[0-9a-fA-F]{64})\/records\/?$/);
   if (botMatch) {
     const botId = botMatch[1];
-    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+    const limit = clampedLimit(url.searchParams.get("limit"), 50, 200);
     // Dispatch reads to the contract the bot is registered against. Unknown
     // bots default to V1 to preserve pre-v0.6.0 behavior (returns empty list
     // rather than a misleading error if the bot really only exists in V2).
     const known = state.bots[botId];
-    const version = known?.version || 'v1';
-    const address = version === 'v2' ? TR_V2 : TR_V1;
-    const recordAtAbi = version === 'v2' ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
+    const version = known?.version || "v1";
+    const address = version === "v2" ? TR_V2 : TR_V1;
+    const recordAtAbi = version === "v2" ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
     // Live read — not cached
     (async () => {
       try {
         const count = await pub.readContract({
-          address, abi: RECORD_COUNT_ABI, functionName: 'recordCount', args: [botId],
+          address,
+          abi: RECORD_COUNT_ABI,
+          functionName: "recordCount",
+          args: [botId],
         });
         const n = Number(count);
         const start = n > limit ? n - limit : 0;
         const idxs = [];
         for (let i = start; i < n; i++) idxs.push(BigInt(i));
-        const records = await Promise.all(idxs.map((idx) =>
-          pub.readContract({ address, abi: recordAtAbi, functionName: 'recordAt', args: [botId, idx] }),
-        ));
+        const records = await Promise.all(
+          idxs.map((idx) =>
+            pub.readContract({
+              address,
+              abi: recordAtAbi,
+              functionName: "recordAt",
+              args: [botId, idx],
+            }),
+          ),
+        );
         const out = records.map((r, i) => ({
           seq: start + i + 1,
           ts: recordTs(version, r),
@@ -650,48 +819,68 @@ const server = createServer((req, res) => {
   const covMatch = path.match(/^\/covenant\/(0x[0-9a-fA-F]{40})\/?$/);
   if (covMatch) {
     const addr = covMatch[1].toLowerCase();
-    const found = Object.entries(state.vaults).find(([k]) => k.toLowerCase() === addr);
-    if (!found) return jsonReply(res, 404, { error: 'vault not indexed' });
+    const found = Object.entries(state.vaults).find(
+      ([k]) => k.toLowerCase() === addr,
+    );
+    if (!found) return jsonReply(res, 404, { error: "vault not indexed" });
     return jsonReply(res, 200, found[1]);
   }
 
-  if (path === '/slash-events' || path === '/slash-events/') {
-    const limit = Math.min(Number(url.searchParams.get('limit') || 20), 200);
+  if (path === "/slash-events" || path === "/slash-events/") {
+    const limit = clampedLimit(url.searchParams.get("limit"), 20, 200);
     return jsonReply(res, 200, state.slashEvents.slice(0, limit));
   }
 
-  if (path === '/fees' || path === '/fees/') {
-    if (!FEE_ROUTER) return jsonReply(res, 404, { error: 'FeeRouterV1 not deployed' });
+  if (path === "/fees" || path === "/fees/") {
+    if (!FEE_ROUTER)
+      return jsonReply(res, 404, { error: "FeeRouterV1 not deployed" });
     (async () => {
       try {
         const count = await pub.readContract({
-          address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'splitCount',
+          address: FEE_ROUTER,
+          abi: FEE_ROUTER_READ_ABI,
+          functionName: "splitCount",
         });
         const n = Number(count);
         const ids = Array.from({ length: n }, (_, i) => BigInt(i));
-        const splits = await Promise.all(ids.map(async (id) => {
-          const s = await pub.readContract({
-            address: FEE_ROUTER, abi: FEE_ROUTER_SPLIT_ABI, functionName: 'splitAt', args: [id],
-          });
-          return {
-            splitId: Number(id),
-            creator: s.creator,
-            recipients: [...s.recipients],
-            bps: s.bps.map((b) => Number(b)),
-            totalRoutedMicros: s.totalRouted.toString(),
-            createdAt: Number(s.createdAt),
-          };
-        }));
+        const splits = await Promise.all(
+          ids.map(async (id) => {
+            const s = await pub.readContract({
+              address: FEE_ROUTER,
+              abi: FEE_ROUTER_SPLIT_ABI,
+              functionName: "splitAt",
+              args: [id],
+            });
+            return {
+              splitId: Number(id),
+              creator: s.creator,
+              recipients: [...s.recipients],
+              bps: s.bps.map((b) => Number(b)),
+              totalRoutedMicros: s.totalRouted.toString(),
+              createdAt: Number(s.createdAt),
+            };
+          }),
+        );
         // De-dupe recipients, then fetch totalClaimable for each.
-        const uniqRecipients = [...new Set(splits.flatMap((s) => s.recipients))];
+        const uniqRecipients = [
+          ...new Set(splits.flatMap((s) => s.recipients)),
+        ];
         const claimable = {};
-        await Promise.all(uniqRecipients.map(async (r) => {
-          const t = await pub.readContract({
-            address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'totalClaimableOf', args: [r],
-          });
-          claimable[r] = t.toString();
-        }));
-        const totalRoutedAllSplits = splits.reduce((a, s) => a + BigInt(s.totalRoutedMicros), 0n);
+        await Promise.all(
+          uniqRecipients.map(async (r) => {
+            const t = await pub.readContract({
+              address: FEE_ROUTER,
+              abi: FEE_ROUTER_READ_ABI,
+              functionName: "totalClaimableOf",
+              args: [r],
+            });
+            claimable[r] = t.toString();
+          }),
+        );
+        const totalRoutedAllSplits = splits.reduce(
+          (a, s) => a + BigInt(s.totalRoutedMicros),
+          0n,
+        );
         jsonReply(res, 200, {
           feeRouter: FEE_ROUTER,
           splitCount: n,
@@ -706,26 +895,26 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (path === '/proof' || path === '/proof/') {
+  if (path === "/proof" || path === "/proof/") {
     // Static Phase 3 (and future phases) proof artifact. Operator-mutable:
     // file lives at /opt/forum/web/proof.json so it can be rewritten when
     // a new live-fill milestone lands without redeploying the indexer.
     try {
-      const data = readFileSync('/opt/forum/web/proof.json', 'utf8');
+      const data = readFileSync("/opt/forum/web/proof.json", "utf8");
       return jsonReply(res, 200, JSON.parse(data));
     } catch (e) {
-      return jsonReply(res, 404, { error: 'proof.json not present yet' });
+      return jsonReply(res, 404, { error: "proof.json not present yet" });
     }
   }
 
-  if (path === '/router/activity' || path === '/router/activity/') {
+  if (path === "/router/activity" || path === "/router/activity/") {
     // Phase 5 reallocation receipts — newest-first stream of every
     // router event (deposit/withdraw/rebalance/strategy). Capped at 100.
-    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 100);
+    const limit = clampedLimit(url.searchParams.get("limit"), 50, 100);
     return jsonReply(res, 200, state.router.activity.slice(0, limit));
   }
 
-  if (path === '/router/performance' || path === '/router/performance/') {
+  if (path === "/router/performance" || path === "/router/performance/") {
     // Phase 5: allocator performance profile. Live state (assets, perShare,
     // strategyVersion, lastRebalanceAt, weights) from view functions, plus
     // lifetime event counters from state.router (one-shot backfill +
@@ -734,25 +923,79 @@ const server = createServer((req, res) => {
     // price at deposit time isn't persisted. A future version can derive
     // it by joining Deposit.blockNumber with a per-poll perSharePrice
     // sample.
-    if (!CAPITAL_ROUTER) return jsonReply(res, 404, { error: 'CapitalRouter not deployed' });
+    if (!CAPITAL_ROUTER)
+      return jsonReply(res, 404, { error: "CapitalRouter not deployed" });
     (async () => {
       try {
-        const [strategist, totalShares, idle, assets, psp, version, lastRebal, targetCount] = await Promise.all([
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'strategist' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'totalShares' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'idleUsdc' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'assets' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'perSharePrice' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'strategyVersion' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'lastRebalanceAt' }),
-          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'targetVaultCount' }),
+        const [
+          strategist,
+          totalShares,
+          idle,
+          assets,
+          psp,
+          version,
+          lastRebal,
+          targetCount,
+        ] = await Promise.all([
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "strategist",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "totalShares",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "idleUsdc",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "assets",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "perSharePrice",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "strategyVersion",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "lastRebalanceAt",
+          }),
+          pub.readContract({
+            address: CAPITAL_ROUTER,
+            abi: ROUTER_VIEW_ABI,
+            functionName: "targetVaultCount",
+          }),
         ]);
         const n = Number(targetCount);
-        const targets = await Promise.all(Array.from({ length: n }, (_, i) => BigInt(i)).map(async (i) => {
-          const v = await pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'targetVaults', args: [i] });
-          const w = await pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'targetWeightsBps', args: [v] });
-          return { vault: v, weightBps: Number(w) };
-        }));
+        const targets = await Promise.all(
+          Array.from({ length: n }, (_, i) => BigInt(i)).map(async (i) => {
+            const v = await pub.readContract({
+              address: CAPITAL_ROUTER,
+              abi: ROUTER_VIEW_ABI,
+              functionName: "targetVaults",
+              args: [i],
+            });
+            const w = await pub.readContract({
+              address: CAPITAL_ROUTER,
+              abi: ROUTER_VIEW_ABI,
+              functionName: "targetWeightsBps",
+              args: [v],
+            });
+            return { vault: v, weightBps: Number(w) };
+          }),
+        );
         jsonReply(res, 200, {
           address: CAPITAL_ROUTER,
           strategist,
@@ -784,7 +1027,7 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (path === '/fee-statement' || path === '/fee-statement/') {
+  if (path === "/fee-statement" || path === "/fee-statement/") {
     // Phase 6: programmatic equivalent of the keeper/scripts/fee-reconcile.mjs
     // statement, served live from the indexer so the frontend (and any cron
     // consumer) can pull it without running a script. Walks every vault the
@@ -795,59 +1038,102 @@ const server = createServer((req, res) => {
     (async () => {
       try {
         const allVaults = FACTORY
-          ? await pub.readContract({ address: FACTORY, abi: FACTORY_ALL_VAULTS_ABI, functionName: 'allVaults' })
+          ? await pub.readContract({
+              address: FACTORY,
+              abi: FACTORY_ALL_VAULTS_ABI,
+              functionName: "allVaults",
+            })
           : [];
-        const vaultReports = await Promise.all(allVaults.map(async (vault) => {
-          const [mandate, vstate, assets, psp, hwm, claimable] = await Promise.all([
-            pub.readContract({ address: vault, abi: VAULT_ABI, functionName: 'mandate' }),
-            pub.readContract({ address: vault, abi: VAULT_ABI, functionName: 'state' }),
-            pub.readContract({ address: vault, abi: VAULT_ABI, functionName: 'assets' }),
-            pub.readContract({ address: vault, abi: VAULT_FEE_ABI, functionName: 'perSharePrice' }),
-            pub.readContract({ address: vault, abi: VAULT_FEE_ABI, functionName: 'highWaterMark' }),
-            pub.readContract({ address: vault, abi: VAULT_FEE_ABI, functionName: 'operatorClaimable' }),
-          ]);
-          // viem decodes the mandate tuple as a positional array (not object)
-          // — mirrors refreshOneVault's m[0]/m[1]/m[6] indexing.
-          return {
-            vault,
-            operator: mandate[0],
-            botId: mandate[1],
-            state: STATE_NAMES[Number(vstate)] ?? `unknown(${vstate})`,
-            perfFeeBps: Number(mandate[6]),
-            assetsMicros: assets.toString(),
-            perSharePrice1e18: psp.toString(),
-            highWaterMark1e18: hwm.toString(),
-            operatorClaimableMicros: claimable.toString(),
-            perSharePriceAboveHwm: psp > hwm,
-          };
-        }));
+        const vaultReports = await Promise.all(
+          allVaults.map(async (vault) => {
+            const [mandate, vstate, assets, psp, hwm, claimable] =
+              await Promise.all([
+                pub.readContract({
+                  address: vault,
+                  abi: VAULT_ABI,
+                  functionName: "mandate",
+                }),
+                pub.readContract({
+                  address: vault,
+                  abi: VAULT_ABI,
+                  functionName: "state",
+                }),
+                pub.readContract({
+                  address: vault,
+                  abi: VAULT_ABI,
+                  functionName: "assets",
+                }),
+                pub.readContract({
+                  address: vault,
+                  abi: VAULT_FEE_ABI,
+                  functionName: "perSharePrice",
+                }),
+                pub.readContract({
+                  address: vault,
+                  abi: VAULT_FEE_ABI,
+                  functionName: "highWaterMark",
+                }),
+                pub.readContract({
+                  address: vault,
+                  abi: VAULT_FEE_ABI,
+                  functionName: "operatorClaimable",
+                }),
+              ]);
+            // viem decodes the mandate tuple as a positional array (not object)
+            // — mirrors refreshOneVault's m[0]/m[1]/m[6] indexing.
+            return {
+              vault,
+              operator: mandate[0],
+              botId: mandate[1],
+              state: STATE_NAMES[Number(vstate)] ?? `unknown(${vstate})`,
+              perfFeeBps: Number(mandate[6]),
+              assetsMicros: assets.toString(),
+              perSharePrice1e18: psp.toString(),
+              highWaterMark1e18: hwm.toString(),
+              operatorClaimableMicros: claimable.toString(),
+              perSharePriceAboveHwm: psp > hwm,
+            };
+          }),
+        );
 
         let routerReport = null;
         if (FEE_ROUTER) {
           const splitCount = await pub.readContract({
-            address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'splitCount',
+            address: FEE_ROUTER,
+            abi: FEE_ROUTER_READ_ABI,
+            functionName: "splitCount",
           });
           const n = Number(splitCount);
-          const splits = await Promise.all(Array.from({ length: n }, (_, i) => BigInt(i)).map(async (id) => {
-            const s = await pub.readContract({
-              address: FEE_ROUTER, abi: FEE_ROUTER_SPLIT_ABI, functionName: 'splitAt', args: [id],
-            });
-            return {
-              splitId: Number(id),
-              creator: s.creator,
-              recipients: [...s.recipients],
-              bps: s.bps.map((b) => Number(b)),
-              totalRoutedMicros: s.totalRouted.toString(),
-              createdAt: Number(s.createdAt),
-            };
-          }));
+          const splits = await Promise.all(
+            Array.from({ length: n }, (_, i) => BigInt(i)).map(async (id) => {
+              const s = await pub.readContract({
+                address: FEE_ROUTER,
+                abi: FEE_ROUTER_SPLIT_ABI,
+                functionName: "splitAt",
+                args: [id],
+              });
+              return {
+                splitId: Number(id),
+                creator: s.creator,
+                recipients: [...s.recipients],
+                bps: s.bps.map((b) => Number(b)),
+                totalRoutedMicros: s.totalRouted.toString(),
+                createdAt: Number(s.createdAt),
+              };
+            }),
+          );
           const recipients = [...new Set(splits.flatMap((s) => s.recipients))];
-          const claimableEntries = await Promise.all(recipients.map(async (r) => {
-            const t = await pub.readContract({
-              address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'totalClaimableOf', args: [r],
-            });
-            return [r, t.toString()];
-          }));
+          const claimableEntries = await Promise.all(
+            recipients.map(async (r) => {
+              const t = await pub.readContract({
+                address: FEE_ROUTER,
+                abi: FEE_ROUTER_READ_ABI,
+                functionName: "totalClaimableOf",
+                args: [r],
+              });
+              return [r, t.toString()];
+            }),
+          );
           routerReport = {
             feeRouter: FEE_ROUTER,
             splitCount: n,
@@ -857,12 +1143,13 @@ const server = createServer((req, res) => {
         }
 
         const totalAccrued = vaultReports.reduce(
-          (acc, v) => acc + BigInt(v.operatorClaimableMicros), 0n,
+          (acc, v) => acc + BigInt(v.operatorClaimableMicros),
+          0n,
         );
 
         jsonReply(res, 200, {
           generatedAt: Math.floor(Date.now() / 1000),
-          chain: 'arc-testnet',
+          chain: "arc-testnet",
           chainId: 5042002,
           factory: FACTORY ?? null,
           feeRouter: FEE_ROUTER ?? null,
@@ -878,13 +1165,20 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (path === '/factory-vaults' || path === '/factory-vaults/') {
-    const limit = Math.min(Number(url.searchParams.get('limit') || 100), 500);
+  if (path === "/factory-vaults" || path === "/factory-vaults/") {
+    const limit = clampedLimit(url.searchParams.get("limit"), 100, 500);
     return jsonReply(res, 200, state.factoryVaults.slice(0, limit));
   }
 
-  if (path === '/vaults' || path === '/vaults/') {
-    return jsonReply(res, 200, Object.entries(state.vaults).map(([addr, v]) => ({ address: addr, ...v })));
+  if (path === "/vaults" || path === "/vaults/") {
+    return jsonReply(
+      res,
+      200,
+      Object.entries(state.vaults).map(([addr, v]) => ({
+        address: addr,
+        ...v,
+      })),
+    );
   }
 
   // -- AgentScore v0 --------------------------------------------------------
@@ -902,14 +1196,23 @@ const server = createServer((req, res) => {
 
     // Vaults bound to this bot (cross-vault stats)
     const linkedVaults = Object.entries(state.vaults)
-      .filter(([, v]) => v.mandate?.botId?.toLowerCase() === botId.toLowerCase())
+      .filter(
+        ([, v]) => v.mandate?.botId?.toLowerCase() === botId.toLowerCase(),
+      )
       .map(([addr, v]) => ({ address: addr, label: v.label, state: v.state }));
 
     // Slash events targeting any linked vault
-    const linkedVaultSet = new Set(linkedVaults.map((v) => v.address.toLowerCase()));
-    const botSlashEvents = state.slashEvents.filter((e) => linkedVaultSet.has(e.vault.toLowerCase()) && e.slashedMicros !== '0');
+    const linkedVaultSet = new Set(
+      linkedVaults.map((v) => v.address.toLowerCase()),
+    );
+    const botSlashEvents = state.slashEvents.filter(
+      (e) =>
+        linkedVaultSet.has(e.vault.toLowerCase()) && e.slashedMicros !== "0",
+    );
     const slashEventCount = botSlashEvents.length;
-    const totalSlashedMicros = botSlashEvents.reduce((a, e) => a + BigInt(e.slashedMicros), 0n).toString();
+    const totalSlashedMicros = botSlashEvents
+      .reduce((a, e) => a + BigInt(e.slashedMicros), 0n)
+      .toString();
 
     // Per-vault bond attribution — walk every linked vault, look up its
     // declared bondContract in the indexed bond set. v0 used SlashBondV1.1 as
@@ -917,7 +1220,8 @@ const server = createServer((req, res) => {
     const linkedBondAddrs = new Set();
     for (const lv of linkedVaults) {
       const fullVault = state.vaults[lv.address];
-      if (fullVault?.mandate?.bondContract) linkedBondAddrs.add(fullVault.mandate.bondContract);
+      if (fullVault?.mandate?.bondContract)
+        linkedBondAddrs.add(fullVault.mandate.bondContract);
     }
     const bondBalancesMicros = [];
     let anyBondEverSlashed = false;
@@ -927,15 +1231,19 @@ const server = createServer((req, res) => {
       )?.[1];
       if (!bondEntry) continue;
       bondBalancesMicros.push(bondEntry.bondBalanceMicros);
-      if (bondEntry.totalSlashedMicros && bondEntry.totalSlashedMicros !== '0') {
+      if (
+        bondEntry.totalSlashedMicros &&
+        bondEntry.totalSlashedMicros !== "0"
+      ) {
         anyBondEverSlashed = true;
       }
     }
 
     // Back-compat alias for /api/agents consumers (v0 used a single scalar)
-    let bondBalanceMicros = '0';
+    let bondBalanceMicros = "0";
     const bondLabels = Object.keys(state.bonds);
-    if (bondLabels.length > 0) bondBalanceMicros = state.bonds[bondLabels[0]].bondBalanceMicros;
+    if (bondLabels.length > 0)
+      bondBalanceMicros = state.bonds[bondLabels[0]].bondBalanceMicros;
 
     const breakdown = scoreFnV1({
       recordCount: records,
@@ -955,7 +1263,7 @@ const server = createServer((req, res) => {
       botId,
       kind: bot.kind,
       signer: bot.signer,
-      version: bot.version || 'v1',
+      version: bot.version || "v1",
       recordCount: records,
       lastPnlMicros: lastPnl,
       peakPnlMicros: peak,
@@ -989,7 +1297,7 @@ const server = createServer((req, res) => {
     };
   }
 
-  if (path === '/agents' || path === '/agents/') {
+  if (path === "/agents" || path === "/agents/") {
     const out = Object.keys(state.bots)
       .map((botId) => computeAgentScore(botId))
       .filter((s) => s !== null)
@@ -1000,11 +1308,11 @@ const server = createServer((req, res) => {
   const agentMatch = path.match(/^\/agents\/(0x[0-9a-fA-F]{64})\/?$/);
   if (agentMatch) {
     const s = computeAgentScore(agentMatch[1]);
-    if (!s) return jsonReply(res, 404, { error: 'agent not indexed' });
+    if (!s) return jsonReply(res, 404, { error: "agent not indexed" });
     return jsonReply(res, 200, s);
   }
 
-  jsonReply(res, 404, { error: 'unknown endpoint', path: req.url });
+  jsonReply(res, 404, { error: "unknown endpoint", path: req.url });
 });
 
 // One-time V2 backfill. The state cursor (set by v0.5.0 deploys) sits past
@@ -1029,9 +1337,11 @@ async function routerBackfillIfNeeded() {
     await indexRouterEvents(CAPITAL_ROUTER_DEPLOY_BLOCK, block);
     state.router.backfilledAt = Math.floor(Date.now() / 1000);
     persist();
-    console.log(`[indexer] router backfill done — deposits=${state.router.depositCount} withdraws=${state.router.withdrawCount} rebalances=${state.router.rebalanceCount} strategies=${state.router.strategySetCount} range [${CAPITAL_ROUTER_DEPLOY_BLOCK}..${block}]`);
+    console.log(
+      `[indexer] router backfill done — deposits=${state.router.depositCount} withdraws=${state.router.withdrawCount} rebalances=${state.router.rebalanceCount} strategies=${state.router.strategySetCount} range [${CAPITAL_ROUTER_DEPLOY_BLOCK}..${block}]`,
+    );
   } catch (e) {
-    console.error('[indexer] router backfill failed:', e.message);
+    console.error("[indexer] router backfill failed:", e.message);
   }
 }
 
@@ -1040,31 +1350,43 @@ async function v2BackfillIfNeeded() {
   try {
     const block = await pub.getBlockNumber();
     const logs = await getLogsChunked({
-      address: TR_V2, event: BOT_REGISTERED_EVENT,
-      fromBlock: TR_V2_DEPLOY_BLOCK, toBlock: block,
+      address: TR_V2,
+      event: BOT_REGISTERED_EVENT,
+      fromBlock: TR_V2_DEPLOY_BLOCK,
+      toBlock: block,
     });
     let added = 0;
     for (const log of logs) {
       const botId = log.args.botId;
       if (!state.bots[botId]) {
         state.bots[botId] = {
-          botId, kind: KIND_NAMES[Number(log.args.kind)] || 'OTHER',
-          signer: log.args.signer, version: 'v2', recordCount: 0,
-          lastSeq: 0, lastPnlMicros: 0, lastPeriodEnd: 0, lastUpdate: 0,
+          botId,
+          kind: KIND_NAMES[Number(log.args.kind)] || "OTHER",
+          signer: log.args.signer,
+          version: "v2",
+          recordCount: 0,
+          lastSeq: 0,
+          lastPnlMicros: 0,
+          lastPeriodEnd: 0,
+          lastUpdate: 0,
         };
         added += 1;
       }
     }
     state.v2BackfilledAt = Math.floor(Date.now() / 1000);
     persist();
-    console.log(`[indexer] v2 backfill done — scanned ${logs.length} events, added ${added} new bots, range [${TR_V2_DEPLOY_BLOCK}..${block}]`);
+    console.log(
+      `[indexer] v2 backfill done — scanned ${logs.length} events, added ${added} new bots, range [${TR_V2_DEPLOY_BLOCK}..${block}]`,
+    );
   } catch (e) {
-    console.error('[indexer] v2 backfill failed:', e.message);
+    console.error("[indexer] v2 backfill failed:", e.message);
   }
 }
 
-server.listen(PORT, '127.0.0.1', async () => {
-  console.log(`[indexer] listening on 127.0.0.1:${PORT} state=${STATE_PATH} poll=${POLL_MS}ms`);
+server.listen(PORT, "127.0.0.1", async () => {
+  console.log(
+    `[indexer] listening on 127.0.0.1:${PORT} state=${STATE_PATH} poll=${POLL_MS}ms`,
+  );
   await v2BackfillIfNeeded();
   await routerBackfillIfNeeded();
   pollOnce(); // immediate

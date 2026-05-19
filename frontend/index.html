@@ -2095,7 +2095,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         parseAbiItem,
         keccak256,
         toHex,
-      } from "https://esm.sh/viem@2.47.0";
+      } from "https://esm.sh/viem@2.50.4";
 
       const ARC_TESTNET = defineChain({
         id: 5042002,
@@ -2334,6 +2334,54 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " USDC"
         );
       }
+      const HTML_ESCAPE = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPE[ch]);
+      }
+      function safeExplorerAddr(a) {
+        return `https://testnet.arcscan.app/address/${encodeURIComponent(String(a ?? ""))}`;
+      }
+      function safeExplorerTx(h) {
+        return `https://testnet.arcscan.app/tx/${encodeURIComponent(String(h ?? ""))}`;
+      }
+      function safeShortAddr(a) {
+        const s = String(a ?? "");
+        return escapeHtml(
+          s.length > 10 ? s.slice(0, 6) + "..." + s.slice(-4) : s,
+        );
+      }
+      function safeShortHash(h) {
+        const s = String(h ?? "");
+        return escapeHtml(
+          s.length > 16 ? s.slice(0, 10) + "..." + s.slice(-6) : s,
+        );
+      }
+      function safeShortTx(h, tail = 6) {
+        const s = String(h ?? "");
+        return escapeHtml(
+          s.length > 10 + tail ? s.slice(0, 10) + "..." + s.slice(-tail) : s,
+        );
+      }
+      function errorText(e) {
+        return e?.shortMessage || e?.message || String(e);
+      }
+      function escapedError(e) {
+        return escapeHtml(errorText(e));
+      }
+      function parseHttpsUrl(value) {
+        try {
+          const u = new URL(value);
+          return u.protocol === "https:" ? u.href : null;
+        } catch {
+          return null;
+        }
+      }
       function canonicalize(value) {
         if (value === null || typeof value !== "object")
           return JSON.stringify(value);
@@ -2386,19 +2434,19 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         root.innerHTML = GROUPS.map(
           (g) => `
         <div>
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">${g.label}</div>
+          <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">${escapeHtml(g.label)}</div>
           <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             ${g.items
               .map(
                 ([name, addr, blurb]) => `
-              <a href="${explorerAddr(addr)}" target="_blank" rel="noopener"
+              <a href="${safeExplorerAddr(addr)}" target="_blank" rel="noopener"
                  class="block rounded-xl ring-soft bg-forum-panel p-4 hover:ring-accent group">
                 <div class="flex justify-between items-baseline">
-                  <span class="text-sm text-forum-ink font-medium">${name}</span>
+                  <span class="text-sm text-forum-ink font-medium">${escapeHtml(name)}</span>
                   <span class="text-[10px] text-forum-dim2 group-hover:text-forum-accent">view ↗</span>
                 </div>
-                <div class="mono mt-1.5 text-xs text-forum-dim">${shortAddr(addr)}</div>
-                <div class="mt-2 text-xs text-forum-dim2 leading-relaxed">${blurb}</div>
+                <div class="mono mt-1.5 text-xs text-forum-dim">${safeShortAddr(addr)}</div>
+                <div class="mt-2 text-xs text-forum-dim2 leading-relaxed">${escapeHtml(blurb)}</div>
               </a>`,
               )
               .join("")}
@@ -2512,22 +2560,23 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             ? '<span class="text-forum-ok">Hash verified against TrackRecordV2.</span>'
             : '<span class="text-forum-err">Hash mismatch.</span>';
         } catch (e) {
-          status.innerHTML = `<span class="text-forum-err">Receipt check failed: ${e.message}</span>`;
+          status.innerHTML = `<span class="text-forum-err">Receipt check failed: ${escapedError(e)}</span>`;
         }
       }
 
       // Verify-any-receipt widget — D78. Same hash/chain pattern as
       // loadReceiptVerification, but takes a user-supplied URL.
       async function verifyAnyReceipt(client) {
-        const url = (document.getElementById("vr-url").value || "").trim();
+        const rawUrl = (document.getElementById("vr-url").value || "").trim();
+        const url = parseHttpsUrl(rawUrl);
         const status = document.getElementById("vr-status");
         const detail = document.getElementById("vr-detail");
-        if (!/^https?:\/\//.test(url)) {
+        if (!url) {
           status.innerHTML = `<span class="text-forum-err">enter an https:// URL</span>`;
           detail.classList.add("hidden");
           return;
         }
-        status.innerHTML = `fetching ${url} ...`;
+        status.textContent = `fetching ${url} ...`;
         detail.classList.add("hidden");
         let json;
         try {
@@ -2535,11 +2584,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           json = await r.json();
         } catch (e) {
-          status.innerHTML = `<span class="text-forum-err">fetch failed: ${e.message}</span>`;
+          status.innerHTML = `<span class="text-forum-err">fetch failed: ${escapedError(e)}</span>`;
           return;
         }
         if (!json || json.schema !== "forum.receipt.v1") {
-          status.innerHTML = `<span class="text-forum-err">not a forum.receipt.v1 JSON (got schema=${json?.schema ?? "(missing)"})</span>`;
+          status.textContent = `not a forum.receipt.v1 JSON (got schema=${json?.schema ?? "(missing)"})`;
           return;
         }
         const computed = keccak256(toHex(canonicalize(json)));
@@ -2555,7 +2604,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           stored = rec.evidenceHash;
         } catch (e) {
-          status.innerHTML = `<span class="text-forum-err">chain read failed (botId/seq not registered?): ${e.shortMessage || e.message}</span>`;
+          status.innerHTML = `<span class="text-forum-err">chain read failed (botId/seq not registered?): ${escapedError(e)}</span>`;
           return;
         }
         const ok = computed.toLowerCase() === stored.toLowerCase();
@@ -2675,18 +2724,18 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             .map(
               (r) => `
           <tr class="border-b border-forum-line2 last:border-0 row-hover">
-            <td class="px-5 py-3"><span title="${r.botId}" class="text-forum-ink">${shortHash(r.botId)}</span></td>
-            <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${r.kind}</span></td>
-            <td class="px-5 py-3"><a class="text-forum-accent" href="${explorerAddr(r.signer)}" target="_blank" rel="noopener">${shortAddr(r.signer)}</a></td>
+            <td class="px-5 py-3"><span title="${escapeHtml(r.botId)}" class="text-forum-ink">${safeShortHash(r.botId)}</span></td>
+            <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${escapeHtml(r.kind)}</span></td>
+            <td class="px-5 py-3"><a class="text-forum-accent" href="${safeExplorerAddr(r.signer)}" target="_blank" rel="noopener">${safeShortAddr(r.signer)}</a></td>
             <td class="px-5 py-3 text-right text-forum-ink tnum">${r.count}</td>
-            <td class="px-5 py-3 text-right tnum text-forum-dim">${r.latestPnl}</td>
+            <td class="px-5 py-3 text-right tnum text-forum-dim">${escapeHtml(r.latestPnl)}</td>
             <td class="px-5 py-3">${r.spark}</td>
             <td class="px-5 py-3 text-forum-dim2">${r.lastTs ? ago(r.lastTs) : "—"}</td>
           </tr>`,
             )
             .join("");
         } catch (e) {
-          if (body) body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">Load error: ${e.message}</td></tr>`;
+          if (body) body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">Load error: ${escapedError(e)}</td></tr>`;
         }
       }
 
@@ -2797,7 +2846,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const opField = document.getElementById("f-operator");
           if (!opField.value) opField.value = connectedAddr;
         } catch (e) {
-          setStatus("Wallet connect failed: " + (e.message || e), "err");
+          setStatus("Wallet connect failed: " + escapedError(e), "err");
         }
       }
 
@@ -2849,12 +2898,12 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             }),
           });
           setStatus(
-            `Tx submitted: <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${txHash}">${txHash.slice(0, 10)}...${txHash.slice(-6)}</a>. Waiting for confirmation...`,
+            `Tx submitted: <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(txHash)}">${safeShortTx(txHash)}</a>. Waiting for confirmation...`,
             "info",
           );
           const rcpt = await client.waitForTransactionReceipt({ hash: txHash });
           if (rcpt.status !== "success") {
-            setStatus(`Tx reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${txHash}">${txHash.slice(0, 10)}...${txHash.slice(-6)}</a>`, "err");
+            setStatus(`Tx reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(txHash)}">${safeShortTx(txHash)}</a>`, "err");
             return;
           }
           // The factory's VaultCreated event topic 1 = vault address
@@ -2863,14 +2912,14 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             : "(parse-fail — see explorer)";
           setStatus(
             `<strong class="text-forum-ok">Vault created.</strong><br/>
-             Address: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${vault}">${vault}</a><br/>
-             Tx: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${txHash}">${txHash.slice(0, 10)}...${txHash.slice(-6)}</a> (${rcpt.gasUsed} gas)<br/>
+             Address: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(vault)}">${escapeHtml(vault)}</a><br/>
+             Tx: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerTx(txHash)}">${safeShortTx(txHash)}</a> (${rcpt.gasUsed} gas)<br/>
              The indexer will pick it up within ~30s — refresh the "Recent factory vaults" panel to see it.`,
             "ok",
           );
           loadRecentFactoryVaults(); // optimistic refresh
         } catch (e) {
-          setStatus("Failed: " + (e.shortMessage || e.message || e), "err");
+          setStatus("Failed: " + escapedError(e), "err");
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = "Create vault";
@@ -2889,16 +2938,16 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           el.innerHTML = list
             .slice(0, 5)
             .map((v) => `
-              <a href="https://testnet.arcscan.app/address/${v.vault}" target="_blank" rel="noopener"
+              <a href="${safeExplorerAddr(v.vault)}" target="_blank" rel="noopener"
                  class="block rounded-lg border border-forum-line bg-forum-panel2 p-3 hover:border-forum-accent">
-                <div class="mono text-forum-ink">${shortAddr(v.vault)}</div>
+                <div class="mono text-forum-ink">${safeShortAddr(v.vault)}</div>
                 <div class="text-[10px] text-forum-dim2 mt-1">
-                  by ${shortAddr(v.creator)} · ${(Number(v.budgetMicros) / 1e6).toFixed(0)} USDC budget
+                  by ${safeShortAddr(v.creator)} · ${(Number(v.budgetMicros) / 1e6).toFixed(0)} USDC budget
                 </div>
               </a>`)
             .join("");
         } catch (e) {
-          el.innerHTML = `<div class="text-forum-err text-xs">load error: ${e.message}</div>`;
+          el.innerHTML = `<div class="text-forum-err text-xs">load error: ${escapedError(e)}</div>`;
         }
       }
 
@@ -2988,20 +3037,20 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           await client.waitForTransactionReceipt({ hash: approveTx });
 
-          setPanelStatus("bond-status", `1/2 approve OK <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${approveTx}">${approveTx.slice(0, 10)}...</a><br/>2/2 bond ...`, "info");
+          setPanelStatus("bond-status", `1/2 approve OK <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(approveTx)}">${safeShortTx(approveTx)}</a><br/>2/2 bond ...`, "info");
           const bondTx = await walletClient.sendTransaction({
             account: connectedAddr, to: bondAddr,
             data: encodeFunctionData({ abi: BOND_BOND_ABI, functionName: "bond", args: [amountMicros] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: bondTx });
           if (rcpt.status !== "success") {
-            setPanelStatus("bond-status", `bond tx reverted (likely NotOperator — only registered operator can bond). <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${bondTx}">${bondTx.slice(0, 10)}...</a>`, "err");
+            setPanelStatus("bond-status", `bond tx reverted (likely NotOperator — only registered operator can bond). <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondTx)}">${safeShortTx(bondTx)}</a>`, "err");
             return;
           }
-          setPanelStatus("bond-status", `<strong class="text-forum-ok">Bonded ${amountWhole} USDC.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${bondTx}">${bondTx.slice(0, 10)}...${bondTx.slice(-6)}</a>`, "ok");
+          setPanelStatus("bond-status", `<strong class="text-forum-ok">Bonded ${escapeHtml(amountWhole)} USDC.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondTx)}">${safeShortTx(bondTx)}</a>`, "ok");
           refreshBondBalance();
         } catch (e) {
-          setPanelStatus("bond-status", "Failed: " + (e.shortMessage || e.message || e), "err");
+          setPanelStatus("bond-status", "Failed: " + escapedError(e), "err");
         } finally {
           btn.disabled = false; btn.textContent = "Approve + bond";
         }
@@ -3047,13 +3096,13 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
           if (rcpt.status !== "success") {
-            setPanelStatus("withdraw-status", `withdraw reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0, 10)}...</a>`, "err");
+            setPanelStatus("withdraw-status", `withdraw reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
             return;
           }
-          setPanelStatus("withdraw-status", `<strong class="text-forum-ok">Withdrew ${shares} shares.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0, 10)}...${tx.slice(-6)}</a>`, "ok");
+          setPanelStatus("withdraw-status", `<strong class="text-forum-ok">Withdrew ${escapeHtml(shares)} shares.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           refreshWithdrawState();
         } catch (e) {
-          setPanelStatus("withdraw-status", "Failed: " + (e.shortMessage || e.message || e), "err");
+          setPanelStatus("withdraw-status", "Failed: " + escapedError(e), "err");
         } finally {
           btn.disabled = false; btn.textContent = "Withdraw";
         }
@@ -3073,13 +3122,13 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           }
           body.innerHTML = list.map((a) => {
             const scoreColour = a.scoreV0 >= 80 ? "text-forum-ok" : a.scoreV0 >= 50 ? "text-forum-warn" : "text-forum-err";
-            return `<tr class="border-b border-forum-line2 last:border-0 row-hover cursor-pointer" data-botid="${a.botId}">
-              <td class="px-5 py-3"><span title="${a.botId}" class="text-forum-ink">${shortHash(a.botId)}</span></td>
-              <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${a.kind}</span></td>
-              <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${a.scoreV0}</td>
-              <td class="px-5 py-3 text-right tnum text-forum-ink">${a.recordCount}</td>
-              <td class="px-5 py-3 text-right tnum text-forum-dim">${a.drawdownBps}</td>
-              <td class="px-5 py-3 text-right tnum text-forum-dim">${a.slashEventCount}</td>
+            return `<tr class="border-b border-forum-line2 last:border-0 row-hover cursor-pointer" data-botid="${escapeHtml(a.botId)}">
+              <td class="px-5 py-3"><span title="${escapeHtml(a.botId)}" class="text-forum-ink">${safeShortHash(a.botId)}</span></td>
+              <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${escapeHtml(a.kind)}</span></td>
+              <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${escapeHtml(a.scoreV0)}</td>
+              <td class="px-5 py-3 text-right tnum text-forum-ink">${escapeHtml(a.recordCount)}</td>
+              <td class="px-5 py-3 text-right tnum text-forum-dim">${escapeHtml(a.drawdownBps)}</td>
+              <td class="px-5 py-3 text-right tnum text-forum-dim">${escapeHtml(a.slashEventCount)}</td>
               <td class="px-5 py-3 text-forum-dim2">${a.lastReceiptAt > 0 ? ago(a.lastReceiptAt) : "—"}</td>
             </tr>`;
           }).join("");
@@ -3088,7 +3137,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             row.addEventListener("click", () => openAgentInspector(row.dataset.botid));
           });
         } catch (e) {
-          body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">load error: ${e.message}</td></tr>`;
+          body.innerHTML = `<tr><td class="px-5 py-6 text-forum-err" colspan="7">load error: ${escapedError(e)}</td></tr>`;
         }
       }
       loadAgents();
@@ -3169,8 +3218,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           ];
           document.getElementById("ins-score-grid").innerHTML = tiles.map(([label, val, colour]) => `
             <div class="bg-forum-panel2 p-4">
-              <div class="text-[10px] uppercase tracking-widest text-forum-dim2">${label}</div>
-              <div class="mt-1 text-xl mono tnum ${colour}">${val}</div>
+              <div class="text-[10px] uppercase tracking-widest text-forum-dim2">${escapeHtml(label)}</div>
+              <div class="mt-1 text-xl mono tnum ${colour}">${escapeHtml(val)}</div>
             </div>`).join("");
 
           // ── Mini-charts: drawdown + freshness (Phase 4) ─────────────
@@ -3214,10 +3263,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             vaultsEl.innerHTML = scoreRes.linkedVaults.map((v) => `
               <div class="flex items-center justify-between gap-2 rounded-lg border border-forum-line bg-forum-panel2 p-3">
                 <div class="min-w-0">
-                  <a target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent truncate block" href="https://testnet.arcscan.app/address/${v.address}">${shortAddr(v.address)}</a>
-                  <div class="text-[10px] text-forum-dim2 mt-0.5">${v.label} · state ${v.state}</div>
+                  <a target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent truncate block" href="${safeExplorerAddr(v.address)}">${safeShortAddr(v.address)}</a>
+                  <div class="text-[10px] text-forum-dim2 mt-0.5">${escapeHtml(v.label)} · state ${escapeHtml(v.state)}</div>
                 </div>
-                <button data-vault="${v.address}" class="ins-enforce-btn text-[10px] mono rounded border border-forum-accent/40 bg-forum-accent/10 text-forum-accent px-2 py-1 hover:bg-forum-accent/20">
+                <button data-vault="${escapeHtml(v.address)}" class="ins-enforce-btn text-[10px] mono rounded border border-forum-accent/40 bg-forum-accent/10 text-forum-accent px-2 py-1 hover:bg-forum-accent/20">
                   enforce
                 </button>
               </div>`).join("");
@@ -3233,13 +3282,13 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           } else {
             recordsEl.innerHTML = recRes.slice().reverse().map((r) => `
               <div class="flex justify-between text-forum-dim">
-                <span class="text-forum-dim2">#${r.seq}</span>
+                <span class="text-forum-dim2">#${escapeHtml(r.seq)}</span>
                 <span class="text-forum-ink tnum">${Number(r.pnlMicros).toLocaleString()} µ</span>
                 <span class="text-forum-dim2">${ago(r.ts)}</span>
               </div>`).join("");
           }
         } catch (e) {
-          document.getElementById("ins-vaults").innerHTML = `<div class="text-forum-err">load error: ${e.message}</div>`;
+          document.getElementById("ins-vaults").innerHTML = `<div class="text-forum-err">load error: ${escapedError(e)}</div>`;
         }
       }
 
@@ -3248,7 +3297,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           setInsStatus("Connect a wallet first (Create section).", "err");
           return;
         }
-        setInsStatus(`Calling RiskKernelV2.enforce(${shortAddr(vaultAddr)}) ...`, "info");
+        setInsStatus(`Calling RiskKernelV2.enforce(${safeShortAddr(vaultAddr)}) ...`, "info");
         try {
           const tx = await walletClient.sendTransaction({
             account: connectedAddr, to: RISK_KERNEL_V2,
@@ -3256,12 +3305,12 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
           if (rcpt.status !== "success") {
-            setInsStatus(`enforce reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
+            setInsStatus(`enforce reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
             return;
           }
-          setInsStatus(`<strong class="text-forum-ok">enforce landed.</strong> ${rcpt.gasUsed} gas. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a> — state change (if any) reflects within 30s via /api/slash-events.`, "ok");
+          setInsStatus(`<strong class="text-forum-ok">enforce landed.</strong> ${rcpt.gasUsed} gas. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a> — state change (if any) reflects within 30s via /api/slash-events.`, "ok");
         } catch (e) {
-          setInsStatus("Failed: " + (e.shortMessage || e.message || e), "err");
+          setInsStatus("Failed: " + escapedError(e), "err");
         }
       }
 
@@ -3396,7 +3445,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
                   <div>
                     <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Market #${id} · bond</div>
-                    <a class="mono text-sm text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${m.bond}">${shortAddr(m.bond)}</a>
+                    <a class="mono text-sm text-forum-accent hover:underline" target="_blank" rel="noopener" href="${safeExplorerAddr(m.bond)}">${safeShortAddr(m.bond)}</a>
                   </div>
                   ${statusPill}
                 </div>
@@ -3465,7 +3514,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             btn.addEventListener("click", () => marketClaim(Number(btn.dataset.marketId)));
           });
         } catch (e) {
-          list.innerHTML = `<div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-err text-sm">load error: ${e.message}</div>`;
+          list.innerHTML = `<div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-err text-sm">load error: ${escapedError(e)}</div>`;
         }
       }
       function setMarketStatus(html, kind = "info") {
@@ -3490,11 +3539,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: SLASH_MARKET_STAKE_ABI, functionName: "stake", args: [BigInt(id), yesSide, amountMicros] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setMarketStatus(`stake reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setMarketStatus(`<strong class="text-forum-ok">staked.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setMarketStatus(`stake reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setMarketStatus(`<strong class="text-forum-ok">staked.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadMarkets();
         } catch (e) {
-          setMarketStatus("failed: " + (e.shortMessage || e.message), "err");
+          setMarketStatus("failed: " + escapedError(e), "err");
         }
       }
       async function marketSettle(id) {
@@ -3506,11 +3555,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: SLASH_MARKET_SETTLE_ABI, functionName: "settle", args: [BigInt(id)] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setMarketStatus(`settle reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setMarketStatus(`<strong class="text-forum-ok">settled.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setMarketStatus(`settle reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setMarketStatus(`<strong class="text-forum-ok">settled.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadMarkets();
         } catch (e) {
-          setMarketStatus("failed: " + (e.shortMessage || e.message), "err");
+          setMarketStatus("failed: " + escapedError(e), "err");
         }
       }
       async function marketClaim(id) {
@@ -3522,11 +3571,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: SLASH_MARKET_CLAIM_ABI, functionName: "claim", args: [BigInt(id)] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setMarketStatus(`claim reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setMarketStatus(`<strong class="text-forum-ok">claimed.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setMarketStatus(`claim reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setMarketStatus(`<strong class="text-forum-ok">claimed.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadMarkets();
         } catch (e) {
-          setMarketStatus("failed: " + (e.shortMessage || e.message), "err");
+          setMarketStatus("failed: " + escapedError(e), "err");
         }
       }
       loadMarkets();
@@ -3593,7 +3642,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             strat.innerHTML = targets.map((t) => {
               const pct = (t.weightBps / 100).toFixed(2);
               return `<div class="flex justify-between py-1 border-b border-forum-line/50">
-                <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${t.vault}">${shortAddr(t.vault)}</a>
+                <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="${safeExplorerAddr(t.vault)}">${safeShortAddr(t.vault)}</a>
                 <span class="mono text-forum-dim">${pct}%</span>
               </div>`;
             }).join("");
@@ -3607,8 +3656,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           // (hidden until shown) status div — silent placeholders confused
           // the D69 demo rehearsal.
           const strat = document.getElementById("router-strategy");
-          if (strat) strat.innerHTML = `<span class="text-forum-err">load error: ${e.message}</span>`;
-          setRouterStatus("load error: " + e.message, "err");
+          if (strat) strat.innerHTML = `<span class="text-forum-err">load error: ${escapedError(e)}</span>`;
+          setRouterStatus("load error: " + escapedError(e), "err");
         }
       }
       async function routerDeposit() {
@@ -3629,11 +3678,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: ROUTER_DEPOSIT_ABI, functionName: "deposit", args: [amountMicros] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setRouterStatus(`deposit reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setRouterStatus(`<strong class="text-forum-ok">deposited.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setRouterStatus(`deposit reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setRouterStatus(`<strong class="text-forum-ok">deposited.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadRouter();
         } catch (e) {
-          setRouterStatus("failed: " + (e.shortMessage || e.message), "err");
+          setRouterStatus("failed: " + escapedError(e), "err");
         }
       }
       async function routerWithdraw() {
@@ -3647,11 +3696,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: ROUTER_WITHDRAW_ABI, functionName: "withdraw", args: [BigInt(shares)] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setRouterStatus(`withdraw reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setRouterStatus(`<strong class="text-forum-ok">withdrew.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setRouterStatus(`withdraw reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setRouterStatus(`<strong class="text-forum-ok">withdrew.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadRouter();
         } catch (e) {
-          setRouterStatus("failed: " + (e.shortMessage || e.message), "err");
+          setRouterStatus("failed: " + escapedError(e), "err");
         }
       }
       async function routerRebalance() {
@@ -3663,11 +3712,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: ROUTER_REBALANCE_ABI, functionName: "rebalance", args: [] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setRouterStatus(`rebalance reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setRouterStatus(`<strong class="text-forum-ok">rebalanced.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setRouterStatus(`rebalance reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setRouterStatus(`<strong class="text-forum-ok">rebalanced.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadRouter();
         } catch (e) {
-          setRouterStatus("failed: " + (e.shortMessage || e.message), "err");
+          setRouterStatus("failed: " + escapedError(e), "err");
         }
       }
       document.getElementById("router-deposit-btn").addEventListener("click", routerDeposit);
@@ -3690,20 +3739,21 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           el.innerHTML = items.map((it) => {
             let detail;
             if (it.kind === "deposit") {
-              detail = `<span class="text-forum-accent2">deposit</span> ${(Number(it.usdcInMicros)/1e6).toFixed(6)} USDC by <a class="mono text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${it.user}">${shortAddr(it.user)}</a> → ${(Number(it.sharesMintedMicros)/1e6).toFixed(6)} shares`;
+              detail = `<span class="text-forum-accent2">deposit</span> ${(Number(it.usdcInMicros)/1e6).toFixed(6)} USDC by <a class="mono text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerAddr(it.user)}">${safeShortAddr(it.user)}</a> → ${(Number(it.sharesMintedMicros)/1e6).toFixed(6)} shares`;
             } else if (it.kind === "withdraw") {
-              detail = `<span class="text-forum-warn">withdraw</span> ${(Number(it.sharesBurnedMicros)/1e6).toFixed(6)} shares → ${(Number(it.usdcOutMicros)/1e6).toFixed(6)} USDC by <a class="mono text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${it.user}">${shortAddr(it.user)}</a>`;
+              detail = `<span class="text-forum-warn">withdraw</span> ${(Number(it.sharesBurnedMicros)/1e6).toFixed(6)} shares → ${(Number(it.usdcOutMicros)/1e6).toFixed(6)} USDC by <a class="mono text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerAddr(it.user)}">${safeShortAddr(it.user)}</a>`;
             } else if (it.kind === "rebalance") {
-              detail = `<span class="text-forum-ok">rebalance</span> totalAssets ${(Number(it.totalAssetsMicros)/1e6).toFixed(6)} USDC, touched ${it.vaultsTouched} vault${it.vaultsTouched===1?"":"s"}`;
+              detail = `<span class="text-forum-ok">rebalance</span> totalAssets ${(Number(it.totalAssetsMicros)/1e6).toFixed(6)} USDC, touched ${escapeHtml(it.vaultsTouched)} vault${it.vaultsTouched===1?"":"s"}`;
             } else if (it.kind === "strategy") {
-              const targets = (it.vaults || []).map((v,i) => `${shortAddr(v)}@${((it.weightsBps[i]||0)/100).toFixed(2)}%`).join(", ");
+              const targets = (it.vaults || []).map((v,i) => `${safeShortAddr(v)}@${((it.weightsBps[i]||0)/100).toFixed(2)}%`).join(", ");
+              it.version = escapeHtml(it.version);
               detail = `<span class="text-forum-accent">strategy v${it.version}</span> → ${targets}`;
             } else {
-              detail = `<span class="text-forum-dim">${it.kind}</span>`;
+              detail = `<span class="text-forum-dim">${escapeHtml(it.kind)}</span>`;
             }
             return `<div class="flex items-baseline justify-between gap-3 border-b border-forum-line2 pb-2">
               <div class="text-forum-dim">${detail}</div>
-              <a class="mono text-[10px] text-forum-dim2 hover:text-forum-accent transition shrink-0" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${it.txHash}">${it.txHash.slice(0,10)}…${it.txHash.slice(-4)}</a>
+              <a class="mono text-[10px] text-forum-dim2 hover:text-forum-accent transition shrink-0" target="_blank" rel="noopener" href="${safeExplorerTx(it.txHash)}">${safeShortTx(it.txHash, 4)}</a>
             </div>`;
           }).join("");
         } catch (e) {
@@ -3726,16 +3776,16 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const aboveHwm = d.vaults.filter((v) => v.perSharePriceAboveHwm).length;
           document.getElementById("fees-statement-summary").innerHTML = `
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">vaults</div><div class="mono text-forum-ink">${d.vaultCount}</div></div>
-              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">above hwm</div><div class="mono text-forum-ink">${aboveHwm} / ${d.vaultCount}</div></div>
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">vaults</div><div class="mono text-forum-ink">${escapeHtml(d.vaultCount)}</div></div>
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">above hwm</div><div class="mono text-forum-ink">${aboveHwm} / ${escapeHtml(d.vaultCount)}</div></div>
               <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">accrued</div><div class="mono text-forum-ink">${totalAccrual} USDC</div></div>
-              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">router splits</div><div class="mono text-forum-ink">${(d.router && d.router.splitCount) || 0}</div></div>
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">router splits</div><div class="mono text-forum-ink">${escapeHtml((d.router && d.router.splitCount) || 0)}</div></div>
             </div>
             ${d.vaults.length === 0 ? `<div class="text-xs text-forum-dim2">no factory vaults yet.</div>` :
               `<div class="space-y-2 mt-2">${d.vaults.map((v) => `
                 <div class="flex justify-between text-xs">
-                  <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${v.vault}">${shortAddr(v.vault)}</a>
-                  <span class="mono text-forum-dim">${v.state} · perfFee ${(v.perfFeeBps / 100).toFixed(2)}% · accrued ${(Number(v.operatorClaimableMicros) / 1e6).toFixed(6)} USDC</span>
+                  <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="${safeExplorerAddr(v.vault)}">${safeShortAddr(v.vault)}</a>
+                  <span class="mono text-forum-dim">${escapeHtml(v.state)} · perfFee ${(v.perfFeeBps / 100).toFixed(2)}% · accrued ${(Number(v.operatorClaimableMicros) / 1e6).toFixed(6)} USDC</span>
                 </div>`).join("")}</div>`
             }`;
         } catch (e) {
@@ -3763,19 +3813,19 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             document.getElementById("fees-splits-list").innerHTML = data.splits.map((s) => `
               <div class="rounded-xl bg-forum-panel2 p-4 mb-3">
                 <div class="flex justify-between items-baseline mb-2">
-                  <div class="text-xs uppercase tracking-wider text-forum-dim2">split #${s.splitId} · creator <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${s.creator}">${shortAddr(s.creator)}</a></div>
+                  <div class="text-xs uppercase tracking-wider text-forum-dim2">split #${escapeHtml(s.splitId)} · creator <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="${safeExplorerAddr(s.creator)}">${safeShortAddr(s.creator)}</a></div>
                   <div class="text-xs mono text-forum-dim">routed ${(Number(s.totalRoutedMicros) / 1e6).toFixed(6)} USDC</div>
                 </div>
                 <div class="space-y-1 mb-3">
                   ${s.recipients.map((rcpt, i) => `
                     <div class="flex justify-between text-xs">
-                      <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${rcpt}">${shortAddr(rcpt)}</a>
+                      <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="${safeExplorerAddr(rcpt)}">${safeShortAddr(rcpt)}</a>
                       <span class="mono text-forum-dim">${(s.bps[i] / 100).toFixed(2)}%</span>
                     </div>`).join("")}
                 </div>
                 <div class="flex gap-2 items-center">
-                  <input data-fees-pay-id="${s.splitId}" class="fees-pay-amount mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs" type="number" min="1" step="1" placeholder="USDC amount" />
-                  <button data-fees-pay-id="${s.splitId}" class="fees-pay-btn px-3 py-2 rounded-lg text-xs mono bg-forum-accent/15 text-forum-accent border border-forum-accent/40 hover:bg-forum-accent/25">pay</button>
+                  <input data-fees-pay-id="${escapeHtml(s.splitId)}" class="fees-pay-amount mono flex-1 rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs" type="number" min="1" step="1" placeholder="USDC amount" />
+                  <button data-fees-pay-id="${escapeHtml(s.splitId)}" class="fees-pay-btn px-3 py-2 rounded-lg text-xs mono bg-forum-accent/15 text-forum-accent border border-forum-accent/40 hover:bg-forum-accent/25">pay</button>
                 </div>
               </div>`).join("");
             document.querySelectorAll(".fees-pay-btn").forEach((btn) => {
@@ -3794,7 +3844,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             document.getElementById("fees-claim-btn").disabled = BigInt(mine) === 0n;
           }
         } catch (e) {
-          document.getElementById("fees-splits-list").innerHTML = `<div class="text-forum-err">load error: ${e.message}</div>`;
+          document.getElementById("fees-splits-list").innerHTML = `<div class="text-forum-err">load error: ${escapedError(e)}</div>`;
         }
       }
 
@@ -3826,11 +3876,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: FEE_ROUTER_CREATE_ABI, functionName: "createSplit", args: [recipients, bps] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setFeesStatus(`createSplit reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setFeesStatus(`<strong class="text-forum-ok">split created.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setFeesStatus(`createSplit reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setFeesStatus(`<strong class="text-forum-ok">split created.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadFees();
         } catch (e) {
-          setFeesStatus("failed: " + (e.shortMessage || e.message), "err");
+          setFeesStatus("failed: " + escapedError(e), "err");
         }
       }
       async function feesPay(splitId, amountWhole) {
@@ -3849,11 +3899,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: FEE_ROUTER_PAY_ABI, functionName: "pay", args: [BigInt(splitId), amountMicros] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setFeesStatus(`pay reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setFeesStatus(`<strong class="text-forum-ok">paid.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setFeesStatus(`pay reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setFeesStatus(`<strong class="text-forum-ok">paid.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadFees();
         } catch (e) {
-          setFeesStatus("failed: " + (e.shortMessage || e.message), "err");
+          setFeesStatus("failed: " + escapedError(e), "err");
         }
       }
       async function feesClaim() {
@@ -3865,11 +3915,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             data: encodeFunctionData({ abi: FEE_ROUTER_CLAIM_ABI, functionName: "claim", args: [] }),
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: tx });
-          if (rcpt.status !== "success") return setFeesStatus(`claim reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...</a>`, "err");
-          setFeesStatus(`<strong class="text-forum-ok">claimed.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${tx}">${tx.slice(0,10)}...${tx.slice(-6)}</a>`, "ok");
+          if (rcpt.status !== "success") return setFeesStatus(`claim reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+          setFeesStatus(`<strong class="text-forum-ok">claimed.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
           loadFees();
         } catch (e) {
-          setFeesStatus("failed: " + (e.shortMessage || e.message), "err");
+          setFeesStatus("failed: " + escapedError(e), "err");
         }
       }
       document.getElementById("fees-create-btn").addEventListener("click", feesCreate);

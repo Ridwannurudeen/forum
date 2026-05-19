@@ -958,7 +958,7 @@ export class CovenantVaultFactoryClient extends BaseSubClient {
       address: this.address(),
       abi: covenantVaultFactoryAbi,
       functionName: "createVault",
-      args: [mandate as any],
+      args: [mandate],
       account: this.account(),
       chain: w.chain ?? null,
     });

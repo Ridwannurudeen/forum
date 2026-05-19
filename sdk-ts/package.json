@@ -40,7 +40,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "viem": "^2.47.0"
+    "viem": "^2.50.4"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

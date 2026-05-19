@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { longestStreak, recordTs } from "../src/indexer-pure.js";
+import { clampedLimit, longestStreak, recordTs } from "../src/indexer-pure.js";
 
 describe("recordTs", () => {
   it("returns ts for V1 records", () => {
@@ -55,5 +55,24 @@ describe("longestStreak", () => {
     // gap == GAP must restart, otherwise the freshness threshold and the
     // streak rule disagree on the edge.
     expect(longestStreak([0, GAP, 2 * GAP], GAP)).toBe(1);
+  });
+});
+
+describe("clampedLimit", () => {
+  it("uses fallback when the param is missing or empty", () => {
+    expect(clampedLimit(null, 50, 200)).toBe(50);
+    expect(clampedLimit("", 50, 200)).toBe(50);
+  });
+
+  it("rejects malformed, zero, negative, and fractional values", () => {
+    expect(clampedLimit("not-a-number", 50, 200)).toBe(50);
+    expect(clampedLimit("0", 50, 200)).toBe(50);
+    expect(clampedLimit("-1", 50, 200)).toBe(50);
+    expect(clampedLimit("10.5", 50, 200)).toBe(50);
+  });
+
+  it("caps valid values at max", () => {
+    expect(clampedLimit("20", 50, 200)).toBe(20);
+    expect(clampedLimit("999", 50, 200)).toBe(200);
   });
 });

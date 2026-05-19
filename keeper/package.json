@@ -11,14 +11,17 @@
   "dependencies": {
     "@polymarket/clob-client-v2": "^1.0.6",
     "dotenv": "^17.0.0",
-    "solc": "^0.8.35",
-    "viem": "^2.47.0"
+    "viem": "^2.50.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "solc": "^0.8.35",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "vitest": "^4.0.0"
+  },
+  "overrides": {
+    "ws": "8.20.1"
   },
   "license": "MIT"
 }

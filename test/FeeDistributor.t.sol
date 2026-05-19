@@ -124,6 +124,16 @@ contract FeeDistributorTest is Test {
         dist.setAttribution(CODE, recipients, bps);
     }
 
+    function test_setAttribution_reverts_zero_recipient() public {
+        address[] memory recipients = new address[](1);
+        uint16[] memory bps = new uint16[](1);
+        recipients[0] = address(0);
+        bps[0] = 10_000;
+        vm.prank(alice);
+        vm.expectRevert(FeeDistributor.ZeroAddress.selector);
+        dist.setAttribution(CODE, recipients, bps);
+    }
+
     function test_distribute_reverts_without_attribution() public {
         usdc.mint(alice, 100e6);
         vm.prank(alice);
@@ -131,6 +141,26 @@ contract FeeDistributorTest is Test {
         vm.prank(alice);
         vm.expectRevert(FeeDistributor.NoAttribution.selector);
         dist.distribute(CODE, 100e6);
+    }
+
+    function test_distribute_reverts_zero_amount() public {
+        _setAttr2();
+        vm.prank(alice);
+        vm.expectRevert(FeeDistributor.ZeroAmount.selector);
+        dist.distribute(CODE, 0);
+    }
+
+    function test_distribute_rounding_dust_goes_to_first_recipient() public {
+        _setAttr2();
+        usdc.mint(alice, 7);
+        vm.prank(alice);
+        usdc.approve(address(dist), 7);
+        vm.prank(alice);
+        dist.distribute(CODE, 7);
+
+        assertEq(dist.claimable(bob), 5);
+        assertEq(dist.claimable(carol), 2);
+        assertEq(dist.claimable(bob) + dist.claimable(carol), 7);
     }
 
     function test_claim_reverts_when_zero() public {
