@@ -332,7 +332,7 @@
         const ROUTES = {
           "/": ["hero", "proof-strip", "metrics", "thesis", "for", "how", "cta-prefooter"],
           "/console":      ["live-mandate", "app"],
-          "/proof":        ["slash-proof", "receipts"],
+          "/proof":        ["slash-proof", "phase3-proof", "receipts"],
           "/developers":   ["developers"],
           "/architecture": ["architecture"],
           "/security":     ["security"],
@@ -943,6 +943,57 @@ node keeper/scripts/demo-violation.mjs</pre>
                 </ul>
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- Phase 3: real Polymarket V2 fill, verified end-to-end. -->
+        <section id="phase3-proof" data-route="/proof" class="pb-24">
+          <div class="text-center max-w-2xl mx-auto mb-10">
+            <div class="text-[11px] uppercase tracking-widest text-forum-accent">
+              Phase 3 · real fill, verified
+            </div>
+            <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight">
+              First real Polymarket V2 fill landed on the receipt graph.
+            </h2>
+            <p class="mt-3 text-forum-dim leading-relaxed">
+              $2 atomic FOK BUY on the TX-04 House-seat YES token. Settled on
+              Polygon mainnet. Receipt published to <code class="mono text-forum-accent2">TrackRecordV2</code> on Arc.
+              <code class="mono text-forum-accent2">verifyReceipt()</code> returns
+              <strong class="text-forum-ok">pnl: valid</strong>.
+            </p>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden">
+            <div class="bg-forum-panel p-6">
+              <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Polymarket settlement</div>
+              <div class="mt-3 text-sm leading-relaxed">
+                <div class="flex justify-between"><span class="text-forum-dim2">market</span><span class="text-forum-ink text-right">TX-04 R win (YES)</span></div>
+                <div class="flex justify-between mt-1"><span class="text-forum-dim2">filled</span><span class="mono text-forum-ink">2.32558 shares @ $0.86</span></div>
+                <div class="flex justify-between mt-1"><span class="text-forum-dim2">paid</span><span class="mono text-forum-ink">2.011198 pUSD</span></div>
+                <div class="flex justify-between mt-1"><span class="text-forum-dim2">type</span><span class="mono text-forum-ink">FOK · POLY_1271</span></div>
+                <a target="_blank" rel="noopener"
+                   href="https://polygonscan.com/tx/0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0"
+                   class="mt-4 inline-flex items-center gap-1 text-xs text-forum-accent hover:text-forum-ink transition">
+                  Polygon settlement tx ↗
+                </a>
+              </div>
+            </div>
+            <div class="bg-forum-panel p-6">
+              <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Forum receipt</div>
+              <div class="mt-3 text-sm leading-relaxed">
+                <div class="flex justify-between"><span class="text-forum-dim2">botId</span><span class="mono text-forum-ink">0x75d6577d…0ef0</span></div>
+                <div class="flex justify-between mt-1"><span class="text-forum-dim2">verifiedFillCount</span><span class="mono text-forum-ok">1</span></div>
+                <div class="flex justify-between mt-1"><span class="text-forum-dim2">verifiedPnl</span><span class="mono text-forum-ok">recomputed-from-fills</span></div>
+                <div class="flex justify-between mt-1"><span class="text-forum-dim2">score (v0/v1)</span><span class="mono text-forum-ink">80 / 70</span></div>
+                <div class="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  <a target="_blank" rel="noopener" href="https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json" class="text-forum-accent hover:text-forum-ink transition">receipt JSON ↗</a>
+                  <a target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/0x8fbbdb97a8c0abf3c28774c468a616ccad218da144e1dee5139d7e09482dd931" class="text-forum-accent hover:text-forum-ink transition">Arc publish tx ↗</a>
+                  <a target="_blank" rel="noopener" href="https://forum.gudman.xyz/api/proof" class="text-forum-accent hover:text-forum-ink transition">/api/proof ↗</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-6 text-center text-[11px] text-forum-dim2 max-w-2xl mx-auto">
+            Reproduce: <code class="mono text-forum-dim">node keeper/scripts/poly-create-api-key.mjs --confirm</code> · then <code class="mono text-forum-dim">poly-live-test-local.mjs --broadcast</code> · then <code class="mono text-forum-dim">poly-publish-real-fill-receipt.mjs</code>. Full bytes32 trail in <a class="text-forum-accent hover:text-forum-ink transition" href="https://github.com/Ridwannurudeen/forum/blob/main/docs/phase-3-live-fill-proof.md" target="_blank" rel="noopener"><code class="mono">docs/phase-3-live-fill-proof.md</code></a>.
           </div>
         </section>
 
@@ -1610,7 +1661,31 @@ node keeper/scripts/demo-violation.mjs</pre>
               </div>
             </div>
           </div>
-        </section>
+                  <div class="mt-6 rounded-2xl ring-soft bg-forum-panel p-8">
+            <div class="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+              <div>
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Verify any receipt — in-browser</div>
+                <h3 class="mt-1 text-lg font-medium tracking-tight">Paste a receipt URL, see the verification result inline.</h3>
+              </div>
+              <span class="text-[10px] text-forum-dim2">no wallet, no server, no installs — same logic as <code class="mono">keeper/src/receipt.ts</code></span>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <input id="vr-url" type="url" placeholder="https://forum.gudman.xyz/receipts/<bothex>/<seq>.json"
+                     value="https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json"
+                     class="flex-1 min-w-[280px] mono rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs" />
+              <button id="vr-verify-btn" class="btn btn-primary text-xs">verify</button>
+            </div>
+            <div id="vr-status" class="text-xs text-forum-dim2">paste a receipt URL above — defaults to the D74 phase-3 fill.</div>
+            <div id="vr-detail" class="mt-3 space-y-1 mono text-[11px] text-forum-dim2 break-all hidden">
+              <div>botId:    <span id="vr-botid" class="text-forum-ink"></span></div>
+              <div>seq:      <span id="vr-seq" class="text-forum-ink"></span></div>
+              <div>computed: <span id="vr-computed" class="text-forum-ink"></span></div>
+              <div>on-chain: <span id="vr-chain" class="text-forum-ink"></span></div>
+              <div>liveFills:<span id="vr-livefills" class="text-forum-ink"></span></div>
+            </div>
+          </div>
+
+</section>
 
         <section id="developers" data-route="/developers" class="pb-24">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
@@ -2435,6 +2510,63 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         }
       }
 
+      // Verify-any-receipt widget — D78. Same hash/chain pattern as
+      // loadReceiptVerification, but takes a user-supplied URL.
+      async function verifyAnyReceipt(client) {
+        const url = (document.getElementById("vr-url").value || "").trim();
+        const status = document.getElementById("vr-status");
+        const detail = document.getElementById("vr-detail");
+        if (!/^https?:\/\//.test(url)) {
+          status.innerHTML = `<span class="text-forum-err">enter an https:// URL</span>`;
+          detail.classList.add("hidden");
+          return;
+        }
+        status.innerHTML = `fetching ${url} ...`;
+        detail.classList.add("hidden");
+        let json;
+        try {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          json = await r.json();
+        } catch (e) {
+          status.innerHTML = `<span class="text-forum-err">fetch failed: ${e.message}</span>`;
+          return;
+        }
+        if (!json || json.schema !== "forum.receipt.v1") {
+          status.innerHTML = `<span class="text-forum-err">not a forum.receipt.v1 JSON (got schema=${json?.schema ?? "(missing)"})</span>`;
+          return;
+        }
+        const computed = keccak256(toHex(canonicalize(json)));
+        const botId = json.botId;
+        const seq = Number(json.seq);
+        let stored = null;
+        try {
+          const rec = await client.readContract({
+            address: ADDR_V2,
+            abi: TRV2_RECORD_AT_ABI,
+            functionName: "recordAt",
+            args: [botId, BigInt(seq - 1)],
+          });
+          stored = rec.evidenceHash;
+        } catch (e) {
+          status.innerHTML = `<span class="text-forum-err">chain read failed (botId/seq not registered?): ${e.shortMessage || e.message}</span>`;
+          return;
+        }
+        const ok = computed.toLowerCase() === stored.toLowerCase();
+        const liveFills = Array.isArray(json.fills)
+          ? json.fills.filter((f) => f && f.mode === "live").length
+          : 0;
+        status.innerHTML = ok
+          ? `<span class="text-forum-ok">hash verified against TrackRecordV2.</span>${liveFills > 0 ? ` <span class="text-forum-accent">(${liveFills} live fill${liveFills===1?"":"s"})</span>` : ""}`
+          : `<span class="text-forum-err">hash MISMATCH — receipt content does not match on-chain commitment</span>`;
+        document.getElementById("vr-botid").textContent = botId;
+        document.getElementById("vr-seq").textContent = String(seq);
+        document.getElementById("vr-computed").textContent = computed;
+        document.getElementById("vr-chain").textContent = stored;
+        document.getElementById("vr-livefills").textContent = String(liveFills);
+        detail.classList.remove("hidden");
+      }
+
       async function loadAll(client) {
         let currentBlock = null;
         try {
@@ -2558,6 +2690,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       });
       renderContractsGrouped();
       loadAll(client);
+      document.getElementById("vr-verify-btn").addEventListener("click", () => verifyAnyReceipt(client));
+
       setInterval(() => loadAll(client), 30_000);
 
       // ============================================================

@@ -1,0 +1,47 @@
+{
+  "phase": 3,
+  "status": "complete",
+  "generatedAt": 1779188855,
+  "description": "First real Polymarket V2 mainnet fill captured + verified end-to-end through the Forum receipt graph.",
+  "polymarket": {
+    "signerEoa": "0x4f9eFA49e092E3dbA6Da3E5b24ADAEe8cDA0Bac9",
+    "funderProxy": "0xcD6c77F267aa1745b9B57986Ad1A9C749212D1d8",
+    "signatureType": "POLY_1271",
+    "orderId": "0xf5fd3fff190ba0ed093d5092aa86210198c7b2a72329e8158f69ed63d151f1b0",
+    "settlementTxHash": "0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0",
+    "polygonscan": "https://polygonscan.com/tx/0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0",
+    "settlementBlock": 87118315,
+    "settlementStatus": "success",
+    "market": "will-the-republican-party-win-the-tx-04-house-seat",
+    "tokenId": "99191934701178264053575235515836228615210495042696817144148145261389254003310",
+    "side": "BUY",
+    "orderType": "FOK",
+    "price": 0.86,
+    "shares": 2.32558,
+    "pUsdPaidMicros": "2011198"
+  },
+  "forum": {
+    "botId": "0x75d6577d49eff276e2ada42f9ebb04ab7f74cc3fdeef072aab6c2d5e3f8a0ef0",
+    "receiptUri": "https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json",
+    "evidenceHash": "0x8f5a197c0a1fb46a6320114091deb3a4c58e6ee2d10956643e23b8fa7c79b187",
+    "arcPublishTxHash": "0x8fbbdb97a8c0abf3c28774c468a616ccad218da144e1dee5139d7e09482dd931",
+    "arcscan": "https://testnet.arcscan.app/tx/0x8fbbdb97a8c0abf3c28774c468a616ccad218da144e1dee5139d7e09482dd931",
+    "recordHash": "0x972e2bed3ab05d358541c48d11d8a630bd5bd5b0d93521d70e073fa3ef562941",
+    "verifierCommand": "node keeper/scripts/verify-receipt.mjs https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json",
+    "verifierResult": "pnl: valid",
+    "verifiedFillCount": 1,
+    "verifiedPnl": "recomputed-from-fills"
+  },
+  "fees": {
+    "builderCodeAttached": false,
+    "feeCapturePending": "Polymarket Builders Service approval — code path wired in poly-live-test-local.mjs --builder-code; re-run --broadcast with the bytes32 once approved."
+  },
+  "reproduce": {
+    "docs": "docs/phase-3-live-fill-proof.md",
+    "scripts": [
+      "keeper/scripts/poly-create-api-key.mjs --confirm",
+      "keeper/scripts/poly-live-test-local.mjs --broadcast",
+      "keeper/scripts/poly-publish-real-fill-receipt.mjs"
+    ]
+  }
+}

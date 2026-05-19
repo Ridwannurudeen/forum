@@ -41,7 +41,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.11.0'; // + per-bot verifiedFillCount fetched from receipt JSON (Phase 3 wire-up)
+const VERSION = 'forum-indexer/0.12.0'; // + /api/proof (Phase 3 live-fill artifact surfacing)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -704,6 +704,18 @@ const server = createServer((req, res) => {
       }
     })();
     return;
+  }
+
+  if (path === '/proof' || path === '/proof/') {
+    // Static Phase 3 (and future phases) proof artifact. Operator-mutable:
+    // file lives at /opt/forum/web/proof.json so it can be rewritten when
+    // a new live-fill milestone lands without redeploying the indexer.
+    try {
+      const data = readFileSync('/opt/forum/web/proof.json', 'utf8');
+      return jsonReply(res, 200, JSON.parse(data));
+    } catch (e) {
+      return jsonReply(res, 404, { error: 'proof.json not present yet' });
+    }
   }
 
   if (path === '/router/activity' || path === '/router/activity/') {

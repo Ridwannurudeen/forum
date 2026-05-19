@@ -1,0 +1,13 @@
+[Unit]
+Description=Forum idle-capital policy reporter — measures depositTotalIdle/assets per vault
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/forum
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/idle-capital-policy.mjs --threshold 75 --out /opt/forum/reports/idle-latest.json
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forum-idle-policy

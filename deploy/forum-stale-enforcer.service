@@ -1,0 +1,13 @@
+[Unit]
+Description=Forum stale-vault enforcer — calls RiskKernelV2.enforce on stale CapitalRouter targets, then router.rebalance()
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/forum
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/router-stale-enforcer.mjs --execute
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forum-stale-enforcer
