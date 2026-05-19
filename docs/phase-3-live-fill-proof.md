@@ -114,3 +114,50 @@ moved real money.
   class (directional, maker-rebate, event-driven), (b) waiting
   for transient inefficiencies, or (c) statistical-edge work that
   belongs post-hackathon.
+
+
+## Honest gap closures from the D-ranking audit (post-D79)
+
+A brutally-honest ranking of the project on 2026-05-19 evening
+identified several overclaim risks. The autonomously-fixable ones
+were addressed in D80:
+
+1. **Live AgoraMind keeper publishing to a PAUSED vault.** The
+   covenant gate skipped publishes while paused → freshness never
+   restored → vault stuck since the autonomous slash event 30+
+   hours earlier. New `keeper/scripts/agora-mind-recover.mjs`
+   publishes one fresh receipt (bypassing the gate via standalone
+   bridge call) then calls `RiskKernelV2.enforce` to re-evaluate.
+   Vault state flipped 1 (PAUSED) → 0 (ACTIVE). Keeper restarted
+   and is now publishing genuinely-live receipts again.
+
+2. **"Production-ready" contracts with zero usage.** CapitalRouter
+   had $0 TVL, SlashMarket had 1 stale market, SlashInsurance had
+   $0 pool. New `keeper/scripts/activate-idle-contracts.mjs`
+   exercised all three with deployer self-trades:
+   - CapitalRouter: deposit $5 + rebalance into CovenantVaultV1.2.
+     TVL 0 → $5; depositCount 0 → 1; rebalanceCount 0 → 1.
+   - SlashMarket: created market #1 against `SlashBondV1.1` with
+     24h expiry, staked $2 YES.
+   - SlashInsurance: payPremium $2 → poolBalance 0 → $2.
+   These are 1-user self-trades; they prove the contracts work
+   end-to-end. They do NOT prove external adoption — that gap
+   remains.
+
+3. **D79 "Phase 4" mislabel.** The arb scanner was labeled
+   "Phase 4 strategy framework" in the commit. By the roadmap,
+   Phase 4 is AgentScore v1 (which D60-D75 work mostly delivers).
+   The arb scanner is more accurately Phase 3 extension (real
+   strategy plug-in for the execution layer). Mislabel does not
+   affect functionality; calling it out for the record.
+
+What this DOESN'T fix (still on the user):
+
+- Zero external operators. Every signer on the leaderboard, every
+  CapitalRouter share, every SlashMarket stake, every Insurance
+  premium is the deployer wallet. Adoption gap is unchanged.
+- Builder fee rate is still 0 bps. Polymarket Verified-tier email
+  sent earlier; response pending.
+- "Real strategy with edge" is still not shipped — the arb
+  scanner correctly found no edge in 49 liquid markets, so the
+  honest framing is "framework shipped, market efficient".
