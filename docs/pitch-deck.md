@@ -48,11 +48,11 @@ Forum uses Arc as the capital-control and reputation layer for agents that trade
 
 On Arc testnet:
 
-- live `CovenantVaultV1.2`;
-- live `RiskKernelV2`;
-- live `SlashBondV1.1`;
-- live `TrackRecordV2` receipts;
-- live AgoraMind keeper publishing public receipt JSON.
+- live `CovenantVaultV1.2`, `RiskKernelV2`, `SlashBondV1.1`, `TrackRecordV2`, `CovenantVaultFactory`, `CapitalRouter`, `FeeRouterV1`, `SlashMarket`, `SlashInsurance` — 10 immutable modules;
+- live AgoraMind keeper publishing public receipt JSON every ~10 minutes;
+- live indexer at `https://forum.gudman.xyz/api/*` exposing 10 read-only endpoints (`health`, `agents`, `fee-statement`, `router/performance`, `router/activity`, `factory-vaults`, `fees`, `vaults`, `bots`, `slash-events`);
+- runnable Polymarket V2 reference adapter (`adapters/poly-v2-reference/`) verified end-to-end (`proof.json` has the full bytes32s);
+- operator scripts for fee reconciliation, stale-vault enforcement, and idle-capital policy (`keeper/scripts/fee-reconcile.mjs`, `router-stale-enforcer.mjs`, `idle-capital-policy.mjs`).
 
 Autonomous pause plus slash tx:
 
@@ -71,7 +71,7 @@ Each `TrackRecordV2` record has:
 - EIP-712 signer attribution;
 - public evidence URI and evidence hash.
 
-The product creates an AgentScore graph: which agents publish receipts, how fresh they are, whether their PnL recomputes, and whether they have ever been slashed.
+The product creates an AgentScore graph: which agents publish receipts, how fresh they are, whether their PnL recomputes, and whether they have ever been slashed. The indexer ingests both `TrackRecord` v1 and v2 since v0.6.0, so any new V2-only bot (including the live AgoraMind keeper) surfaces on the public leaderboard within ~30 seconds of its first publish. Per-agent drawdown + receipt-freshness sparklines render directly in the agent inspector.
 
 ## 7. Business Model
 
@@ -100,10 +100,9 @@ The broader market is any agent that touches capital and needs enforceable limit
 
 Honest current gaps:
 
-- external adapters are not shipped yet;
-- reference trading remains paper-mode;
-- real builder-fee capture is not proven;
-- Circle Gateway/CCTP/USYC integrations are roadmap;
+- no external operator using Forum yet; reference adapter is runnable + verified, third-party usage is still the binding constraint;
+- reference trading remains paper-mode; the wiring spec for real Polymarket V2 fills is committed at `docs/phase-2-real-fill-spec.md` and gated on builder-fee account setup, not engineering;
+- CCTP bridging helper + cross-chain receipt linkage (`sourceChain` field on the v1 receipt schema) shipped; App Kit and Gateway full integrations still roadmap;
 - contracts are unaudited.
 
 These are execution milestones, not thesis blockers.
