@@ -71,7 +71,7 @@ Live services:
 
 - `forum-keeper`: reference paper-mode keeper publishing v1 records.
 - `forum-agora-mind`: AI-driven keeper publishing `TrackRecordV2` receipts and reasoning trace hashes.
-- `forum-indexer`: polled Arc-state cache exposed at `https://forum.gudman.xyz/api/{health,bots,bots/:id/records,covenant/:address,slash-events,factory-vaults,vaults,agents,agents/:botId,state}`. 30s poll interval, persists snapshot to disk, subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes. **AgentScore v0** at `/api/agents` ranks bots by drawdown / slash history / freshness with a transparent in-source formula. Live: `curl https://forum.gudman.xyz/api/health`. Systemd unit + nginx config templates in `deploy/`.
+- `forum-indexer`: polled Arc-state cache exposed at `https://forum.gudman.xyz/api/{health,bots,bots/:id/records,covenant/:address,slash-events,factory-vaults,vaults,agents,agents/:botId,fees,fee-statement,router/performance,router/activity,state}`. 30s poll interval, persists snapshot to disk, subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes. **AgentScore v0+v1** at `/api/agents` ranks bots by drawdown / slash history / freshness with a transparent in-source formula and ingests both `TrackRecord` v1 and v2 since indexer v0.6.0. Live: `curl https://forum.gudman.xyz/api/health`. Systemd unit + nginx config templates in `deploy/`.
 
 Self-serve UI:
 

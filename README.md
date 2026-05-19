@@ -114,7 +114,14 @@ Polled Arc-state cache live at `https://forum.gudman.xyz/api/*`:
 
 Source: `keeper/scripts/forum-indexer.mjs`. Systemd + nginx templates in `deploy/`.
 
-Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (AgentScore v0 leaderboard), `GET /api/agents/:botId` (single agent with linked vaults + slash history), `GET /api/fees` (FeeRouterV1 splits + per-recipient claimable). Indexer subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes.
+Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (AgentScore v0+v1 leaderboard, ingests both `TrackRecord` v1 and v2 since indexer v0.6.0), `GET /api/agents/:botId` (single agent with linked vaults, slash history, and `recentPnls` + `recentTs` sparkline series), `GET /api/fees` (FeeRouterV1 splits + per-recipient claimable), `GET /api/fee-statement` (per-vault accruals + router splits — programmatic equivalent of `keeper/scripts/fee-reconcile.mjs`), `GET /api/router/performance` (CapitalRouter TVL + strategy + lifetime event counters), `GET /api/router/activity` (newest-first reallocation receipts feed). Indexer subscribes to `CovenantVaultFactory.VaultCreated` so every new vault auto-indexes.
+
+Operator-side scripts (read-only by default):
+- `keeper/scripts/fee-reconcile.mjs` — daily/weekly fee statement JSON writer.
+- `keeper/scripts/router-stale-enforcer.mjs` — detects stale CapitalRouter target vaults and (with `--execute`) triggers `RiskKernelV2.enforce` + `CapitalRouter.rebalance`.
+- `keeper/scripts/idle-capital-policy.mjs` — measures `depositTotalIdle / assets` against a `--threshold` ceiling and writes a JSON report; `--halt-on-violation` for cron pagers.
+
+The reference agora-mind keeper supports opt-in risk controls: `--max-loss-day-usdc`, `--min-receipt-interval-sec`, `--auto-pause-on-verifier-failure`. All default off — production behavior unchanged until enabled per deployment.
 
 ## Self-Serve UI
 
