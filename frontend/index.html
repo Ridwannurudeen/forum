@@ -1391,6 +1391,15 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
 
+          <div class="rounded-2xl ring-soft bg-forum-panel p-6 mt-4">
+            <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Reallocation receipts · newest first</div>
+              <span class="text-[10px] text-forum-dim2">from <code class="mono">/api/router/activity</code></span>
+            </div>
+            <p class="text-xs text-forum-dim2 mb-3">Every router event (deposit / withdraw / rebalance / strategy change), with the on-chain tx so it's auditable end-to-end.</p>
+            <div id="router-activity" class="space-y-2 text-xs">loading…</div>
+          </div>
+
           </div>
           <div data-tab="fees" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
@@ -3502,6 +3511,43 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       document.getElementById("router-rebalance-btn").addEventListener("click", routerRebalance);
       loadRouter();
       setInterval(loadRouter, 30_000);
+
+      // Phase 5 reallocation receipts feed.
+      async function loadRouterActivity() {
+        try {
+          const r = await fetch("/api/router/activity?limit=20");
+          if (!r.ok) {
+            document.getElementById("router-activity").textContent = "indexer not ready";
+            return;
+          }
+          const items = await r.json();
+          const el = document.getElementById("router-activity");
+          if (items.length === 0) { el.innerHTML = `<div class="text-forum-dim2">no router events yet</div>`; return; }
+          el.innerHTML = items.map((it) => {
+            let detail;
+            if (it.kind === "deposit") {
+              detail = `<span class="text-forum-accent2">deposit</span> ${(Number(it.usdcInMicros)/1e6).toFixed(6)} USDC by <a class="mono text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${it.user}">${shortAddr(it.user)}</a> → ${(Number(it.sharesMintedMicros)/1e6).toFixed(6)} shares`;
+            } else if (it.kind === "withdraw") {
+              detail = `<span class="text-forum-warn">withdraw</span> ${(Number(it.sharesBurnedMicros)/1e6).toFixed(6)} shares → ${(Number(it.usdcOutMicros)/1e6).toFixed(6)} USDC by <a class="mono text-forum-accent" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${it.user}">${shortAddr(it.user)}</a>`;
+            } else if (it.kind === "rebalance") {
+              detail = `<span class="text-forum-ok">rebalance</span> totalAssets ${(Number(it.totalAssetsMicros)/1e6).toFixed(6)} USDC, touched ${it.vaultsTouched} vault${it.vaultsTouched===1?"":"s"}`;
+            } else if (it.kind === "strategy") {
+              const targets = (it.vaults || []).map((v,i) => `${shortAddr(v)}@${((it.weightsBps[i]||0)/100).toFixed(2)}%`).join(", ");
+              detail = `<span class="text-forum-accent">strategy v${it.version}</span> → ${targets}`;
+            } else {
+              detail = `<span class="text-forum-dim">${it.kind}</span>`;
+            }
+            return `<div class="flex items-baseline justify-between gap-3 border-b border-forum-line2 pb-2">
+              <div class="text-forum-dim">${detail}</div>
+              <a class="mono text-[10px] text-forum-dim2 hover:text-forum-accent transition shrink-0" target="_blank" rel="noopener" href="https://testnet.arcscan.app/tx/${it.txHash}">${it.txHash.slice(0,10)}…${it.txHash.slice(-4)}</a>
+            </div>`;
+          }).join("");
+        } catch (e) {
+          document.getElementById("router-activity").textContent = "fetch failed";
+        }
+      }
+      loadRouterActivity();
+      setInterval(loadRouterActivity, 30_000);
 
       // ── Phase 6 · Fee statement (vault accruals + router splits) ────
       async function loadFeeStatement() {

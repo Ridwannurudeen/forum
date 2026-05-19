@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.9.0'; // + /api/router/performance (Phase 5 allocator profile)
+const VERSION = 'forum-indexer/0.10.0'; // + /api/router/activity (Phase 5 reallocation receipts feed)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -199,6 +199,9 @@ const initial = {
     totalDepositedMicros: '0', totalWithdrawnMicros: '0',
     lastDepositAt: 0, lastWithdrawAt: 0, lastRebalanceAt: 0,
     backfilledAt: 0,
+    // Phase 5 reallocation receipts: newest-first activity feed across all
+    // four router events. Capped at 100 entries to keep state.json small.
+    activity: [],
   },
   lastPollAt: 0,
   lastBlock: 0,
@@ -211,6 +214,7 @@ try {
     // Backfill sub-objects added in later indexer versions so old state files
     // don't crash the polling loop on first poll.
     if (!state.router) state.router = initial.router;
+    if (!Array.isArray(state.router.activity)) state.router.activity = [];
     console.log(`[indexer] resumed from ${STATE_PATH} (lastBlock=${state.cursor.lastBlock})`);
   } else {
     state = initial;
@@ -444,22 +448,45 @@ async function indexRouterEvents(fromBlock, toBlock) {
       console.log(`[indexer] router ${kind} events: ${logs.length} (range ${start}..${toBlock})`);
     }
     for (const log of logs) {
+      const blockNumber = Number(log.blockNumber);
+      const entry = {
+        kind, blockNumber, txHash: log.transactionHash, logIndex: Number(log.logIndex),
+      };
       if (kind === 'deposit') {
         r.depositCount += 1;
         r.totalDepositedMicros = (BigInt(r.totalDepositedMicros) + BigInt(log.args.usdcIn)).toString();
-        r.lastDepositAt = Number(log.blockNumber);
+        r.lastDepositAt = blockNumber;
+        entry.user = log.args.user;
+        entry.usdcInMicros = log.args.usdcIn.toString();
+        entry.sharesMintedMicros = log.args.sharesMinted.toString();
       } else if (kind === 'withdraw') {
         r.withdrawCount += 1;
         r.totalWithdrawnMicros = (BigInt(r.totalWithdrawnMicros) + BigInt(log.args.usdcOut)).toString();
-        r.lastWithdrawAt = Number(log.blockNumber);
+        r.lastWithdrawAt = blockNumber;
+        entry.user = log.args.user;
+        entry.sharesBurnedMicros = log.args.sharesBurned.toString();
+        entry.usdcOutMicros = log.args.usdcOut.toString();
       } else if (kind === 'rebalance') {
         r.rebalanceCount += 1;
-        r.lastRebalanceAt = Number(log.blockNumber);
+        r.lastRebalanceAt = blockNumber;
+        entry.atTs = Number(log.args.at);
+        entry.totalAssetsMicros = log.args.totalAssets.toString();
+        entry.vaultsTouched = Number(log.args.vaultsTouched);
       } else if (kind === 'strategy') {
         r.strategySetCount += 1;
+        entry.version = Number(log.args.version);
+        entry.vaults = [...(log.args.vaults || [])];
+        entry.weightsBps = (log.args.weightsBps || []).map((b) => Number(b));
       }
+      // Insert newest-first, dedupe by (txHash, logIndex) so re-runs are
+      // idempotent — important because the backfill resets counters AND
+      // pollOnce may re-cover overlapping blocks across restarts.
+      const dupeIdx = r.activity.findIndex((a) => a.txHash === entry.txHash && a.logIndex === entry.logIndex);
+      if (dupeIdx >= 0) r.activity.splice(dupeIdx, 1);
+      r.activity.unshift(entry);
     }
   }
+  if (r.activity.length > 100) r.activity.length = 100;
 }
 
 async function indexSlashEvents(fromBlock, toBlock) {
@@ -654,6 +681,13 @@ const server = createServer((req, res) => {
       }
     })();
     return;
+  }
+
+  if (path === '/router/activity' || path === '/router/activity/') {
+    // Phase 5 reallocation receipts — newest-first stream of every
+    // router event (deposit/withdraw/rebalance/strategy). Capped at 100.
+    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 100);
+    return jsonReply(res, 200, state.router.activity.slice(0, limit));
   }
 
   if (path === '/router/performance' || path === '/router/performance/') {
