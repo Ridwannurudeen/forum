@@ -1281,6 +1281,23 @@ node keeper/scripts/demo-violation.mjs</pre>
               <!-- score tiles injected by JS -->
             </div>
 
+            <div class="grid lg:grid-cols-2 gap-6 mb-5">
+              <div>
+                <div class="flex items-baseline justify-between mb-2">
+                  <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Drawdown — last 10 cycles</div>
+                  <div id="ins-dd-summary" class="text-[10px] mono text-forum-dim2">—</div>
+                </div>
+                <div id="ins-dd-spark" class="h-12 rounded bg-forum-panel2/40 flex items-center justify-center text-[10px] text-forum-dim2">no records</div>
+              </div>
+              <div>
+                <div class="flex items-baseline justify-between mb-2">
+                  <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Freshness — gap between receipts (s)</div>
+                  <div id="ins-fr-summary" class="text-[10px] mono text-forum-dim2">—</div>
+                </div>
+                <div id="ins-fr-spark" class="h-12 rounded bg-forum-panel2/40 flex items-center justify-center text-[10px] text-forum-dim2">no records</div>
+              </div>
+            </div>
+
             <div class="grid lg:grid-cols-2 gap-6">
               <div>
                 <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Linked vaults — one-click enforce</div>
@@ -2942,6 +2959,34 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         const n = Number(micros) / 1e6;
         return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " USDC";
       }
+
+      // Tiny SVG sparkline. Returns innerHTML for a self-sized inline chart.
+      // Caller chooses the colour. `accent` paints values above/equal to peak
+      // green; everything else stays neutral. Used by the agent inspector for
+      // both the drawdown and freshness mini-charts.
+      function sparklineSVG(series, { stroke = "#a78bfa", peakIndex = -1 } = {}) {
+        if (!series || series.length === 0) return "";
+        const W = 200, H = 40, PAD = 2;
+        const min = Math.min(...series, 0);
+        const max = Math.max(...series, 0);
+        const range = Math.max(max - min, 1);
+        const step = series.length > 1 ? (W - 2 * PAD) / (series.length - 1) : 0;
+        const points = series.map((v, i) => {
+          const x = PAD + i * step;
+          const y = H - PAD - ((v - min) / range) * (H - 2 * PAD);
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(" ");
+        const dots = series.map((v, i) => {
+          const x = PAD + i * step;
+          const y = H - PAD - ((v - min) / range) * (H - 2 * PAD);
+          const fill = i === peakIndex ? "#6ee7d3" : stroke;
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.8" fill="${fill}"/>`;
+        }).join("");
+        return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-full" preserveAspectRatio="none">
+          <polyline fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="${points}"/>
+          ${dots}
+        </svg>`;
+      }
       function setInsStatus(html, kind = "info") {
         const el = document.getElementById("ins-status");
         const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
@@ -2978,6 +3023,39 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               <div class="text-[10px] uppercase tracking-widest text-forum-dim2">${label}</div>
               <div class="mt-1 text-xl mono tnum ${colour}">${val}</div>
             </div>`).join("");
+
+          // ── Mini-charts: drawdown + freshness (Phase 4) ─────────────
+          // Drawdown series: cumulative max of the recent PnL window, then
+          // (peak − current) so the line slopes UP into drawdown. Easier to
+          // read than raw PnL for risk-focused inspection.
+          const pnls = (scoreRes.recentPnls || []).map(Number);
+          const ts = scoreRes.recentTs || [];
+          if (pnls.length === 0) {
+            document.getElementById("ins-dd-spark").textContent = "no records";
+            document.getElementById("ins-dd-summary").textContent = "—";
+          } else {
+            let runningPeak = pnls[0];
+            const ddSeries = pnls.map((p) => {
+              if (p > runningPeak) runningPeak = p;
+              return runningPeak - p;
+            });
+            const peakIdx = pnls.indexOf(Math.max(...pnls));
+            document.getElementById("ins-dd-spark").innerHTML = sparklineSVG(ddSeries, { stroke: "#a78bfa", peakIndex: peakIdx });
+            const maxDD = Math.max(...ddSeries);
+            document.getElementById("ins-dd-summary").textContent =
+              `peak ${(Math.max(...pnls) / 1e6).toFixed(4)} USDC · max DD ${(maxDD / 1e6).toFixed(4)} USDC`;
+          }
+          if (ts.length < 2) {
+            document.getElementById("ins-fr-spark").textContent = "need ≥2 receipts";
+            document.getElementById("ins-fr-summary").textContent = "—";
+          } else {
+            const gaps = ts.slice(1).map((t, i) => t - ts[i]);
+            document.getElementById("ins-fr-spark").innerHTML = sparklineSVG(gaps, { stroke: "#6ee7d3" });
+            const maxGap = Math.max(...gaps);
+            const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+            document.getElementById("ins-fr-summary").textContent =
+              `avg ${avgGap.toFixed(0)}s · max ${maxGap}s`;
+          }
 
           // Linked vaults with enforce button
           const vaultsEl = document.getElementById("ins-vaults");

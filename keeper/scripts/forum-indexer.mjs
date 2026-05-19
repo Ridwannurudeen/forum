@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.7.0'; // + /api/fee-statement (Phase 6 reconciliation surface)
+const VERSION = 'forum-indexer/0.8.0'; // + agent recentPnls/recentTs in /api/agents/:id (Phase 4 sparkline data)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -291,6 +291,7 @@ async function refreshBotStats() {
         state.bots[botId].lastPnlMicros = Number(last.pnlMicros);
         state.bots[botId].lastPeriodEnd = recordTs(version, last);
         state.bots[botId].recentPnls = recentPnls;
+        state.bots[botId].recentTs = recentTs;
         state.bots[botId].longestStreak = longestStreak;
         // Running peak across all observed cycles — for drawdown computation.
         const curPnl = Number(last.pnlMicros);
@@ -774,6 +775,12 @@ const server = createServer((req, res) => {
       bondBalancesMicros: bondBalancesMicros.map(String),
       anyBondEverSlashed,
       longestStreak: breakdown.longestStreak,
+      // Raw sparkline series for the agent-inspector mini-charts (Phase 4).
+      // recentPnls / recentTs are the same arrays refreshBotStats() built
+      // for the v1 score window; we expose them as-is so the frontend can
+      // render drawdown + freshness without a second API round-trip.
+      recentPnls: (bot.recentPnls ?? []).map(String),
+      recentTs: bot.recentTs ?? [],
       sharpeLike: breakdown.sharpeLike,
       verifiedPnl: breakdown.verifiedPnl,
       verifiedFillCount: breakdown.verifiedFillCount,
