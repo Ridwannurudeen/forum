@@ -287,6 +287,23 @@
         letter-spacing: -0.025em;
         line-height: 1.1;
       }
+      /* Client-side router: hide every routed section by default. The router
+         script unhides only the sections whose route matches the current hash.
+         Prevents flash-of-all-content before JS hydration. */
+      section[data-route]:not([data-route-active]) {
+        display: none;
+      }
+      .nav-link-active {
+        color: #eceef3 !important;
+      }
+      .nav-link-active::after {
+        content: "";
+        display: block;
+        height: 2px;
+        margin-top: 14px;
+        background: linear-gradient(90deg, #a78bfa, #6ee7d3);
+        border-radius: 1px;
+      }
       .row-hover:hover {
         background: rgba(255, 255, 255, 0.025);
       }
@@ -306,13 +323,87 @@
     </style>
   </head>
   <body class="grad-bg-hero">
+    <script>
+      // ── Client-side router ──────────────────────────────────────────
+      // Maps hash → set of section IDs visible on that "page". Single-file
+      // SPA-style without a framework. Browser back/forward works because the
+      // URL hash changes on each navigation. No server changes needed.
+      (function () {
+        const ROUTES = {
+          "/": ["hero", "proof-strip", "metrics", "thesis", "for", "how", "cta-prefooter"],
+          "/console":      ["live-mandate", "app"],
+          "/proof":        ["slash-proof", "receipts"],
+          "/developers":   ["developers"],
+          "/architecture": ["architecture"],
+          "/security":     ["security"],
+        };
+        // Inverse: section ID → boolean (is it routed?)
+        const ROUTED_IDS = new Set(Object.values(ROUTES).flat());
+        // Public so the rest of the page (e.g. app-tab handlers) can navigate.
+        window.__forumRouter = {
+          ROUTES,
+          parseHash() {
+            const raw = (location.hash || "").replace(/^#/, "");
+            if (!raw || raw === "/") return { route: "/", query: {} };
+            const [path, queryStr] = raw.split("?");
+            const route = ROUTES[path] ? path : "/";
+            const query = {};
+            if (queryStr) {
+              for (const pair of queryStr.split("&")) {
+                const [k, v] = pair.split("=");
+                if (k) query[decodeURIComponent(k)] = v ? decodeURIComponent(v) : "";
+              }
+            }
+            return { route, query };
+          },
+          navigate(route, query) {
+            let h = "#" + route;
+            if (query && Object.keys(query).length) {
+              const qs = Object.entries(query)
+                .map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v))
+                .join("&");
+              h += "?" + qs;
+            }
+            if (location.hash !== h) location.hash = h;
+            else window.dispatchEvent(new HashChangeEvent("hashchange"));
+          },
+          apply() {
+            const { route, query } = this.parseHash();
+            // Mark every routed section: visible if it belongs to current route
+            const visible = new Set(ROUTES[route]);
+            document.querySelectorAll("section[data-route]").forEach((s) => {
+              if (visible.has(s.id)) s.setAttribute("data-route-active", "");
+              else s.removeAttribute("data-route-active");
+            });
+            // Active nav link
+            document.querySelectorAll("[data-nav-route]").forEach((a) => {
+              const target = a.getAttribute("data-nav-route");
+              a.classList.toggle("nav-link-active", target === route);
+            });
+            // App-tab deep link continuity: /#/console?t=agents activates that tab
+            if (route === "/console" && query.t && typeof window.activateAppTab === "function") {
+              window.activateAppTab(query.t, { updateHash: false, scroll: false });
+            }
+            // Scroll to top on route change (preserves anchor jumps within /)
+            window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+          },
+        };
+        // First paint
+        document.addEventListener("DOMContentLoaded", () => {
+          window.__forumRouter.apply();
+        });
+        window.addEventListener("hashchange", () => window.__forumRouter.apply());
+        // Expose ROUTED_IDS so external code can check which sections are routed
+        window.__forumRouter.ROUTED_IDS = ROUTED_IDS;
+      })();
+    </script>
     <div class="grain min-h-screen">
       <nav class="sticky top-0 z-30 nav-blur">
         <div
           class="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between gap-4"
         >
           <div class="flex items-center gap-5">
-            <a href="#" class="flex items-center gap-2 group">
+            <a href="#/" data-nav-route="/" class="flex items-center gap-2 group">
               <span
                 class="inline-block w-2 h-2 rounded-full bg-forum-accent2 pulse"
               ></span>
@@ -327,19 +418,19 @@
             </span>
           </div>
           <div class="flex items-center gap-5 text-sm">
-            <a href="#how" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
-              How it works
-            </a>
-            <a href="#app" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#/console" data-nav-route="/console" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Console
             </a>
-            <a href="#developers" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#/proof" data-nav-route="/proof" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+              Proof
+            </a>
+            <a href="#/developers" data-nav-route="/developers" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Developers
             </a>
-            <a href="#architecture" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#/architecture" data-nav-route="/architecture" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
               Architecture
             </a>
-            <a href="#security" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#/security" data-nav-route="/security" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
               Security
             </a>
             <a
@@ -355,7 +446,7 @@
                 />
               </svg>
             </a>
-            <a href="#app" class="btn btn-primary btn-sm hidden sm:inline-flex">
+            <a href="#/console" class="btn btn-primary btn-sm hidden sm:inline-flex">
               Launch app
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M5 12h14M13 5l7 7-7 7" />
@@ -366,10 +457,10 @@
       </nav>
 
       <main class="mx-auto max-w-7xl px-6">
-        <section class="pt-20 pb-14 sm:pt-28 sm:pb-20">
+        <section id="hero" data-route="/" class="pt-20 pb-14 sm:pt-28 sm:pb-20">
           <div class="max-w-4xl">
             <a
-              href="#slash-proof"
+              href="#/proof"
               class="inline-flex items-center gap-2 rounded-full border border-forum-accent/25 bg-forum-accent/[0.06] px-3 py-1 text-xs text-forum-accent hover:bg-forum-accent/[0.1] transition"
             >
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent pulse"></span>
@@ -392,13 +483,13 @@
               the mandate breaks — same transaction, no admin click.
             </p>
             <div class="mt-9 flex flex-wrap items-center gap-3">
-              <a href="#app" class="btn btn-primary">
+              <a href="#/console" class="btn btn-primary">
                 Open the live console
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path d="M5 12h14M13 5l7 7-7 7" />
                 </svg>
               </a>
-              <a href="#developers" class="btn btn-ghost">
+              <a href="#/developers" class="btn btn-ghost">
                 Read the docs
                 <span aria-hidden="true">→</span>
               </a>
@@ -452,7 +543,7 @@
         </section>
 
         <!-- 2. PROOF STRIP — built on the Circle stack -->
-        <section class="pb-16">
+        <section id="proof-strip" data-route="/" class="pb-16">
           <div class="rounded-2xl ring-soft bg-forum-panel/60 px-6 sm:px-8 py-5">
             <div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
               <div class="text-[10px] uppercase tracking-[0.22em] text-forum-dim2 shrink-0">
@@ -475,7 +566,7 @@
           </div>
         </section>
 
-        <section class="pb-24">
+        <section id="metrics" data-route="/" class="pb-24">
           <div
             class="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
           >
@@ -525,7 +616,7 @@
           </div>
         </section>
 
-        <section class="pb-24">
+        <section id="thesis" data-route="/" class="pb-24">
           <div
             class="grid md:grid-cols-2 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
           >
@@ -581,7 +672,7 @@
         </section>
 
         <!-- PERSONAS — built for -->
-        <section id="for" class="pb-24">
+        <section id="for" data-route="/" class="pb-24">
           <div class="max-w-2xl mb-10">
             <div class="section-eyebrow">Built for</div>
             <h2 class="mt-3 section-title">Three sides of one credit network.</h2>
@@ -598,7 +689,7 @@
                 pulls capped USDC, trades, returns funds, publishes a signed receipt
                 each cycle. Capital can fire you — they cannot drain you.
               </p>
-              <a href="#app" class="mt-6 inline-flex items-center gap-1 text-sm text-forum-accent hover:text-forum-ink transition">
+              <a href="#/console" class="mt-6 inline-flex items-center gap-1 text-sm text-forum-accent hover:text-forum-ink transition">
                 Launch a Covenant Account
                 <span aria-hidden="true">→</span>
               </a>
@@ -614,7 +705,7 @@
                 streak length. Receipts are recomputable. Withdraw your shares in any
                 state — depositors are never trapped, no admin signer can override.
               </p>
-              <a href="#app=agents" class="mt-6 inline-flex items-center gap-1 text-sm text-forum-accent2 hover:text-forum-ink transition">
+              <a href="#/console?t=agents" class="mt-6 inline-flex items-center gap-1 text-sm text-forum-accent2 hover:text-forum-ink transition">
                 Browse the leaderboard
                 <span aria-hidden="true">→</span>
               </a>
@@ -631,7 +722,7 @@
                 permissionless and recipients pull accrual across every split via one
                 <code class="mono text-xs">claim()</code>.
               </p>
-              <a href="#app=fees" class="mt-6 inline-flex items-center gap-1 text-sm hover:text-forum-ink transition" style="color:#7c9eff">
+              <a href="#/console?t=fees" class="mt-6 inline-flex items-center gap-1 text-sm hover:text-forum-ink transition" style="color:#7c9eff">
                 Inspect the fee router
                 <span aria-hidden="true">→</span>
               </a>
@@ -639,7 +730,7 @@
           </div>
         </section>
 
-        <section id="how" class="pb-24">
+        <section id="how" data-route="/" class="pb-24">
           <div class="text-center max-w-2xl mx-auto mb-12">
             <div class="text-[11px] uppercase tracking-widest text-forum-dim2">
               How it works
@@ -710,7 +801,7 @@
           </div>
         </section>
 
-        <section id="slash-proof" class="pb-24">
+        <section id="slash-proof" data-route="/proof" class="pb-24">
           <div class="text-center max-w-2xl mx-auto mb-12">
             <div
               class="text-[11px] uppercase tracking-widest text-forum-accent2"
@@ -855,7 +946,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
         </section>
 
-        <section class="pb-24">
+        <section id="live-mandate" data-route="/console" class="pb-24">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div
@@ -956,7 +1047,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
         </section>
 
-        <section id="app" class="pb-24">
+        <section id="app" data-route="/console" class="pb-24">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">App console · all live on Arc testnet</div>
@@ -1326,7 +1417,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
         </section>
 
-        <section id="architecture" class="pb-24">
+        <section id="architecture" data-route="/architecture" class="pb-24">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
             <div>
               <div class="section-eyebrow">Architecture · all bytecode verifiable on testnet.arcscan.app</div>
@@ -1348,7 +1439,7 @@ node keeper/scripts/demo-violation.mjs</pre>
         </section>
 
 
-        <section class="pb-24">
+        <section id="receipts" data-route="/proof" class="pb-24">
           <div class="rounded-2xl ring-soft bg-forum-panel p-10">
             <div class="flex flex-wrap items-baseline justify-between gap-4">
               <div>
@@ -1486,7 +1577,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
         </section>
 
-        <section id="developers" class="pb-24">
+        <section id="developers" data-route="/developers" class="pb-24">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
             <div class="max-w-2xl">
               <div class="section-eyebrow">Developers · SDKs + verifier</div>
@@ -1634,7 +1725,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         </section>
 
         <!-- SECURITY · honest about where we are -->
-        <section id="security" class="pb-24">
+        <section id="security" data-route="/security" class="pb-24">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
             <div class="max-w-2xl">
               <div class="section-eyebrow">Security &amp; honesty</div>
@@ -1756,7 +1847,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         </section>
 
         <!-- PRE-FOOTER CTA -->
-        <section class="pb-24">
+        <section id="cta-prefooter" data-route="/" class="pb-24">
           <div class="rounded-2xl ring-soft grad-bg-cta p-10 sm:p-14 text-center">
             <div class="section-eyebrow inline-flex items-center gap-2">
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2 pulse"></span>
@@ -1772,7 +1863,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               No fallback path. No screenshots.
             </p>
             <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <a href="#app" class="btn btn-primary">
+              <a href="#/console" class="btn btn-primary">
                 Launch the console
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path d="M5 12h14M13 5l7 7-7 7" />
@@ -1811,24 +1902,24 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             <div>
               <div class="section-eyebrow mb-4">Product</div>
               <ul class="space-y-2.5 text-sm">
-                <li><a href="#app" class="text-forum-dim hover:text-forum-ink transition">Console</a></li>
-                <li><a href="#app=create" class="text-forum-dim hover:text-forum-ink transition">Create vault</a></li>
-                <li><a href="#app=agents" class="text-forum-dim hover:text-forum-ink transition">AgentScore</a></li>
-                <li><a href="#app=markets" class="text-forum-dim hover:text-forum-ink transition">Risk markets</a></li>
-                <li><a href="#app=router" class="text-forum-dim hover:text-forum-ink transition">Capital router</a></li>
-                <li><a href="#app=fees" class="text-forum-dim hover:text-forum-ink transition">Fee router</a></li>
+                <li><a href="#/console" class="text-forum-dim hover:text-forum-ink transition">Console</a></li>
+                <li><a href="#/console?t=create" class="text-forum-dim hover:text-forum-ink transition">Create vault</a></li>
+                <li><a href="#/console?t=agents" class="text-forum-dim hover:text-forum-ink transition">AgentScore</a></li>
+                <li><a href="#/console?t=markets" class="text-forum-dim hover:text-forum-ink transition">Risk markets</a></li>
+                <li><a href="#/console?t=router" class="text-forum-dim hover:text-forum-ink transition">Capital router</a></li>
+                <li><a href="#/console?t=fees" class="text-forum-dim hover:text-forum-ink transition">Fee router</a></li>
               </ul>
             </div>
 
             <div>
               <div class="section-eyebrow mb-4">Developers</div>
               <ul class="space-y-2.5 text-sm">
-                <li><a href="#developers" class="text-forum-dim hover:text-forum-ink transition">SDK overview</a></li>
+                <li><a href="#/developers" class="text-forum-dim hover:text-forum-ink transition">SDK overview</a></li>
                 <li><a href="https://www.npmjs.com/package/forum-arc-sdk" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">TypeScript · npm</a></li>
                 <li><a href="https://pypi.org/project/forum-arc/" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Python · PyPI</a></li>
                 <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/scripts/verify-receipt.mjs" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Verifier CLI</a></li>
                 <li><a href="https://forum.gudman.xyz/api/health" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Indexer API</a></li>
-                <li><a href="#architecture" class="text-forum-dim hover:text-forum-ink transition">Contract addresses</a></li>
+                <li><a href="#/architecture" class="text-forum-dim hover:text-forum-ink transition">Contract addresses</a></li>
               </ul>
             </div>
 
@@ -1851,7 +1942,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 <li><a href="https://github.com/Ridwannurudeen/forum/issues" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Issues</a></li>
                 <li><a href="https://github.com/Ridwannurudeen/forum/issues/new?labels=operator-interest&title=Operator+interest" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Become operator</a></li>
                 <li><a href="https://github.com/Ridwannurudeen/forum/issues/new?labels=allocator-interest&title=Allocator+interest" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Become allocator</a></li>
-                <li><a href="#security" class="text-forum-dim hover:text-forum-ink transition">Security</a></li>
+                <li><a href="#/security" class="text-forum-dim hover:text-forum-ink transition">Security</a></li>
               </ul>
             </div>
           </div>
@@ -3458,8 +3549,12 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       setInterval(loadFees, 30_000);
 
       // ── App console tab switcher ────────────────────────────────────
+      // The router owns URL state. activateAppTab only mutates DOM.
+      // Tab-button clicks navigate through the router so the URL becomes
+      // `#/console?t=<tab>`, which keeps deep-links, back/forward, and the
+      // active-nav highlight in sync.
       const APP_TABS = ["create", "manage", "agents", "markets", "router", "fees"];
-      function activateAppTab(name, opts = { updateHash: true, scroll: false }) {
+      function activateAppTab(name) {
         if (!APP_TABS.includes(name)) name = "create";
         document.querySelectorAll(".app-tab-panel").forEach((p) => {
           if (p.dataset.tab === name) p.classList.remove("hidden");
@@ -3472,36 +3567,16 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           b.classList.toggle("border-transparent", !active);
           b.classList.toggle("text-forum-dim", !active);
         });
-        if (opts.updateHash) {
-          const target = "app=" + name;
-          if (location.hash.replace(/^#/, "") !== target) {
-            history.replaceState(null, "", "#" + target);
-          }
-        }
-        if (opts.scroll) {
-          document.getElementById("app").scrollIntoView({ behavior: "smooth", block: "start" });
-        }
       }
+      window.activateAppTab = activateAppTab;
       document.querySelectorAll(".app-tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => activateAppTab(btn.dataset.appTab, { updateHash: true, scroll: false }));
+        btn.addEventListener("click", () => {
+          window.__forumRouter.navigate("/console", { t: btn.dataset.appTab });
+        });
       });
-      // Deep-link via #app=<tab> or any old #create / #manage / etc.
-      function initialTabFromHash() {
-        const h = location.hash.replace(/^#/, "");
-        if (h.startsWith("app=")) return h.slice(4);
-        if (APP_TABS.includes(h)) {
-          // Legacy direct-link → rewrite to /#app=<tab> and scroll to app
-          history.replaceState(null, "", "#app=" + h);
-          setTimeout(() => document.getElementById("app").scrollIntoView({ behavior: "instant", block: "start" }), 0);
-          return h;
-        }
-        return "create";
-      }
-      activateAppTab(initialTabFromHash(), { updateHash: false, scroll: false });
-      window.addEventListener("hashchange", () => {
-        const h = location.hash.replace(/^#/, "");
-        if (h.startsWith("app=")) activateAppTab(h.slice(4), { updateHash: false });
-      });
+      // Safe default before the router fires; router.apply() will overwrite
+      // this with the tab named in the hash when on /console.
+      activateAppTab("create");
 
       // ── Developers section · code-tab switcher ──────────────────────
       const DEV_TABS = ["ts", "py", "sol", "cli"];
