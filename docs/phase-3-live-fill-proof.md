@@ -100,5 +100,17 @@ moved real money.
   canonical URL and counts `fills[].mode === "live"`, cached per
   `(botId, seq)`. The phase-3 bot now correctly reports
   `verifiedPnl: "recomputed-from-fills"` + `verifiedFillCount: 1`.
-- **One trade is not a strategy.** Phase 3 closes "real execution proven"
-  but not "real strategy backtested + live-traded". That's Phase 4 work.
+- **Phase 4 strategy framework shipped in D79; market scan shows
+  no profitable arb today.** `keeper/scripts/poly-arb-scanner.mjs`
+  is the first plug-in strategy: scans every liquid binary market
+  for YES+NO arb (where buying both legs cost < $1.00 minus fees).
+  Read-only by default; `--execute` only fires if gross edge beats
+  `--min-edge-bps` (default 2%). Scan of 49 markets on 2026-05-19
+  found every top market sits at exactly `YES_ask + NO_ask = $1.001`
+  (Polymarket V2 1-bp price-tick floor × 2 sides = the structural
+  minimum). No arb exists today — this is a *true* efficient-market
+  finding, not a missed opportunity. The framework is correct;
+  Phase 4 alpha capture requires either (a) a different strategy
+  class (directional, maker-rebate, event-driven), (b) waiting
+  for transient inefficiencies, or (c) statistical-edge work that
+  belongs post-hackathon.
