@@ -1,0 +1,13 @@
+[Unit]
+Description=Forum fee reconciliation — walks every CovenantVault + FeeRouterV1 splits, writes a JSON statement
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/forum
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/fee-reconcile.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forum-fee-reconcile
