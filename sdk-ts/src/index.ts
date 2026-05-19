@@ -38,3 +38,14 @@ export type {
   Attribution,
   TrackRecordV2PublishInput,
 } from "./client.js";
+export { IndexerClient } from "./indexer.js";
+export type {
+  IndexerClientOptions,
+  HealthResponse,
+  AgentScore,
+  FeeStatementResponse,
+  FeeStatementVault,
+  RouterPerformance,
+  RouterActivityKind,
+  RouterActivityEntry,
+} from "./indexer.js";

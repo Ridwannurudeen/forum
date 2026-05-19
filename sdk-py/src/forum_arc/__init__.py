@@ -35,6 +35,7 @@ from .client import (
     TrackRecordV2Entry,
     TrackRecordV2Publish,
 )
+from .indexer import HealthResponse, IndexerClient
 
 ARC_TESTNET = {
     "chain_id": 5042002,
@@ -72,5 +73,7 @@ __all__ = [
     "TrackRecordV2Client",
     "TrackRecordV2Entry",
     "TrackRecordV2Publish",
+    "IndexerClient",
+    "HealthResponse",
 ]
 __version__ = "0.0.1"
