@@ -28,7 +28,7 @@ const { ForumV2Bridge } = await import(fileUrl("keeper/src/forum-v2.ts"));
 const { MockLlmProvider, AnthropicProvider, reasoningHash } = await import(
   fileUrl("keeper/src/agora-mind.ts")
 );
-const { buildReceipt } = await import(fileUrl("keeper/src/receipt.ts"));
+const { buildReceipt, receiptHash } = await import(fileUrl("keeper/src/receipt.ts"));
 
 function parseArgs() {
   const a = process.argv.slice(2);
@@ -53,6 +53,27 @@ function parseArgs() {
       "--receipts-base-url",
       "https://forum.gudman.xyz/receipts",
     ),
+    // Phase 3 risk controls — all default off so existing prod keeper is
+    // unchanged. Operators opt in per deployment via env or CLI.
+    //   --max-loss-day-usdc N            — halt publish if cumulative PnL
+    //                                      drops by > N USDC over the rolling
+    //                                      24h window (0 = disabled)
+    //   --min-receipt-interval-sec N     — refuse to publish closer than N
+    //                                      seconds after the previous publish
+    //                                      (defense in depth vs intervalSec
+    //                                      misconfig; 0 = disabled)
+    //   --auto-pause-on-verifier-failure — before publishing, GET our last
+    //                                      receipt URI and re-verify its
+    //                                      hash against TrackRecordV2; if
+    //                                      mismatch, halt (don't publish
+    //                                      until operator clears it)
+    // --max-loss-per-market-usdc is intentionally NOT a flag yet — paper-mode
+    // doesn't produce per-market fills (cycleFills is always []), so the
+    // control would be vapor. Reintroduce alongside Phase 3 real-fill wiring
+    // (docs/phase-2-real-fill-spec.md).
+    maxLossDayUsdc: Number(get("--max-loss-day-usdc", "0")),
+    minReceiptIntervalSec: Number(get("--min-receipt-interval-sec", "0")),
+    autoPauseOnVerifierFailure: process.argv.includes("--auto-pause-on-verifier-failure"),
   };
 }
 
@@ -179,6 +200,110 @@ async function main() {
   let cycleFills = [];
   let cycleDecisions = [];
 
+  // Phase 3 risk-control state — kept local to the loop so it dies with the
+  // process (no persisted halt state to manually clear; restart = reset).
+  const DAY_SEC = 24 * 60 * 60;
+  // [{ ts, cumPnlUsdc }] sliding window for the day-loss rule. Pruned each
+  // publish attempt; capped at ~2x worth of records so it can't grow without
+  // bound under a slow leak.
+  const pnlWindow = [{ ts: Math.floor(Date.now() / 1000), cumPnlUsdc: 0 }];
+  let lastPublishAt = 0;
+  let halted = false;     // sticky — set by auto-pause-on-verifier-failure
+  let haltedReason = "";
+
+  function recordPnlSample(now, cumUsdc) {
+    pnlWindow.push({ ts: now, cumPnlUsdc: cumUsdc });
+    const cutoff = now - DAY_SEC;
+    while (pnlWindow.length > 1 && pnlWindow[0].ts < cutoff) pnlWindow.shift();
+    if (pnlWindow.length > 5000) pnlWindow.splice(0, pnlWindow.length - 5000);
+  }
+
+  function dayLossUsdc(cumUsdc) {
+    // peak minus current over the rolling 24h window
+    let peak = cumUsdc;
+    for (const s of pnlWindow) if (s.cumPnlUsdc > peak) peak = s.cumPnlUsdc;
+    return peak - cumUsdc;
+  }
+
+  // Re-fetch the previous receipt JSON and confirm its computed hash matches
+  // the evidenceHash that TrackRecordV2.recordAt stored on-chain. Different
+  // from the prevHash we already track (that's the EIP-712 record digest;
+  // this is the document hash). If they disagree the receipt URL was tampered
+  // with or moved — refuse to extend the chain on top of it.
+  const RECORD_AT_V2_INDEXED_ABI = [{
+    type: "function", name: "recordAt", stateMutability: "view",
+    inputs: [{ name: "botId", type: "bytes32" }, { name: "idx", type: "uint256" }],
+    outputs: [{ type: "tuple", components: [
+      { name: "seq", type: "uint64" },
+      { name: "periodStart", type: "uint64" },
+      { name: "periodEnd", type: "uint64" },
+      { name: "pnlMicros", type: "int128" },
+      { name: "fills", type: "uint64" },
+      { name: "metaHash", type: "bytes32" },
+      { name: "evidenceUriHash", type: "bytes32" },
+      { name: "evidenceHash", type: "bytes32" },
+      { name: "recordHash", type: "bytes32" },
+    ] }],
+  }];
+  async function verifyLastReceipt() {
+    if (seq <= 1) return { ok: true };
+    const prevSeq = seq - 1;
+    const uri = `${args.receiptsBaseUrl}/${bridge.botId.slice(2, 14)}/${String(prevSeq).padStart(6, "0")}.json`;
+    let receipt;
+    try {
+      const r = await fetch(uri);
+      if (!r.ok) return { ok: false, reason: `fetch ${uri} -> ${r.status}` };
+      receipt = await r.json();
+    } catch (e) {
+      return { ok: false, reason: `fetch error: ${e.message}` };
+    }
+    const computed = receiptHash(receipt);
+    let stored;
+    try {
+      const rec = await bridge.publicClient.readContract({
+        address: bridge.v2Address,
+        abi: RECORD_AT_V2_INDEXED_ABI,
+        functionName: "recordAt",
+        args: [bridge.botId, BigInt(prevSeq - 1)],
+      });
+      stored = rec.evidenceHash;
+    } catch (e) {
+      return { ok: false, reason: `chain read error: ${e.message}` };
+    }
+    if (computed.toLowerCase() !== stored.toLowerCase()) {
+      return {
+        ok: false,
+        reason: `evidenceHash mismatch seq=${prevSeq} receipt=${computed} chain=${stored}`,
+      };
+    }
+    return { ok: true };
+  }
+
+  async function safeToPublish(now, cumUsdc) {
+    if (halted) return { ok: false, reason: `halted earlier: ${haltedReason}` };
+    if (args.minReceiptIntervalSec > 0 && lastPublishAt > 0) {
+      const gap = now - lastPublishAt;
+      if (gap < args.minReceiptIntervalSec) {
+        return { ok: false, reason: `gap ${gap}s < min ${args.minReceiptIntervalSec}s` };
+      }
+    }
+    if (args.maxLossDayUsdc > 0) {
+      const loss = dayLossUsdc(cumUsdc);
+      if (loss > args.maxLossDayUsdc) {
+        return { ok: false, reason: `24h loss ${loss.toFixed(2)} USDC > cap ${args.maxLossDayUsdc} USDC` };
+      }
+    }
+    if (args.autoPauseOnVerifierFailure) {
+      const v = await verifyLastReceipt();
+      if (!v.ok) {
+        halted = true;
+        haltedReason = `verifier failure: ${v.reason}`;
+        return { ok: false, reason: haltedReason };
+      }
+    }
+    return { ok: true };
+  }
+
   while (args.maxTicks === undefined || tick < args.maxTicks) {
     tick += 1;
     const ts = Math.floor(Date.now() / 1000);
@@ -254,6 +379,18 @@ async function main() {
         await new Promise((r) => setTimeout(r, args.intervalSec * 1000));
         continue;
       }
+
+      // Phase 3 risk-control gate.
+      const nowTs = Math.floor(Date.now() / 1000);
+      const check = await safeToPublish(nowTs, cumulativePnlUsdc);
+      if (!check.ok) {
+        console.log(`RISK-CONTROL-SKIP seq=${seq} reason=${check.reason}`);
+        cycleBookSnapshots = [];
+        cycleFills = [];
+        cycleDecisions = [];
+        await new Promise((r) => setTimeout(r, args.intervalSec * 1000));
+        continue;
+      }
       try {
         const periodEndTs = Math.floor(Date.now() / 1000);
         // Aggregate trace hashes into a single decisionTrace.traceHash by hashing
@@ -320,6 +457,8 @@ async function main() {
         console.log(`PUBLISH-V2 tx=${txHash} seq=${seq} evidenceUri=${uri}`);
         prevHash = recordHash;
         seq += 1;
+        lastPublishAt = periodEndTs;
+        recordPnlSample(periodEndTs, cumulativePnlUsdc);
 
         // reset cycle accumulators
         periodStartTs = periodEndTs + 1;
