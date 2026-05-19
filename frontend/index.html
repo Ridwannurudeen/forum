@@ -3394,13 +3394,20 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
       // ── Phase 5 · Capital Router ──────────────────────────────────────
       const CAPITAL_ROUTER = "0x13617989cd443147b6f14ff98e492c6175bb0afc";
+      // CapitalRouter surface — matches src/CapitalRouter.sol. `targets()`
+      // and `weights()` don't exist as zero-arg functions; D45's first cut
+      // assumed they did, so loadRouter silently failed into a hidden status
+      // div. Fixed by walking targetVaults(i) + targetWeightsBps(addr) per
+      // targetVaultCount, same pattern as keeper/scripts/forum-indexer.mjs
+      // /api/router/performance.
       const ROUTER_READS_ABI = [
         { type: "function", name: "strategist", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
         { type: "function", name: "idleUsdc",   stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
         { type: "function", name: "totalShares",stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
         { type: "function", name: "assets",     stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-        { type: "function", name: "targets",    stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
-        { type: "function", name: "weights",    stateMutability: "view", inputs: [], outputs: [{ type: "uint16[]" }] },
+        { type: "function", name: "targetVaultCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+        { type: "function", name: "targetVaults",     stateMutability: "view", inputs: [{ name: "i", type: "uint256" }], outputs: [{ type: "address" }] },
+        { type: "function", name: "targetWeightsBps", stateMutability: "view", inputs: [{ name: "v", type: "address" }], outputs: [{ type: "uint16" }] },
         { type: "function", name: "sharesOf",   stateMutability: "view", inputs: [{ name: "u", type: "address" }], outputs: [{ type: "uint256" }] },
       ];
       const ROUTER_DEPOSIT_ABI    = [{ type: "function", name: "deposit",    stateMutability: "nonpayable", inputs: [{ name: "amount", type: "uint256" }], outputs: [{ type: "uint256" }] }];
@@ -3415,27 +3422,39 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       }
       async function loadRouter() {
         try {
-          const [strategist, idle, shares, assets, targets, weights] = await Promise.all([
+          const [strategist, idle, shares, assets, targetCount] = await Promise.all([
             client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "strategist" }),
             client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "idleUsdc" }),
             client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "totalShares" }),
             client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "assets" }),
-            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "targets" }),
-            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "weights" }),
+            client.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "targetVaultCount" }),
           ]);
           document.getElementById("router-assets").textContent = (Number(assets) / 1e6).toFixed(6) + " USDC";
           document.getElementById("router-idle").textContent   = (Number(idle)   / 1e6).toFixed(6) + " USDC";
           document.getElementById("router-shares").textContent = shares.toString();
           document.getElementById("router-strategist").textContent = shortAddr(strategist);
+
+          const n = Number(targetCount);
+          const targets = [];
+          for (let i = 0n; i < BigInt(n); i++) {
+            const vault = await client.readContract({
+              address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "targetVaults", args: [i],
+            });
+            const w = await client.readContract({
+              address: CAPITAL_ROUTER, abi: ROUTER_READS_ABI, functionName: "targetWeightsBps", args: [vault],
+            });
+            targets.push({ vault, weightBps: Number(w) });
+          }
+
           const strat = document.getElementById("router-strategy");
-          if (!targets.length) {
+          if (targets.length === 0) {
             strat.innerHTML = `<span class="text-forum-dim2">no strategy set — strategist must call setStrategy(vaults, weightsBps).</span>`;
           } else {
-            strat.innerHTML = targets.map((vault, i) => {
-              const w = Number(weights[i]) / 100;
+            strat.innerHTML = targets.map((t) => {
+              const pct = (t.weightBps / 100).toFixed(2);
               return `<div class="flex justify-between py-1 border-b border-forum-line/50">
-                <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${vault}">${shortAddr(vault)}</a>
-                <span class="mono text-forum-dim">${w.toFixed(2)}%</span>
+                <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${t.vault}">${shortAddr(t.vault)}</a>
+                <span class="mono text-forum-dim">${pct}%</span>
               </div>`;
             }).join("");
           }
@@ -3444,6 +3463,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             document.getElementById("router-my-shares").textContent = my.toString();
           }
         } catch (e) {
+          // Surface failures visibly in the strategy area, not just the
+          // (hidden until shown) status div — silent placeholders confused
+          // the D69 demo rehearsal.
+          const strat = document.getElementById("router-strategy");
+          if (strat) strat.innerHTML = `<span class="text-forum-err">load error: ${e.message}</span>`;
           setRouterStatus("load error: " + e.message, "err");
         }
       }
