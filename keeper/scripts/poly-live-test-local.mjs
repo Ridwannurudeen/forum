@@ -48,7 +48,12 @@ const MID_MAX = Number(arg("--target-mid-max", "0.90"));
 // default pool. The code is just metadata until the operator behind it
 // is registered in Polymarket's backend. Apply at
 // docs.polymarket.com/cust/builders for the onboarding flow.
-const BUILDER_CODE = arg("--builder-code", "") || process.env.POLY_BUILDER_CODE || "";
+let BUILDER_CODE = arg("--builder-code", "") || process.env.POLY_BUILDER_CODE || "";
+if (!BUILDER_CODE) {
+  try {
+    BUILDER_CODE = readFileSync(`${KEY_DIR}/polymarket-builder-code`, "utf8").trim();
+  } catch { /* no local file — that's fine, builder code stays unset */ }
+}
 if (BUILDER_CODE && !/^0x[0-9a-fA-F]{64}$/.test(BUILDER_CODE)) {
   console.error(`--builder-code must be 0x + 64 hex chars; got: ${BUILDER_CODE.slice(0, 12)}...`);
   process.exit(2);

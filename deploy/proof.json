@@ -1,46 +1,63 @@
 {
   "phase": 3,
   "status": "complete",
-  "generatedAt": 1779188855,
-  "description": "First real Polymarket V2 mainnet fill captured + verified end-to-end through the Forum receipt graph.",
+  "generatedAt": 1779202200,
+  "description": "Two real Polymarket V2 mainnet fills captured + verified end-to-end through the Forum receipt graph. Fill #2 carries our builder code; Polymarket's attribution API confirms it.",
   "polymarket": {
     "signerEoa": "0x4f9eFA49e092E3dbA6Da3E5b24ADAEe8cDA0Bac9",
     "funderProxy": "0xcD6c77F267aa1745b9B57986Ad1A9C749212D1d8",
     "signatureType": "POLY_1271",
-    "orderId": "0xf5fd3fff190ba0ed093d5092aa86210198c7b2a72329e8158f69ed63d151f1b0",
-    "settlementTxHash": "0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0",
-    "polygonscan": "https://polygonscan.com/tx/0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0",
-    "settlementBlock": 87118315,
-    "settlementStatus": "success",
-    "market": "will-the-republican-party-win-the-tx-04-house-seat",
-    "tokenId": "99191934701178264053575235515836228615210495042696817144148145261389254003310",
-    "side": "BUY",
-    "orderType": "FOK",
-    "price": 0.86,
-    "shares": 2.32558,
-    "pUsdPaidMicros": "2011198"
+    "builderCode": "0x31bc0f22faf13ec6f6f0c33fd97aca54be026fe1873b6b582e336efabff3ec56"
   },
+  "fills": [
+    {
+      "label": "D74 baseline (no builder code)",
+      "orderId": "0xf5fd3fff190ba0ed093d5092aa86210198c7b2a72329e8158f69ed63d151f1b0",
+      "settlementTxHash": "0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0",
+      "polygonscan": "https://polygonscan.com/tx/0x5207a5294ccbb52d9fadd6f2613c9920a1936095a0b7815f3ca1e3b0428b80c0",
+      "market": "will-the-republican-party-win-the-tx-04-house-seat",
+      "side": "BUY", "orderType": "FOK", "price": 0.86, "shares": 2.32558,
+      "pUsdPaidMicros": "2011198",
+      "builderCodeAttached": false
+    },
+    {
+      "label": "D78 builder-attributed",
+      "orderId": "0x714f685cb076db5b23a52b4f75b6933029a5d47bf5983470dae4633789428f4a",
+      "settlementTxHash": "0xab2a3bb792aa23e6f3e3f6420079ec33eb6c791c2e93bf9e9f739a670e981bb5",
+      "polygonscan": "https://polygonscan.com/tx/0xab2a3bb792aa23e6f3e3f6420079ec33eb6c791c2e93bf9e9f739a670e981bb5",
+      "market": "will-the-republicans-win-the-louisiana-senate-race-in-2026",
+      "side": "BUY", "orderType": "FOK", "price": 0.88, "shares": 1.704541,
+      "pUsdPaidMicros": "1499996",
+      "builderCodeAttached": true,
+      "polymarketAttributionConfirmed": true,
+      "builderFeeUsdc": "0",
+      "platformFeeUsdc": "0.00719"
+    }
+  ],
   "forum": {
     "botId": "0x75d6577d49eff276e2ada42f9ebb04ab7f74cc3fdeef072aab6c2d5e3f8a0ef0",
     "receiptUri": "https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json",
     "evidenceHash": "0x8f5a197c0a1fb46a6320114091deb3a4c58e6ee2d10956643e23b8fa7c79b187",
     "arcPublishTxHash": "0x8fbbdb97a8c0abf3c28774c468a616ccad218da144e1dee5139d7e09482dd931",
     "arcscan": "https://testnet.arcscan.app/tx/0x8fbbdb97a8c0abf3c28774c468a616ccad218da144e1dee5139d7e09482dd931",
-    "recordHash": "0x972e2bed3ab05d358541c48d11d8a630bd5bd5b0d93521d70e073fa3ef562941",
     "verifierCommand": "node keeper/scripts/verify-receipt.mjs https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json",
     "verifierResult": "pnl: valid",
     "verifiedFillCount": 1,
     "verifiedPnl": "recomputed-from-fills"
   },
   "fees": {
-    "builderCodeAttached": false,
-    "feeCapturePending": "Polymarket Builders Service approval — code path wired in poly-live-test-local.mjs --builder-code; re-run --broadcast with the bytes32 once approved."
+    "builderCodeAttached": true,
+    "polymarketAttributionConfirmed": true,
+    "builderFeeRateBps": 0,
+    "builderFeeStatus": "wiring complete + attribution confirmed; fee rate is 0 bps (operator has not configured a rate on polymarket.com/settings?tab=builder yet). Set a rate (max 100 bps taker, 50 bps maker) for the same flow to capture real revenue."
   },
   "reproduce": {
     "docs": "docs/phase-3-live-fill-proof.md",
     "scripts": [
       "keeper/scripts/poly-create-api-key.mjs --confirm",
-      "keeper/scripts/poly-live-test-local.mjs --broadcast",
+      "keeper/scripts/poly-live-test-local.mjs --broadcast --max-notional 2 (no builder code)",
+      "keeper/scripts/poly-live-test-local.mjs --broadcast --max-notional 1.5 (auto-loads builder code from C:/Users/gudma/Music/polymarket-builder-code)",
+      "keeper/scripts/poly-check-attribution.mjs (queries getBuilderTrades to confirm)",
       "keeper/scripts/poly-publish-real-fill-receipt.mjs"
     ]
   }

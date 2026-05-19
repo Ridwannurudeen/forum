@@ -85,16 +85,16 @@ moved real money.
 
 ## Remaining gaps (for honest record)
 
-- **Builder code attribution — code path wired in D75, fee capture
-  still user-blocked.** `poly-live-test-local.mjs` now accepts a
-  `--builder-code` flag (or `POLY_BUILDER_CODE` env var). When provided
-  + well-formed (bytes32), the SDK attaches the code to
-  `UserMarketOrderV2.builderCode` on every order. Polymarket Builders
-  Service onboarding is still a manual approval that hasn't been
-  completed — until then, the attached code captures no fees (they
-  route to Polymarket's default pool). Once approved, re-run with
-  `--builder-code 0x…` for the same flow to ship verified builder-fee
-  attribution.
+- **Builder code attribution — VERIFIED in D78.** A second $1.50 live
+  fill on `will-the-republicans-win-the-louisiana-senate-race-in-2026`
+  carried our builder code `0x31bc0f22…ec56`. Polymarket's
+  `getBuilderTrades({ builder_code })` API returns the trade with the
+  correct `builderCode` + `transactionHash`. **Fee captured: 0 USDC**
+  — the operator hasn't configured a fee rate on
+  `polymarket.com/settings?tab=builder` yet (max 100 bps taker, 50 bps
+  maker). The SAME flow with a non-zero rate captures real revenue.
+  Wiring is fully proven; revenue is a settings-page knob away.
+
 - **The indexer's `verifiedPnl` label — closed in D75.**
   `forum-indexer/0.11.0` fetches each bot's latest receipt at the
   canonical URL and counts `fills[].mode === "live"`, cached per
