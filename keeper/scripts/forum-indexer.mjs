@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.8.0'; // + agent recentPnls/recentTs in /api/agents/:id (Phase 4 sparkline data)
+const VERSION = 'forum-indexer/0.9.0'; // + /api/router/performance (Phase 5 allocator profile)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -60,6 +60,10 @@ const VAULTS = {
 const BOND_V11 = deployment.contracts.SlashBondV1_1?.address;
 const FACTORY = deployment.contracts.CovenantVaultFactory?.address;
 const FEE_ROUTER = deployment.contracts.FeeRouterV1?.address;
+const CAPITAL_ROUTER = deployment.contracts.CapitalRouter?.address;
+const CAPITAL_ROUTER_DEPLOY_BLOCK = deployment.contracts.CapitalRouter?.block
+  ? BigInt(deployment.contracts.CapitalRouter.block)
+  : null;
 const FACTORY_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactory?.block
   ? BigInt(deployment.contracts.CovenantVaultFactory.block)
   : null;
@@ -127,6 +131,22 @@ const VAULT_FEE_ABI = parseAbi([
 const FACTORY_ALL_VAULTS_ABI = parseAbi([
   'function allVaults() view returns (address[])',
 ]);
+const ROUTER_VIEW_ABI = parseAbi([
+  'function strategist() view returns (address)',
+  'function totalShares() view returns (uint256)',
+  'function idleUsdc() view returns (uint256)',
+  'function assets() view returns (uint256)',
+  'function perSharePrice() view returns (uint256)',
+  'function strategyVersion() view returns (uint64)',
+  'function lastRebalanceAt() view returns (uint64)',
+  'function targetVaultCount() view returns (uint256)',
+  'function targetVaults(uint256) view returns (address)',
+  'function targetWeightsBps(address) view returns (uint16)',
+]);
+const ROUTER_DEPOSIT_EVENT = parseAbiItem('event Deposit(address indexed user, uint256 usdcIn, uint256 sharesMinted)');
+const ROUTER_WITHDRAW_EVENT = parseAbiItem('event Withdraw(address indexed user, uint256 sharesBurned, uint256 usdcOut)');
+const ROUTER_REBALANCED_EVENT = parseAbiItem('event Rebalanced(uint64 indexed at, uint256 totalAssets, uint256 vaultsTouched)');
+const ROUTER_STRATEGY_SET_EVENT = parseAbiItem('event StrategySet(uint64 indexed version, address[] vaults, uint16[] weightsBps)');
 const BOND_ABI = parseAbi([
   'function bondBalance() view returns (uint256)',
   'function totalSlashed() view returns (uint256)',
@@ -174,6 +194,12 @@ const initial = {
   bonds: {},           // address -> { bondBalance, totalSlashed, lastUpdate }
   slashEvents: [],     // newest first, capped at 200
   factoryVaults: [],   // [{ vault, creator, operator, botId, budgetMicros, createdAt, blockNumber, txHash }] newest first
+  router: {            // Phase 5 allocator performance profile (CapitalRouter)
+    depositCount: 0, withdrawCount: 0, rebalanceCount: 0, strategySetCount: 0,
+    totalDepositedMicros: '0', totalWithdrawnMicros: '0',
+    lastDepositAt: 0, lastWithdrawAt: 0, lastRebalanceAt: 0,
+    backfilledAt: 0,
+  },
   lastPollAt: 0,
   lastBlock: 0,
 };
@@ -182,6 +208,9 @@ let state;
 try {
   if (existsSync(STATE_PATH)) {
     state = { ...initial, ...JSON.parse(readFileSync(STATE_PATH, 'utf8')) };
+    // Backfill sub-objects added in later indexer versions so old state files
+    // don't crash the polling loop on first poll.
+    if (!state.router) state.router = initial.router;
     console.log(`[indexer] resumed from ${STATE_PATH} (lastBlock=${state.cursor.lastBlock})`);
   } else {
     state = initial;
@@ -397,6 +426,42 @@ async function refreshBonds() {
   }
 }
 
+async function indexRouterEvents(fromBlock, toBlock) {
+  if (!CAPITAL_ROUTER || !CAPITAL_ROUTER_DEPLOY_BLOCK) return;
+  const start = fromBlock > CAPITAL_ROUTER_DEPLOY_BLOCK ? fromBlock : CAPITAL_ROUTER_DEPLOY_BLOCK;
+  if (toBlock < start) return;
+  const r = state.router;
+  for (const [event, kind] of [
+    [ROUTER_DEPOSIT_EVENT, 'deposit'],
+    [ROUTER_WITHDRAW_EVENT, 'withdraw'],
+    [ROUTER_REBALANCED_EVENT, 'rebalance'],
+    [ROUTER_STRATEGY_SET_EVENT, 'strategy'],
+  ]) {
+    const logs = await getLogsChunked({
+      address: CAPITAL_ROUTER, event, fromBlock: start, toBlock,
+    });
+    if (logs.length > 0 || process.env.FORUM_INDEXER_DEBUG) {
+      console.log(`[indexer] router ${kind} events: ${logs.length} (range ${start}..${toBlock})`);
+    }
+    for (const log of logs) {
+      if (kind === 'deposit') {
+        r.depositCount += 1;
+        r.totalDepositedMicros = (BigInt(r.totalDepositedMicros) + BigInt(log.args.usdcIn)).toString();
+        r.lastDepositAt = Number(log.blockNumber);
+      } else if (kind === 'withdraw') {
+        r.withdrawCount += 1;
+        r.totalWithdrawnMicros = (BigInt(r.totalWithdrawnMicros) + BigInt(log.args.usdcOut)).toString();
+        r.lastWithdrawAt = Number(log.blockNumber);
+      } else if (kind === 'rebalance') {
+        r.rebalanceCount += 1;
+        r.lastRebalanceAt = Number(log.blockNumber);
+      } else if (kind === 'strategy') {
+        r.strategySetCount += 1;
+      }
+    }
+  }
+}
+
 async function indexSlashEvents(fromBlock, toBlock) {
   const logs = await getLogsChunked({
     address: KERNEL_V2, event: ENFORCED_EVENT, fromBlock, toBlock,
@@ -426,6 +491,7 @@ async function pollOnce() {
       await indexBots(fromBlock, toBlock);
       await indexSlashEvents(fromBlock, toBlock);
       await indexFactoryVaults(fromBlock, toBlock);
+      await indexRouterEvents(fromBlock, toBlock);
       state.cursor.lastBlock = toBlock.toString();
     }
     await refreshBotStats();
@@ -582,6 +648,65 @@ const server = createServer((req, res) => {
           totalRoutedMicros: totalRoutedAllSplits.toString(),
           splits,
           recipientClaimableMicros: claimable,
+        });
+      } catch (e) {
+        jsonReply(res, 500, { error: e.message });
+      }
+    })();
+    return;
+  }
+
+  if (path === '/router/performance' || path === '/router/performance/') {
+    // Phase 5: allocator performance profile. Live state (assets, perShare,
+    // strategyVersion, lastRebalanceAt, weights) from view functions, plus
+    // lifetime event counters from state.router (one-shot backfill +
+    // incremental updates in pollOnce). No deposit-to-share history graph
+    // yet — the on-chain Deposit event only records the trade; per-share
+    // price at deposit time isn't persisted. A future version can derive
+    // it by joining Deposit.blockNumber with a per-poll perSharePrice
+    // sample.
+    if (!CAPITAL_ROUTER) return jsonReply(res, 404, { error: 'CapitalRouter not deployed' });
+    (async () => {
+      try {
+        const [strategist, totalShares, idle, assets, psp, version, lastRebal, targetCount] = await Promise.all([
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'strategist' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'totalShares' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'idleUsdc' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'assets' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'perSharePrice' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'strategyVersion' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'lastRebalanceAt' }),
+          pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'targetVaultCount' }),
+        ]);
+        const n = Number(targetCount);
+        const targets = await Promise.all(Array.from({ length: n }, (_, i) => BigInt(i)).map(async (i) => {
+          const v = await pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'targetVaults', args: [i] });
+          const w = await pub.readContract({ address: CAPITAL_ROUTER, abi: ROUTER_VIEW_ABI, functionName: 'targetWeightsBps', args: [v] });
+          return { vault: v, weightBps: Number(w) };
+        }));
+        jsonReply(res, 200, {
+          address: CAPITAL_ROUTER,
+          strategist,
+          tvlMicros: assets.toString(),
+          idleMicros: idle.toString(),
+          totalShares: totalShares.toString(),
+          perSharePrice1e18: psp.toString(),
+          strategyVersion: Number(version),
+          lastRebalanceAt: Number(lastRebal),
+          targetVaultCount: n,
+          targets,
+          lifetime: {
+            depositCount: state.router.depositCount,
+            withdrawCount: state.router.withdrawCount,
+            rebalanceCount: state.router.rebalanceCount,
+            strategySetCount: state.router.strategySetCount,
+            totalDepositedMicros: state.router.totalDepositedMicros,
+            totalWithdrawnMicros: state.router.totalWithdrawnMicros,
+            lastDepositBlock: state.router.lastDepositAt,
+            lastWithdrawBlock: state.router.lastWithdrawAt,
+            lastRebalanceBlock: state.router.lastRebalanceAt,
+            backfilledAt: state.router.backfilledAt,
+          },
         });
       } catch (e) {
         jsonReply(res, 500, { error: e.message });
@@ -819,6 +944,28 @@ const server = createServer((req, res) => {
 // indexSlashEvents / indexFactoryVaults unshift without dedupe, so a rescan
 // would duplicate that history. So scan V2 BotRegistered separately, log how
 // many were found, and mark the state so this only runs once per upgrade.
+// One-time historical event scan for CapitalRouter — mirrors the V2 backfill
+// pattern. Counts deposit/withdraw/rebalance/strategy events from the
+// router's deploy block so /api/router/performance returns lifetime totals,
+// not just events seen since the indexer started. Safe to re-run: the
+// backfilledAt flag prevents double counting.
+async function routerBackfillIfNeeded() {
+  if (!CAPITAL_ROUTER || !CAPITAL_ROUTER_DEPLOY_BLOCK) return;
+  if (state.router.backfilledAt) return;
+  try {
+    const block = await pub.getBlockNumber();
+    // Reset to fresh-zero counters before backfill so a partially-counted
+    // run from incremental polling doesn't double up.
+    state.router = { ...initial.router };
+    await indexRouterEvents(CAPITAL_ROUTER_DEPLOY_BLOCK, block);
+    state.router.backfilledAt = Math.floor(Date.now() / 1000);
+    persist();
+    console.log(`[indexer] router backfill done — deposits=${state.router.depositCount} withdraws=${state.router.withdrawCount} rebalances=${state.router.rebalanceCount} strategies=${state.router.strategySetCount} range [${CAPITAL_ROUTER_DEPLOY_BLOCK}..${block}]`);
+  } catch (e) {
+    console.error('[indexer] router backfill failed:', e.message);
+  }
+}
+
 async function v2BackfillIfNeeded() {
   if (state.v2BackfilledAt) return;
   try {
@@ -850,6 +997,7 @@ async function v2BackfillIfNeeded() {
 server.listen(PORT, '127.0.0.1', async () => {
   console.log(`[indexer] listening on 127.0.0.1:${PORT} state=${STATE_PATH} poll=${POLL_MS}ms`);
   await v2BackfillIfNeeded();
+  await routerBackfillIfNeeded();
   pollOnce(); // immediate
   setInterval(pollOnce, POLL_MS);
 });
