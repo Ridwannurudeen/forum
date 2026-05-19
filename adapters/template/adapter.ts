@@ -116,6 +116,18 @@ async function publishOnce() {
     },
     strategy: { name: BOT_LABEL, configHash: strategyConfigHash },
     decisionTrace: { traceUri: "", traceHash: "0x" + "0".repeat(64) },
+    // Optional Phase 7 cross-chain provenance. If this cycle's capital was
+    // bridged in via CCTP V2 (see keeper/scripts/cctp-bridge-and-deposit.mjs),
+    // attach the source-chain coordinates so verifiers can join the receipt
+    // graph back to the bridging tx. All three fields are required when
+    // present — verifier rejects partial claims. Uncomment + replace the
+    // placeholder values once you have a real bridging tx + Iris message.
+    //
+    // sourceChain: {
+    //   domain: 6,                                       // CCTP V2 domain (0 ETH, 6 Base, 7 Polygon, 26 Arc)
+    //   messageHash: "0x" + "ab".repeat(32) as `0x${string}`,  // keccak256(messageBytes from Iris)
+    //   txHash:      "0x" + "cd".repeat(32) as `0x${string}`,  // source-chain depositForBurnWithHook tx
+    // },
   });
   const { uri, hash } = bridge.writeReceipt(seq, receipt);
   console.log(`[adapter] RECEIPT seq=${seq} hash=${hash} uri=${uri}`);

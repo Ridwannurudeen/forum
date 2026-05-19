@@ -124,6 +124,16 @@ def publish_once(
         },
         "strategy": {"name": BOT_LABEL, "configHash": "0x" + "0" * 64},
         "decisionTrace": {"traceUri": "", "traceHash": "0x" + "0" * 64},
+        # Optional Phase 7 cross-chain provenance. If this cycle's capital
+        # was bridged in via CCTP V2 (see keeper/scripts/cctp-bridge-and-
+        # deposit.mjs), include sourceChain so verifiers can join the
+        # receipt graph back to the bridging tx. All three fields are
+        # required when present — verifier rejects partial claims.
+        # "sourceChain": {
+        #     "domain": 6,                                # CCTP V2 domain (0 ETH, 6 Base, 7 Polygon, 26 Arc)
+        #     "messageHash": "0x" + "ab" * 32,            # keccak256(messageBytes from Iris)
+        #     "txHash":      "0x" + "cd" * 32,            # source-chain depositForBurnWithHook tx
+        # },
     }
     receipt_json = canonical_json(receipt)
     evidence_hash = Web3.keccak(text=receipt_json)
