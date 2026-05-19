@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.5.0'; // + /api/fees (FeeRouterV1 splits + claimable)
+const VERSION = 'forum-indexer/0.6.0'; // + TrackRecordV2 ingest (BotRegistered + recordAt)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -64,6 +64,9 @@ const FACTORY_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactory?.block
   ? BigInt(deployment.contracts.CovenantVaultFactory.block)
   : null;
 const DEPLOY_BLOCK = BigInt(deployment.contracts.BuilderCodeRegistry.block);
+const TR_V2_DEPLOY_BLOCK = deployment.contracts.TrackRecordV2?.block
+  ? BigInt(deployment.contracts.TrackRecordV2.block)
+  : DEPLOY_BLOCK;
 
 // ---- ABIs ------------------------------------------------------------------
 
@@ -81,6 +84,29 @@ const RECORD_AT_V1_ABI = [{
       { name: 'pnlMicros', type: 'int128' },
       { name: 'fills', type: 'uint64' },
       { name: 'metaHash', type: 'bytes32' },
+    ],
+  }],
+}];
+// V2 StoredRecord is wider: full seq/periodStart/periodEnd window + the evidence
+// + recordHash fields. The indexer only reads pnlMicros / fills / periodEnd
+// (treated as the cycle ts) for scoring; the rest is decoded but ignored.
+const RECORD_AT_V2_ABI = [{
+  type: 'function',
+  name: 'recordAt',
+  stateMutability: 'view',
+  inputs: [{ name: 'botId', type: 'bytes32' }, { name: 'idx', type: 'uint256' }],
+  outputs: [{
+    type: 'tuple',
+    components: [
+      { name: 'seq', type: 'uint64' },
+      { name: 'periodStart', type: 'uint64' },
+      { name: 'periodEnd', type: 'uint64' },
+      { name: 'pnlMicros', type: 'int128' },
+      { name: 'fills', type: 'uint64' },
+      { name: 'metaHash', type: 'bytes32' },
+      { name: 'evidenceUriHash', type: 'bytes32' },
+      { name: 'evidenceHash', type: 'bytes32' },
+      { name: 'recordHash', type: 'bytes32' },
     ],
   }],
 }];
@@ -180,18 +206,25 @@ async function getLogsChunked({ address, event, fromBlock, toBlock }) {
 }
 
 async function indexBots(fromBlock, toBlock) {
-  // Pull all BotRegistered events (idempotent: re-registration is impossible)
-  const logs = await getLogsChunked({
-    address: TR_V1, event: BOT_REGISTERED_EVENT, fromBlock, toBlock,
-  });
-  for (const log of logs) {
-    const botId = log.args.botId;
-    if (!state.bots[botId]) {
-      state.bots[botId] = {
-        botId, kind: KIND_NAMES[Number(log.args.kind)] || 'OTHER',
-        signer: log.args.signer, recordCount: 0,
-        lastSeq: 0, lastPnlMicros: 0, lastPeriodEnd: 0, lastUpdate: 0,
-      };
+  // V1 + V2 share the BotRegistered event signature (uint8 BotKind index).
+  // We attribute each bot to the contract it was registered against so the
+  // stats refresh + record fetch later target the right address + ABI.
+  // First-seen wins if a botId somehow exists in both (shouldn't, since
+  // botId = keccak(signer:label) is deterministic and registerBot reverts
+  // AlreadyRegistered on the second call within the same contract).
+  for (const [address, version] of [[TR_V1, 'v1'], [TR_V2, 'v2']]) {
+    const logs = await getLogsChunked({
+      address, event: BOT_REGISTERED_EVENT, fromBlock, toBlock,
+    });
+    for (const log of logs) {
+      const botId = log.args.botId;
+      if (!state.bots[botId]) {
+        state.bots[botId] = {
+          botId, kind: KIND_NAMES[Number(log.args.kind)] || 'OTHER',
+          signer: log.args.signer, version, recordCount: 0,
+          lastSeq: 0, lastPnlMicros: 0, lastPeriodEnd: 0, lastUpdate: 0,
+        };
+      }
     }
   }
 }
@@ -199,14 +232,26 @@ async function indexBots(fromBlock, toBlock) {
 const RECENT_RECORDS_N = 10; // window for sharpe-like + streak
 const STREAK_GAP_SEC = 1800; // gaps over this break the streak (matches default freshness)
 
+// Map a recordAt return tuple to the cycle ts the streak/freshness logic
+// expects. V1 stores a single `ts` per record; V2 stores periodStart/periodEnd
+// and the cycle end is the meaningful timestamp for "last receipt at" / streak
+// gap.
+function recordTs(version, r) {
+  return version === 'v2' ? Number(r.periodEnd) : Number(r.ts);
+}
+
 async function refreshBotStats() {
   // For every known bot, refresh recordCount + recent record window for v1 score
   const now = Math.floor(Date.now() / 1000);
   const botIds = Object.keys(state.bots);
   await Promise.all(botIds.map(async (botId) => {
     try {
+      // Bots persisted before v0.6.0 have no `version` field; default to v1.
+      const version = state.bots[botId].version || 'v1';
+      const address = version === 'v2' ? TR_V2 : TR_V1;
+      const recordAtAbi = version === 'v2' ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
       const count = await pub.readContract({
-        address: TR_V1, abi: RECORD_COUNT_ABI, functionName: 'recordCount', args: [botId],
+        address, abi: RECORD_COUNT_ABI, functionName: 'recordCount', args: [botId],
       });
       const n = Number(count);
       state.bots[botId].recordCount = n;
@@ -216,10 +261,10 @@ async function refreshBotStats() {
         const idxs = [];
         for (let i = start; i < n; i++) idxs.push(BigInt(i));
         const records = await Promise.all(idxs.map((idx) =>
-          pub.readContract({ address: TR_V1, abi: RECORD_AT_V1_ABI, functionName: 'recordAt', args: [botId, idx] }),
+          pub.readContract({ address, abi: recordAtAbi, functionName: 'recordAt', args: [botId, idx] }),
         ));
         const recentPnls = records.map((r) => Number(r.pnlMicros));
-        const recentTs = records.map((r) => Number(r.ts));
+        const recentTs = records.map((r) => recordTs(version, r));
         // Longest streak across this window: count consecutive records where ts gap < STREAK_GAP_SEC
         let longestStreak = recentTs.length > 0 ? 1 : 0;
         let cur = 1;
@@ -234,7 +279,7 @@ async function refreshBotStats() {
         const last = records[records.length - 1];
         state.bots[botId].lastSeq = n;
         state.bots[botId].lastPnlMicros = Number(last.pnlMicros);
-        state.bots[botId].lastPeriodEnd = Number(last.ts);
+        state.bots[botId].lastPeriodEnd = recordTs(version, last);
         state.bots[botId].recentPnls = recentPnls;
         state.bots[botId].longestStreak = longestStreak;
         // Running peak across all observed cycles — for drawdown computation.
@@ -440,22 +485,29 @@ const server = createServer((req, res) => {
   if (botMatch) {
     const botId = botMatch[1];
     const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+    // Dispatch reads to the contract the bot is registered against. Unknown
+    // bots default to V1 to preserve pre-v0.6.0 behavior (returns empty list
+    // rather than a misleading error if the bot really only exists in V2).
+    const known = state.bots[botId];
+    const version = known?.version || 'v1';
+    const address = version === 'v2' ? TR_V2 : TR_V1;
+    const recordAtAbi = version === 'v2' ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
     // Live read — not cached
     (async () => {
       try {
         const count = await pub.readContract({
-          address: TR_V1, abi: RECORD_COUNT_ABI, functionName: 'recordCount', args: [botId],
+          address, abi: RECORD_COUNT_ABI, functionName: 'recordCount', args: [botId],
         });
         const n = Number(count);
         const start = n > limit ? n - limit : 0;
         const idxs = [];
         for (let i = start; i < n; i++) idxs.push(BigInt(i));
         const records = await Promise.all(idxs.map((idx) =>
-          pub.readContract({ address: TR_V1, abi: RECORD_AT_V1_ABI, functionName: 'recordAt', args: [botId, idx] }),
+          pub.readContract({ address, abi: recordAtAbi, functionName: 'recordAt', args: [botId, idx] }),
         ));
         const out = records.map((r, i) => ({
           seq: start + i + 1,
-          ts: Number(r.ts),
+          ts: recordTs(version, r),
           pnlMicros: r.pnlMicros.toString(),
           fills: Number(r.fills),
           metaHash: r.metaHash,
@@ -604,6 +656,7 @@ const server = createServer((req, res) => {
       botId,
       kind: bot.kind,
       signer: bot.signer,
+      version: bot.version || 'v1',
       recordCount: records,
       lastPnlMicros: lastPnl,
       peakPnlMicros: peak,
@@ -649,8 +702,43 @@ const server = createServer((req, res) => {
   jsonReply(res, 404, { error: 'unknown endpoint', path: req.url });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+// One-time V2 backfill. The state cursor (set by v0.5.0 deploys) sits past
+// every existing V2 BotRegistered, so without this every V2-only bot would be
+// invisible to the leaderboard forever. We can't simply reset the cursor —
+// indexSlashEvents / indexFactoryVaults unshift without dedupe, so a rescan
+// would duplicate that history. So scan V2 BotRegistered separately, log how
+// many were found, and mark the state so this only runs once per upgrade.
+async function v2BackfillIfNeeded() {
+  if (state.v2BackfilledAt) return;
+  try {
+    const block = await pub.getBlockNumber();
+    const logs = await getLogsChunked({
+      address: TR_V2, event: BOT_REGISTERED_EVENT,
+      fromBlock: TR_V2_DEPLOY_BLOCK, toBlock: block,
+    });
+    let added = 0;
+    for (const log of logs) {
+      const botId = log.args.botId;
+      if (!state.bots[botId]) {
+        state.bots[botId] = {
+          botId, kind: KIND_NAMES[Number(log.args.kind)] || 'OTHER',
+          signer: log.args.signer, version: 'v2', recordCount: 0,
+          lastSeq: 0, lastPnlMicros: 0, lastPeriodEnd: 0, lastUpdate: 0,
+        };
+        added += 1;
+      }
+    }
+    state.v2BackfilledAt = Math.floor(Date.now() / 1000);
+    persist();
+    console.log(`[indexer] v2 backfill done — scanned ${logs.length} events, added ${added} new bots, range [${TR_V2_DEPLOY_BLOCK}..${block}]`);
+  } catch (e) {
+    console.error('[indexer] v2 backfill failed:', e.message);
+  }
+}
+
+server.listen(PORT, '127.0.0.1', async () => {
   console.log(`[indexer] listening on 127.0.0.1:${PORT} state=${STATE_PATH} poll=${POLL_MS}ms`);
+  await v2BackfillIfNeeded();
   pollOnce(); // immediate
   setInterval(pollOnce, POLL_MS);
 });

@@ -29,7 +29,8 @@ RECEIPT_LOCAL_DIR=./receipts \
 
 Within 30 seconds of the first publish:
 
-- Your receipt JSON is GETtable + `node keeper/scripts/verify-receipt.mjs <url>` returns `pnl: valid` (the AgentScore leaderboard at `/api/agents` is V1-only today; V2 indexer support is a separate follow-up)
+- Your receipt JSON is GETtable + `node keeper/scripts/verify-receipt.mjs <url>` returns `pnl: valid`
+- Your bot auto-appears at <https://forum.gudman.xyz/#/console?t=agents> within ~30s (AgentScore leaderboard ingests both `TrackRecord` v1 and v2 since `forum-indexer/0.6.0`)
 - Your receipt is GETtable: `curl https://forum.gudman.xyz/api/bots/<botId>/records`
 - Anyone can recompute your PnL: `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>`
 

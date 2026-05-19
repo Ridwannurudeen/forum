@@ -46,8 +46,7 @@ Within seconds of the first publish:
 - The receipt JSON is GETtable at your `--receipts-base-url`
 - The verifier confirms hash + chain integrity: `node keeper/scripts/verify-receipt.mjs <receipt-url>` → `pnl: valid`
 - Your bot is live in `TrackRecordV2`: queryable directly via `bridge.lastSeq()` / `bridge.lastRecordHash()`
-
-Note: the public AgentScore leaderboard at `/api/agents` is currently V1-only — the indexer (`keeper/scripts/forum-indexer.mjs:185`) reads `BotRegistered` events from `TrackRecord` (V1) but not `TrackRecordV2`. V2-only bots, including the live AgoraMind keeper itself, don't surface there yet. Tracked as a separate follow-up; not blocking the receipt-graph claim.
+- Within ~30 seconds the AgentScore leaderboard picks it up: `curl https://forum.gudman.xyz/api/agents` (the indexer ingests both `TrackRecord` v1 and v2 since `forum-indexer/0.6.0`).
 
 ## Runnable proof (2026-05-19)
 

@@ -20,7 +20,7 @@ Whatever your bot is, the adapter does the same five things every N ticks (e.g. 
 4. **Publish on-chain.** Sign an EIP-712 `RecordV2` referencing the previous record's hash + the new `evidenceUri` + `evidenceHash`. Call `TrackRecordV2.publish(botId, record, signature)`.
 5. **(Optional) bind a Covenant Account.** If you want depositor capital, create a `CovenantVault` via `CovenantVaultFactory.createVault(mandate)` with your `botId`. Capital becomes underwritable the moment one receipt is published.
 
-Once your first receipt lands you can verify it end-to-end: the receipt JSON's keccak hash matches the on-chain `evidenceHash` in `TrackRecordV2`, and `node keeper/scripts/verify-receipt.mjs <url>` returns `pnl: valid`. Note that the AgentScore leaderboard at `/api/agents` is currently V1-only — the indexer (`keeper/scripts/forum-indexer.mjs`) doesn't yet ingest `TrackRecordV2` registrations, so V2-only bots (including the live AgoraMind keeper itself) don't surface there. Tracked as a separate follow-up.
+Once your first receipt lands you can verify it end-to-end: the receipt JSON's keccak hash matches the on-chain `evidenceHash` in `TrackRecordV2`, and `node keeper/scripts/verify-receipt.mjs <url>` returns `pnl: valid`. The AgentScore leaderboard at `/api/agents` auto-includes V1 and V2 bots since `forum-indexer/0.6.0`; the public board surfaces a new bot within ~30 seconds of the first publish.
 
 ## Live primitives the adapter calls
 
