@@ -40,11 +40,11 @@ If anything above fails, **don't record yet** — fix it first.
 ## Tabs to pre-open (in this order)
 
 1. `https://forum.gudman.xyz/` — landing
-2. `https://forum.gudman.xyz/#app=create` — App console, Create tab
-3. `https://forum.gudman.xyz/#app=agents` — App console, Agents tab
-4. `https://forum.gudman.xyz/#app=markets` — App console, Markets tab
-5. `https://forum.gudman.xyz/#app=router` — App console, Router tab
-6. `https://forum.gudman.xyz/#app=fees` — App console, Fees tab
+2. `https://forum.gudman.xyz/#/console?t=create` — App console, Create tab
+3. `https://forum.gudman.xyz/#/console?t=agents` — App console, Agents tab
+4. `https://forum.gudman.xyz/#/console?t=markets` — App console, Markets tab
+5. `https://forum.gudman.xyz/#/console?t=router` — App console, Router tab
+6. `https://forum.gudman.xyz/#/console?t=fees` — App console, Fees tab
 7. `https://testnet.arcscan.app/tx/<full proof tx hash from README>` — the slash tx
 8. `https://forum.gudman.xyz/receipts/201c8909dca1/000014.json` — a real signed receipt
 9. Terminal in the repo root with the verifier ready to paste

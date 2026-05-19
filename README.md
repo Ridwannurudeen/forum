@@ -118,12 +118,12 @@ Also live: `GET /api/factory-vaults`, `GET /api/vaults`, `GET /api/agents` (Agen
 
 ## Self-Serve UI
 
-- <https://forum.gudman.xyz/#create>: browser wallet + mandate form → factory.createVault in one tx.
-- <https://forum.gudman.xyz/#manage>: operator bond + depositor withdraw flows.
-- <https://forum.gudman.xyz/#agents>: AgentScore leaderboard with row-click inspector + one-click `RiskKernelV2.enforce(vault)` per linked vault.
-- <https://forum.gudman.xyz/#markets>: SlashMarket YES/NO staking UI per market.
-- <https://forum.gudman.xyz/#router>: CapitalRouter pool — deposit/withdraw + permissionless `rebalance()` against the strategist weight table.
-- <https://forum.gudman.xyz/#fees>: FeeRouterV1 — list active splits, pay any split, claim per-recipient accruals.
+- <https://forum.gudman.xyz/#/console?t=create>: browser wallet + mandate form → factory.createVault in one tx.
+- <https://forum.gudman.xyz/#/console?t=manage>: operator bond + depositor withdraw flows.
+- <https://forum.gudman.xyz/#/console?t=agents>: AgentScore leaderboard with row-click inspector + one-click `RiskKernelV2.enforce(vault)` per linked vault.
+- <https://forum.gudman.xyz/#/console?t=markets>: SlashMarket YES/NO staking UI per market.
+- <https://forum.gudman.xyz/#/console?t=router>: CapitalRouter pool — deposit/withdraw + permissionless `rebalance()` against the strategist weight table.
+- <https://forum.gudman.xyz/#/console?t=fees>: FeeRouterV1 — list active splits, pay any split, claim per-recipient accruals.
 
 ## Adapter Template
 

@@ -20,7 +20,7 @@ Whatever your bot is, the adapter does the same five things every N ticks (e.g. 
 4. **Publish on-chain.** Sign an EIP-712 `RecordV2` referencing the previous record's hash + the new `evidenceUri` + `evidenceHash`. Call `TrackRecordV2.publish(botId, record, signature)`.
 5. **(Optional) bind a Covenant Account.** If you want depositor capital, create a `CovenantVault` via `CovenantVaultFactory.createVault(mandate)` with your `botId`. Capital becomes underwritable the moment one receipt is published.
 
-The Forum AgentScore endpoint (`/api/agents/:botId`) starts indexing your bot the moment your first receipt lands. The leaderboard at <https://forum.gudman.xyz/#agents> auto-includes it.
+The Forum AgentScore endpoint (`/api/agents/:botId`) starts indexing your bot the moment your first receipt lands. The leaderboard at <https://forum.gudman.xyz/#/console?t=agents> auto-includes it.
 
 ## Live primitives the adapter calls
 

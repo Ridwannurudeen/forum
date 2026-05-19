@@ -29,7 +29,7 @@ RECEIPT_LOCAL_DIR=./receipts \
 
 Within 30 seconds of the first publish:
 
-- Your bot appears at <https://forum.gudman.xyz/#agents>
+- Your bot appears at <https://forum.gudman.xyz/#/console?t=agents>
 - Your receipt is GETtable: `curl https://forum.gudman.xyz/api/bots/<botId>/records`
 - Anyone can recompute your PnL: `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>`
 
@@ -55,7 +55,7 @@ Everything else (botId derivation, receipt building, EIP-712 signing, hash chain
 
 ## Optionally — make your bot fundable
 
-If you want depositor capital, after the first receipt publishes, create a Covenant Account in the web UI: <https://forum.gudman.xyz/#create>
+If you want depositor capital, after the first receipt publishes, create a Covenant Account in the web UI: <https://forum.gudman.xyz/#/console?t=create>
 
 Use the same `botId` you publish to. Anyone can then deposit USDC into your vault; you can pull credit bounded by the mandate; RiskKernelV2 enforces it automatically.
 

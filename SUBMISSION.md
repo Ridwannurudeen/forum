@@ -75,9 +75,9 @@ Live services:
 
 Self-serve UI:
 
-- <https://forum.gudman.xyz/#create>: any visitor with a browser wallet (MetaMask / Backpack / Rabby) creates a Covenant Account in one tx via `CovenantVaultFactory.createVault(mandate)`. Auto-switches to Arc testnet. New vaults auto-appear in `/api/factory-vaults` within ~30s.
-- <https://forum.gudman.xyz/#manage>: operator bond (USDC approve → `SlashBond.bond`) + depositor withdraw (`CovenantVault.withdraw(shares)`) flows.
-- <https://forum.gudman.xyz/#agents>: live AgentScore leaderboard. Click any row → agent inspector with score tiles, linked vaults, and one-click `RiskKernelV2.enforce(vault)` button.
+- <https://forum.gudman.xyz/#/console?t=create>: any visitor with a browser wallet (MetaMask / Backpack / Rabby) creates a Covenant Account in one tx via `CovenantVaultFactory.createVault(mandate)`. Auto-switches to Arc testnet. New vaults auto-appear in `/api/factory-vaults` within ~30s.
+- <https://forum.gudman.xyz/#/console?t=manage>: operator bond (USDC approve → `SlashBond.bond`) + depositor withdraw (`CovenantVault.withdraw(shares)`) flows.
+- <https://forum.gudman.xyz/#/console?t=agents>: live AgentScore leaderboard. Click any row → agent inspector with score tiles, linked vaults, and one-click `RiskKernelV2.enforce(vault)` button.
 
 Adapter template:
 
