@@ -61,6 +61,8 @@ cd keeper
 npx tsx scripts/verify-receipt.mjs https://forum.gudman.xyz/receipts/201c8909dca1/000014.json
 ```
 
+The receipt schema (`keeper/src/receipt.ts`) is `forum.receipt.v1`: botId, seq, periodStart/End, markets, bookSnapshots, fills, inventory, pnl inputs, strategy/configHash, decisionTrace, and a `sourceData { booksHash, fillsHash }` integrity block. An optional `sourceChain { domain, messageHash, txHash }` field carries CCTP V2 bridging coordinates when this cycle's capital was bridged in from another chain — verifier rejects partial/malformed claims. See `adapters/template/adapter.ts` for the commented usage example.
+
 ## SDKs
 
 TypeScript:

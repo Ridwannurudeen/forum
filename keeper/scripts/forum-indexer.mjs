@@ -29,6 +29,7 @@ import {
   createPublicClient, defineChain, http, parseAbi, parseAbiItem,
 } from 'viem';
 import { computeAgentScoreV1 as scoreFnV1 } from '../src/agent-score.ts';
+import { recordTs as recordTsPure, longestStreak as longestStreakPure } from '../src/indexer-pure.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -279,9 +280,9 @@ const STREAK_GAP_SEC = 1800; // gaps over this break the streak (matches default
 // expects. V1 stores a single `ts` per record; V2 stores periodStart/periodEnd
 // and the cycle end is the meaningful timestamp for "last receipt at" / streak
 // gap.
-function recordTs(version, r) {
-  return version === 'v2' ? Number(r.periodEnd) : Number(r.ts);
-}
+// Pure helper extracted to keeper/src/indexer-pure.ts so it's vitest-coverable.
+// Local alias keeps existing call sites readable.
+const recordTs = recordTsPure;
 
 async function refreshBotStats() {
   // For every known bot, refresh recordCount + recent record window for v1 score
@@ -308,17 +309,9 @@ async function refreshBotStats() {
         ));
         const recentPnls = records.map((r) => Number(r.pnlMicros));
         const recentTs = records.map((r) => recordTs(version, r));
-        // Longest streak across this window: count consecutive records where ts gap < STREAK_GAP_SEC
-        let longestStreak = recentTs.length > 0 ? 1 : 0;
-        let cur = 1;
-        for (let i = 1; i < recentTs.length; i++) {
-          if (recentTs[i] - recentTs[i - 1] < STREAK_GAP_SEC) {
-            cur += 1;
-            if (cur > longestStreak) longestStreak = cur;
-          } else {
-            cur = 1;
-          }
-        }
+        // Longest sliding-window streak — pure helper covered by
+        // keeper/test/indexer-pure.test.ts.
+        const longestStreak = longestStreakPure(recentTs, STREAK_GAP_SEC);
         const last = records[records.length - 1];
         state.bots[botId].lastSeq = n;
         state.bots[botId].lastPnlMicros = Number(last.pnlMicros);
