@@ -85,16 +85,20 @@ moved real money.
 
 ## Remaining gaps (for honest record)
 
-- **Builder code attribution is NOT proven yet.** The bot uses
-  `POLY_1271` ordering but doesn't attach a `builderCode` to the order —
-  Polymarket's Builders Service onboarding is a manual approval the user
-  hasn't completed. With a registered builder code, the same flow would
-  also generate fee accrual; without it, fills work but fees route to
-  Polymarket's default pool.
-- **The indexer's `verifiedPnl` label still says `unverified-paper-mode`
-  for the new bot.** Reason: `forum-indexer.mjs:600` hardcodes
-  `verifiedFillCount: 0` in the scoreFnV1 input regardless of the
-  receipt's actual fill modes. Fix is to fetch the receipt JSON per bot
-  and count `fills[].mode === "live"`. Tracked as a follow-up.
+- **Builder code attribution — code path wired in D75, fee capture
+  still user-blocked.** `poly-live-test-local.mjs` now accepts a
+  `--builder-code` flag (or `POLY_BUILDER_CODE` env var). When provided
+  + well-formed (bytes32), the SDK attaches the code to
+  `UserMarketOrderV2.builderCode` on every order. Polymarket Builders
+  Service onboarding is still a manual approval that hasn't been
+  completed — until then, the attached code captures no fees (they
+  route to Polymarket's default pool). Once approved, re-run with
+  `--builder-code 0x…` for the same flow to ship verified builder-fee
+  attribution.
+- **The indexer's `verifiedPnl` label — closed in D75.**
+  `forum-indexer/0.11.0` fetches each bot's latest receipt at the
+  canonical URL and counts `fills[].mode === "live"`, cached per
+  `(botId, seq)`. The phase-3 bot now correctly reports
+  `verifiedPnl: "recomputed-from-fills"` + `verifiedFillCount: 1`.
 - **One trade is not a strategy.** Phase 3 closes "real execution proven"
   but not "real strategy backtested + live-traded". That's Phase 4 work.
