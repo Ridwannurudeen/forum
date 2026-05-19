@@ -1,6 +1,6 @@
 # Phase 2 — Real-fill wiring spec for `adapters/poly-v2-reference`
 
-Status: **Spec, not implemented.** Drafted 2026-05-19, post-D57.
+Status: **Implemented + proven live on Polymarket V2 mainnet, 2026-05-19, post-D73.** Original spec drafted 2026-05-19 post-D57. See `docs/phase-3-live-fill-proof.md` for the actual fill data + reproducibility notes.
 
 The current reference adapter (`adapters/poly-v2-reference/bot.ts`, 274
 lines) discovers Polymarket V2 markets, reads books, picks a directional
