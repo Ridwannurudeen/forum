@@ -25,7 +25,8 @@ So instead of wrapping a fictional bot, this adapter **is the reference bot**. I
 
 ```bash
 # From the repo root
-cd keeper && npm install && cd ..
+cd keeper   && npm install && cd ..   # tsx + viem + Forum bridge for the keeper
+cd adapters && npm install && cd ..   # viem inside adapters/ (top-level dynamic imports)
 
 # Put your raw 0x-hex testnet private key at ~/.forum-keys/deployer.key
 # Fund the wallet from faucet.circle.com
@@ -40,11 +41,30 @@ cd keeper && npm install && cd ..
   --receipts-base-url https://example.com/receipts
 ```
 
-Within 30 seconds of the first publish:
+Within seconds of the first publish:
 
-- Your bot auto-appears at <https://forum.gudman.xyz/#/console?t=agents>
-- AgentScore picks it up: `curl https://forum.gudman.xyz/api/agents`
-- Receipt verifier works: `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>`
+- The receipt JSON is GETtable at your `--receipts-base-url`
+- The verifier confirms hash + chain integrity: `node keeper/scripts/verify-receipt.mjs <receipt-url>` → `pnl: valid`
+- Your bot is live in `TrackRecordV2`: queryable directly via `bridge.lastSeq()` / `bridge.lastRecordHash()`
+
+Note: the public AgentScore leaderboard at `/api/agents` is currently V1-only — the indexer (`keeper/scripts/forum-indexer.mjs:185`) reads `BotRegistered` events from `TrackRecord` (V1) but not `TrackRecordV2`. V2-only bots, including the live AgoraMind keeper itself, don't surface there yet. Tracked as a separate follow-up; not blocking the receipt-graph claim.
+
+## Runnable proof (2026-05-19)
+
+Verified end-to-end on Arc testnet with `--label phase2-paper-demo-2026-05-19 --markets 3 --interval 15 --publish-every 2 --max-ticks 4`. Total: 60 seconds wall-clock, 3 on-chain transactions (1 register + 2 publish), exit 0.
+
+| Field | Value (truncated — full bytes32s in `proof.json`) |
+| --- | --- |
+| `botId` | `0xba2a1b86…88c7` |
+| Signer | `0x13585c6004fbA9D7D49219a6435B68348fD30770` |
+| Kind | `MAKER` |
+| Markets | will-sam-couvillon-…, us-x-iran-permanent-peace-deal-…, joseph-aoun-out-as-president-… |
+| `registerBot` tx | `0x91dc97d7…2eeef` |
+| Receipt 1 | seq=1, URI <https://forum.gudman.xyz/receipts/ba2a1b86c1ed/000001.json>, publish tx `0x5e73ca03…093c` |
+| Receipt 2 | seq=2, URI <https://forum.gudman.xyz/receipts/ba2a1b86c1ed/000002.json>, publish tx `0xac849a81…5ded9` |
+| Verifier | `node keeper/scripts/verify-receipt.mjs https://forum.gudman.xyz/receipts/ba2a1b86c1ed/000001.json` → `pnl: valid` (on-chain hash matches receipt JSON) |
+
+The receipt's `fills: []` and `pnl: 0` reflect paper-mode honestly; [`docs/phase-2-real-fill-spec.md`](../../docs/phase-2-real-fill-spec.md) covers what changes when real CLOB orders are wired in.
 
 ## Make it fundable
 

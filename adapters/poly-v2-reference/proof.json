@@ -1,0 +1,34 @@
+{
+  "_comment": "End-to-end runnable proof for the Polymarket V2 reference adapter. Generated 2026-05-19 via the Run it command in README.md with --label phase2-paper-demo-2026-05-19 --markets 3 --interval 15 --publish-every 2 --max-ticks 4. Full bytes32s live here so README.md can stay readable.",
+  "generatedAt": "2026-05-19",
+  "chain": "arc-testnet",
+  "chainId": 5042002,
+  "label": "phase2-paper-demo-2026-05-19",
+  "botId": "0xba2a1b86c1ed6eb7007124fe2f753837b59ee5aea3cc0b62676de0ba135a88c7",
+  "signer": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+  "kind": "MAKER",
+  "kindEnumValue": 0,
+  "markets": [
+    "will-sam-couvillon-be-the-republican-nominee-for-ga-09",
+    "us-x-iran-permanent-peace-deal-by-june-15-2026-734",
+    "joseph-aoun-out-as-president-of-lebanon-by-december-31"
+  ],
+  "registerBotTx": "0x91dc97d773ebbad3374a335340f43a4feb3cd2724680a6dcb4d1f8df2ee2eeef",
+  "receipts": [
+    {
+      "seq": 1,
+      "hash": "0x70c8e530f869db179b8b973a1db74b4b890aacc4a67a0e2933d572facf973187",
+      "uri": "https://forum.gudman.xyz/receipts/ba2a1b86c1ed/000001.json",
+      "publishTx": "0x5e73ca0367b1428348ece029ece0f49eff754836db592ddbbea3cb388b88093c"
+    },
+    {
+      "seq": 2,
+      "hash": "0x2c23bf4423a0729a45e16b5cfae37b29e609c7f25474650e1883ad21b5d37f98",
+      "uri": "https://forum.gudman.xyz/receipts/ba2a1b86c1ed/000002.json",
+      "publishTx": "0xac849a8134ba45e3f21d0d68bea024c7d5fbe762731e80a4f604c243df15ded9"
+    }
+  ],
+  "verifierCommand": "node keeper/scripts/verify-receipt.mjs https://forum.gudman.xyz/receipts/ba2a1b86c1ed/000001.json",
+  "verifierExpectedOutput": "pnl: valid",
+  "explorerUrlTemplate": "https://testnet.arcscan.app/tx/<txHash>"
+}

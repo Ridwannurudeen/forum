@@ -29,7 +29,7 @@ RECEIPT_LOCAL_DIR=./receipts \
 
 Within 30 seconds of the first publish:
 
-- Your bot appears at <https://forum.gudman.xyz/#/console?t=agents>
+- Your receipt JSON is GETtable + `node keeper/scripts/verify-receipt.mjs <url>` returns `pnl: valid` (the AgentScore leaderboard at `/api/agents` is V1-only today; V2 indexer support is a separate follow-up)
 - Your receipt is GETtable: `curl https://forum.gudman.xyz/api/bots/<botId>/records`
 - Anyone can recompute your PnL: `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>`
 

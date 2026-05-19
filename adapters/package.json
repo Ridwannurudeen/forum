@@ -1,0 +1,9 @@
+{
+  "name": "forum-adapters",
+  "private": true,
+  "type": "module",
+  "description": "Reference + template adapters for publishing Forum receipts. Marked ESM so tsx supports top-level dynamic imports; declares viem so adapters/ resolves it without reaching into keeper/node_modules.",
+  "dependencies": {
+    "viem": "^2.47.0"
+  }
+}
