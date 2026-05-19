@@ -40,7 +40,7 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH = process.env.FORUM_INDEXER_STATE || '/opt/forum/indexer-state.json';
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = 'forum-indexer/0.6.0'; // + TrackRecordV2 ingest (BotRegistered + recordAt)
+const VERSION = 'forum-indexer/0.7.0'; // + /api/fee-statement (Phase 6 reconciliation surface)
 
 const ARC = defineChain({
   id: 5042002, name: 'Arc Testnet',
@@ -116,6 +116,16 @@ const VAULT_ABI = parseAbi([
   'function depositTotalIdle() view returns (uint256)',
   'function operatorOutstanding() view returns (uint256)',
   'function mandate() view returns (address operator, bytes32 botId, uint128 budgetUsdc, uint16 maxDrawdownBps, uint32 receiptFreshnessSec, uint64 expiry, uint16 perfFeeBps, address bondContract, address riskKernel, address trackRecordV2)',
+]);
+// Read-only fee-statement surface — separate from VAULT_ABI to keep the hot
+// polling path lean (these reads only run on /api/fee-statement requests).
+const VAULT_FEE_ABI = parseAbi([
+  'function perSharePrice() view returns (uint256)',
+  'function highWaterMark() view returns (uint256)',
+  'function operatorClaimable() view returns (uint256)',
+]);
+const FACTORY_ALL_VAULTS_ABI = parseAbi([
+  'function allVaults() view returns (address[])',
 ]);
 const BOND_ABI = parseAbi([
   'function bondBalance() view returns (uint256)',
@@ -571,6 +581,100 @@ const server = createServer((req, res) => {
           totalRoutedMicros: totalRoutedAllSplits.toString(),
           splits,
           recipientClaimableMicros: claimable,
+        });
+      } catch (e) {
+        jsonReply(res, 500, { error: e.message });
+      }
+    })();
+    return;
+  }
+
+  if (path === '/fee-statement' || path === '/fee-statement/') {
+    // Phase 6: programmatic equivalent of the keeper/scripts/fee-reconcile.mjs
+    // statement, served live from the indexer so the frontend (and any cron
+    // consumer) can pull it without running a script. Walks every vault the
+    // factory knows about, reads the per-vault fee state on demand, then
+    // joins it to the (already-indexed) FeeRouterV1 split + per-recipient
+    // claimable totals. Result shape matches the script's JSON output one for
+    // one so existing tooling stays compatible.
+    (async () => {
+      try {
+        const allVaults = FACTORY
+          ? await pub.readContract({ address: FACTORY, abi: FACTORY_ALL_VAULTS_ABI, functionName: 'allVaults' })
+          : [];
+        const vaultReports = await Promise.all(allVaults.map(async (vault) => {
+          const [mandate, vstate, assets, psp, hwm, claimable] = await Promise.all([
+            pub.readContract({ address: vault, abi: VAULT_ABI, functionName: 'mandate' }),
+            pub.readContract({ address: vault, abi: VAULT_ABI, functionName: 'state' }),
+            pub.readContract({ address: vault, abi: VAULT_ABI, functionName: 'assets' }),
+            pub.readContract({ address: vault, abi: VAULT_FEE_ABI, functionName: 'perSharePrice' }),
+            pub.readContract({ address: vault, abi: VAULT_FEE_ABI, functionName: 'highWaterMark' }),
+            pub.readContract({ address: vault, abi: VAULT_FEE_ABI, functionName: 'operatorClaimable' }),
+          ]);
+          // viem decodes the mandate tuple as a positional array (not object)
+          // — mirrors refreshOneVault's m[0]/m[1]/m[6] indexing.
+          return {
+            vault,
+            operator: mandate[0],
+            botId: mandate[1],
+            state: STATE_NAMES[Number(vstate)] ?? `unknown(${vstate})`,
+            perfFeeBps: Number(mandate[6]),
+            assetsMicros: assets.toString(),
+            perSharePrice1e18: psp.toString(),
+            highWaterMark1e18: hwm.toString(),
+            operatorClaimableMicros: claimable.toString(),
+            perSharePriceAboveHwm: psp > hwm,
+          };
+        }));
+
+        let routerReport = null;
+        if (FEE_ROUTER) {
+          const splitCount = await pub.readContract({
+            address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'splitCount',
+          });
+          const n = Number(splitCount);
+          const splits = await Promise.all(Array.from({ length: n }, (_, i) => BigInt(i)).map(async (id) => {
+            const s = await pub.readContract({
+              address: FEE_ROUTER, abi: FEE_ROUTER_SPLIT_ABI, functionName: 'splitAt', args: [id],
+            });
+            return {
+              splitId: Number(id),
+              creator: s.creator,
+              recipients: [...s.recipients],
+              bps: s.bps.map((b) => Number(b)),
+              totalRoutedMicros: s.totalRouted.toString(),
+              createdAt: Number(s.createdAt),
+            };
+          }));
+          const recipients = [...new Set(splits.flatMap((s) => s.recipients))];
+          const claimableEntries = await Promise.all(recipients.map(async (r) => {
+            const t = await pub.readContract({
+              address: FEE_ROUTER, abi: FEE_ROUTER_READ_ABI, functionName: 'totalClaimableOf', args: [r],
+            });
+            return [r, t.toString()];
+          }));
+          routerReport = {
+            feeRouter: FEE_ROUTER,
+            splitCount: n,
+            splits,
+            recipientClaimableMicros: Object.fromEntries(claimableEntries),
+          };
+        }
+
+        const totalAccrued = vaultReports.reduce(
+          (acc, v) => acc + BigInt(v.operatorClaimableMicros), 0n,
+        );
+
+        jsonReply(res, 200, {
+          generatedAt: Math.floor(Date.now() / 1000),
+          chain: 'arc-testnet',
+          chainId: 5042002,
+          factory: FACTORY ?? null,
+          feeRouter: FEE_ROUTER ?? null,
+          vaultCount: allVaults.length,
+          totalOperatorClaimableMicros: totalAccrued.toString(),
+          vaults: vaultReports,
+          router: routerReport,
         });
       } catch (e) {
         jsonReply(res, 500, { error: e.message });

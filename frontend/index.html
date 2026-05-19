@@ -1402,6 +1402,15 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
 
+          <div class="rounded-2xl ring-soft bg-forum-panel p-6 mb-4">
+            <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Fee statement · per-vault accruals + router splits</div>
+              <a id="fees-statement-download" href="/api/fee-statement" target="_blank" rel="noopener" class="text-xs text-forum-accent hover:text-forum-ink transition">Download JSON ↗</a>
+            </div>
+            <p class="text-xs text-forum-dim2 mb-3">Same shape as <code class="mono">keeper/scripts/fee-reconcile.mjs</code> writes; designed for a daily/weekly cron reconcile.</p>
+            <div id="fees-statement-summary" class="text-sm text-forum-dim">loading…</div>
+          </div>
+
           <div class="rounded-2xl ring-soft bg-forum-panel p-6">
             <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Create a split</div>
             <p class="text-xs text-forum-dim2 mb-4">Add up to 3 (recipient, bps) rows below. bps must sum to exactly 10000.</p>
@@ -3415,6 +3424,38 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       document.getElementById("router-rebalance-btn").addEventListener("click", routerRebalance);
       loadRouter();
       setInterval(loadRouter, 30_000);
+
+      // ── Phase 6 · Fee statement (vault accruals + router splits) ────
+      async function loadFeeStatement() {
+        try {
+          const r = await fetch("/api/fee-statement");
+          if (!r.ok) {
+            document.getElementById("fees-statement-summary").textContent = "indexer not ready";
+            return;
+          }
+          const d = await r.json();
+          const totalAccrual = (Number(d.totalOperatorClaimableMicros) / 1e6).toFixed(6);
+          const aboveHwm = d.vaults.filter((v) => v.perSharePriceAboveHwm).length;
+          document.getElementById("fees-statement-summary").innerHTML = `
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">vaults</div><div class="mono text-forum-ink">${d.vaultCount}</div></div>
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">above hwm</div><div class="mono text-forum-ink">${aboveHwm} / ${d.vaultCount}</div></div>
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">accrued</div><div class="mono text-forum-ink">${totalAccrual} USDC</div></div>
+              <div><div class="text-[10px] uppercase tracking-wider text-forum-dim2">router splits</div><div class="mono text-forum-ink">${(d.router && d.router.splitCount) || 0}</div></div>
+            </div>
+            ${d.vaults.length === 0 ? `<div class="text-xs text-forum-dim2">no factory vaults yet.</div>` :
+              `<div class="space-y-2 mt-2">${d.vaults.map((v) => `
+                <div class="flex justify-between text-xs">
+                  <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="https://testnet.arcscan.app/address/${v.vault}">${shortAddr(v.vault)}</a>
+                  <span class="mono text-forum-dim">${v.state} · perfFee ${(v.perfFeeBps / 100).toFixed(2)}% · accrued ${(Number(v.operatorClaimableMicros) / 1e6).toFixed(6)} USDC</span>
+                </div>`).join("")}</div>`
+            }`;
+        } catch (e) {
+          document.getElementById("fees-statement-summary").textContent = "fetch failed";
+        }
+      }
+      loadFeeStatement();
+      setInterval(loadFeeStatement, 30_000);
 
       // ── Phase 6 · Fee Router ─────────────────────────────────────────
       async function loadFees() {
