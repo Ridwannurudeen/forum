@@ -97,6 +97,20 @@ export interface Receipt {
     /** keccak of the concatenated fill log JSON. */
     fillsHash: Hex;
   };
+  /** Optional cross-chain provenance — when the capital that funded this
+   *  cycle's fills originated on another chain via CCTP V2 (Phase 7), the
+   *  adapter can attach the bridging-tx coordinates here so the receipt
+   *  graph remains auditable end-to-end across chains. All three fields are
+   *  required when present so partial data can't claim a bridge happened.
+   *  Backward-compatible: existing v1 receipts simply omit the field. */
+  sourceChain?: {
+    /** CCTP V2 domain id of the source chain (e.g. 0 ETH, 6 Base, 7 Polygon, 26 Arc). */
+    domain: number;
+    /** keccak256 of the CCTP V2 Message bytes that crossed the bridge. */
+    messageHash: Hex;
+    /** Source-chain tx hash of the depositForBurnWithHook call. */
+    txHash: Hex;
+  };
   /** UTC timestamp the receipt was produced. */
   generatedAt: number;
 }
@@ -150,6 +164,11 @@ export interface BuildReceiptInput {
     totalUsdcMicros: number;
     formulaVersion: string;
   };
+  sourceChain?: {
+    domain: number;
+    messageHash: Hex;
+    txHash: Hex;
+  };
   strategy: {
     name: string;
     configHash: Hex;
@@ -175,6 +194,7 @@ export function buildReceipt(input: BuildReceiptInput): Receipt {
     strategy: input.strategy,
     decisionTrace: input.decisionTrace,
     sourceData: { booksHash, fillsHash },
+    ...(input.sourceChain ? { sourceChain: input.sourceChain } : {}),
     generatedAt: Math.floor(Date.now() / 1000),
   };
 }
@@ -249,6 +269,21 @@ export function verifyReceipt(r: Receipt): string | null {
   if (expectedBooks !== r.sourceData.booksHash) return "booksHash mismatch";
   const expectedFills = keccak256(toHex(canonicalize(r.fills)));
   if (expectedFills !== r.sourceData.fillsHash) return "fillsHash mismatch";
+
+  // Phase 7 cross-chain linkage: if sourceChain is present, every required
+  // sub-field must be present + well-formed. Don't validate the actual
+  // bridging-tx provenance here (that requires a cross-chain RPC reader);
+  // just refuse partial claims so a receipt can't allude to a CCTP bridge
+  // it can't prove.
+  if (r.sourceChain) {
+    const sc = r.sourceChain;
+    if (!Number.isInteger(sc.domain) || sc.domain < 0)
+      return "sourceChain.domain invalid";
+    if (!/^0x[0-9a-fA-F]{64}$/.test(sc.messageHash))
+      return "sourceChain.messageHash malformed";
+    if (!/^0x[0-9a-fA-F]{64}$/.test(sc.txHash))
+      return "sourceChain.txHash malformed";
+  }
 
   const states = new Map<string, PnlState>();
   for (const inv of r.inventory) {

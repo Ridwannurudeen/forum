@@ -196,4 +196,44 @@ describe("verifyReceipt", () => {
     const r = buildReceipt(input);
     expect(verifyReceipt(r)).toBeNull();
   });
+
+  it("omits sourceChain when input doesn't supply it (backward compat)", () => {
+    const r = buildReceipt(fixture());
+    expect(r.sourceChain).toBeUndefined();
+    expect(verifyReceipt(r)).toBeNull();
+  });
+
+  it("accepts a well-formed sourceChain", () => {
+    const input = fixture();
+    input.sourceChain = {
+      domain: 6, // Base
+      messageHash: ("0x" + "ab".repeat(32)) as `0x${string}`,
+      txHash: ("0x" + "cd".repeat(32)) as `0x${string}`,
+    };
+    const r = buildReceipt(input);
+    expect(r.sourceChain?.domain).toBe(6);
+    expect(verifyReceipt(r)).toBeNull();
+  });
+
+  it("rejects sourceChain with a malformed hash", () => {
+    const input = fixture();
+    input.sourceChain = {
+      domain: 6,
+      messageHash: "0xnot-a-hash" as `0x${string}`,
+      txHash: ("0x" + "cd".repeat(32)) as `0x${string}`,
+    };
+    const r = buildReceipt(input);
+    expect(verifyReceipt(r)).toMatch(/sourceChain\.messageHash/);
+  });
+
+  it("rejects sourceChain with a negative domain", () => {
+    const input = fixture();
+    input.sourceChain = {
+      domain: -1,
+      messageHash: ("0x" + "ab".repeat(32)) as `0x${string}`,
+      txHash: ("0x" + "cd".repeat(32)) as `0x${string}`,
+    };
+    const r = buildReceipt(input);
+    expect(verifyReceipt(r)).toMatch(/sourceChain\.domain/);
+  });
 });
