@@ -17,81 +17,7 @@
     />
     <meta property="og:type" content="website" />
     <meta name="theme-color" content="#070a0d" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    />
-    <script>
-      // Suppress the noisy "cdn.tailwindcss.com should not be used in production"
-      // warning. The CDN is acceptable for a single-page static site of this size;
-      // a build step would not materially improve perf at this scale.
-      (function () {
-        const _w = console.warn;
-        console.warn = function () {
-          const m = arguments[0];
-          if (typeof m === "string" && m.includes("cdn.tailwindcss.com")) return;
-          return _w.apply(console, arguments);
-        };
-      })();
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: [
-                "Inter",
-                "ui-sans-serif",
-                "system-ui",
-                "-apple-system",
-                "Segoe UI",
-                "sans-serif",
-              ],
-              display: [
-                "Inter",
-                "ui-sans-serif",
-                "system-ui",
-                "-apple-system",
-                "Segoe UI",
-                "sans-serif",
-              ],
-              mono: [
-                "JetBrains Mono",
-                "ui-monospace",
-                "SFMono-Regular",
-                "Menlo",
-                "monospace",
-              ],
-            },
-            colors: {
-              forum: {
-                bg: "#070a0d",
-                panel: "#0d1217",
-                panel2: "#111922",
-                panel3: "#17212b",
-                ink: "#f4f1ea",
-                dim: "#a8b3bd",
-                dim2: "#6f7b86",
-                accent: "#4cf0c2",
-                accent2: "#9bb8ff",
-                accent3: "#f6c76b",
-                line: "rgba(180,201,215,0.13)",
-                line2: "rgba(180,201,215,0.07)",
-                ok: "#4cf0c2",
-                warn: "#f6c76b",
-                err: "#ff6b7a",
-              },
-            },
-            maxWidth: {
-              "8xl": "88rem",
-            },
-          },
-        },
-      };
-    </script>
+    <link rel="stylesheet" href="./assets/forum.css" />
     <style>
       :root {
         color-scheme: dark;
@@ -115,8 +41,8 @@
         color: var(--ink);
         min-height: 100%;
         font-family:
-          "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-          sans-serif;
+          "Aptos", "Segoe UI Variable", ui-sans-serif, system-ui, -apple-system,
+          "Segoe UI", sans-serif;
         font-feature-settings: "cv11", "ss03", "ss01", "tnum", "calt";
         font-variant-ligatures: contextual;
         -webkit-font-smoothing: antialiased;
@@ -166,17 +92,6 @@
         position: relative;
         z-index: 1;
       }
-      .grad-text {
-        background: linear-gradient(
-          135deg,
-          #f4f1ea 0%,
-          #cdd6dc 34%,
-          #4cf0c2 100%
-        );
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
       .grad-bg-hero {
         background: var(--bg);
       }
@@ -202,7 +117,8 @@
       }
       .mono {
         font-family:
-          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+          "Cascadia Mono", "Berkeley Mono", ui-monospace, SFMono-Regular,
+          Menlo, monospace;
         font-feature-settings: "tnum", "ss01", "ss02";
       }
       .tnum {
@@ -313,8 +229,8 @@
         padding: 0.625rem 1rem;
         border-radius: 0.5rem;
         font-family:
-          "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-          sans-serif;
+          "Aptos Display", "Segoe UI Variable Display", "Aptos",
+          ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         font-size: 0.8125rem;
         font-weight: 600;
         letter-spacing: -0.01em;
@@ -323,6 +239,14 @@
           background-color 150ms ease,
           border-color 150ms ease,
           box-shadow 150ms ease;
+      }
+      .btn.hidden {
+        display: none;
+      }
+      @media (min-width: 640px) {
+        .btn.sm\:inline-flex {
+          display: inline-flex;
+        }
       }
       .btn-primary {
         background: linear-gradient(180deg, #72ffd8 0%, #4cf0c2 100%);
@@ -353,7 +277,8 @@
       .section-eyebrow {
         font-size: 11px;
         font-family:
-          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+          "Cascadia Mono", "Berkeley Mono", ui-monospace, SFMono-Regular,
+          Menlo, monospace;
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.16em;
@@ -362,8 +287,8 @@
       .section-title {
         font-size: clamp(1.75rem, 3.5vw, 2.5rem);
         font-family:
-          "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-          sans-serif;
+          "Aptos", "Segoe UI Variable", ui-sans-serif, system-ui, -apple-system,
+          "Segoe UI", sans-serif;
         font-weight: 600;
         letter-spacing: -0.032em;
         line-height: 1.08;
@@ -388,10 +313,10 @@
       .row-hover:hover {
         background: rgba(180, 201, 215, 0.045);
       }
-      .rounded-2xl {
+      .rounded-lg {
         border-radius: 12px !important;
       }
-      .rounded-xl {
+      .rounded-md {
         border-radius: 10px !important;
       }
       input,
@@ -431,12 +356,35 @@
       }
       .signature-number {
         font-family:
-          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+          "Cascadia Mono", "Berkeley Mono", ui-monospace, SFMono-Regular,
+          Menlo, monospace;
         font-size: clamp(3.5rem, 8vw, 5.6rem);
         font-weight: 500;
         line-height: 0.95;
         letter-spacing: -0.05em;
         font-variant-numeric: tabular-nums;
+      }
+      .metric-skeleton {
+        display: inline-block;
+        width: 7.5rem;
+        height: 0.55rem;
+        border-radius: 4px;
+        background: linear-gradient(
+          90deg,
+          rgba(180, 201, 215, 0.1),
+          rgba(180, 201, 215, 0.2),
+          rgba(180, 201, 215, 0.1)
+        );
+        background-size: 220% 100%;
+        animation: shimmer 1.6s linear infinite;
+      }
+      @keyframes shimmer {
+        from {
+          background-position: 120% 0;
+        }
+        to {
+          background-position: -120% 0;
+        }
       }
       .data-rail {
         display: grid;
@@ -515,8 +463,8 @@
           letter-spacing: 0.02em;
           font-weight: 500;
           font-family:
-            "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-            sans-serif;
+            "Aptos", "Segoe UI Variable", ui-sans-serif, system-ui,
+            -apple-system, "Segoe UI", sans-serif;
         }
         .mobile-bottom-nav a + a {
           border-left: 1px solid var(--line-soft);
@@ -791,7 +739,9 @@
               <div class="text-[10px] uppercase tracking-[0.16em] text-forum-dim2 mono">
                 Receipts committed
               </div>
-              <div id="hero-board-receipts" class="signature-number mt-2 text-forum-ink">—</div>
+              <div id="hero-board-receipts" class="signature-number mt-2 text-forum-ink">
+                <span class="metric-skeleton" aria-label="loading"></span>
+              </div>
             </div>
 
             <div class="mt-6">
@@ -837,7 +787,7 @@
 
         <!-- 2. PROOF STRIP — settlement stack -->
         <section id="proof-strip" data-route="/" class="pb-16">
-          <div class="rounded-xl ring-soft bg-forum-panel/60 py-5">
+          <div class="rounded-md ring-soft bg-forum-panel/60 py-5">
             <div class="flex items-center gap-6 px-6">
               <div class="hidden md:block shrink-0 text-[10px] uppercase tracking-[0.18em] text-forum-dim2 mono">
                 Built&nbsp;on
@@ -868,7 +818,7 @@
 
         <section id="metrics" data-route="/" class="pb-24">
           <div
-            class="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl ring-soft bg-forum-line2 overflow-hidden"
+            class="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-md ring-soft bg-forum-line2 overflow-hidden"
           >
             <div class="bg-forum-panel p-6 sm:p-7">
               <div class="flex items-center justify-between">
@@ -918,7 +868,7 @@
 
         <section id="thesis" data-route="/" class="pb-24">
           <div
-            class="grid md:grid-cols-2 gap-px rounded-xl ring-soft bg-forum-line2 overflow-hidden"
+            class="grid md:grid-cols-2 gap-px rounded-md ring-soft bg-forum-line2 overflow-hidden"
           >
             <div class="bg-forum-panel p-10">
               <div class="section-eyebrow" style="color: rgba(255,107,122,0.8)">
@@ -970,7 +920,7 @@
             <div class="section-eyebrow">Built for</div>
             <h2 class="mt-3 section-title">One credit network. Three sides.</h2>
           </div>
-          <div class="grid md:grid-cols-3 gap-px rounded-xl ring-soft bg-forum-line2 overflow-hidden">
+          <div class="grid md:grid-cols-3 gap-px rounded-md ring-soft bg-forum-line2 overflow-hidden">
             <div class="bg-forum-panel p-8 flex flex-col">
               <div class="flex items-center gap-2">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent" aria-hidden="true"></span>
@@ -1037,7 +987,7 @@
             </h2>
           </div>
           <div class="grid md:grid-cols-3 gap-6">
-            <div class="rounded-xl bg-forum-panel ring-soft p-8 relative">
+            <div class="rounded-md bg-forum-panel ring-soft p-8 relative">
               <div
                 class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-[10px] mono uppercase tracking-[0.16em] text-forum-accent"
               >
@@ -1055,7 +1005,7 @@
                 depositors → vault.deposit()
               </div>
             </div>
-            <div class="rounded-xl bg-forum-panel ring-soft p-8 relative">
+            <div class="rounded-md bg-forum-panel ring-soft p-8 relative">
               <div
                 class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-[10px] mono uppercase tracking-[0.16em] text-forum-accent"
               >
@@ -1076,7 +1026,7 @@
                 operator → pullCredit() → trade → return
               </div>
             </div>
-            <div class="rounded-xl bg-forum-panel ring-soft p-8 relative">
+            <div class="rounded-md bg-forum-panel ring-soft p-8 relative">
               <div
                 class="absolute -top-3 left-8 px-3 py-1 rounded-full bg-forum-panel ring-soft text-[10px] mono uppercase tracking-[0.16em] text-forum-accent"
               >
@@ -1116,7 +1066,7 @@
             </p>
           </div>
 
-          <div class="rounded-2xl ring-accent bg-forum-panel p-8 sm:p-10">
+          <div class="rounded-lg ring-accent bg-forum-panel p-8 sm:p-10">
             <div class="flex items-start justify-between flex-wrap gap-4">
               <div>
                 <div
@@ -1150,7 +1100,7 @@
               </div>
             </div>
             <div
-              class="mt-8 grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-xl overflow-hidden ring-soft"
+              class="mt-8 grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-md overflow-hidden ring-soft"
             >
               <div class="bg-forum-panel2 p-5">
                 <div
@@ -1199,7 +1149,7 @@
                   Try it yourself
                 </div>
                 <pre
-                  class="mono mt-3 rounded-xl border border-forum-line bg-black/40 p-5 text-xs leading-relaxed overflow-x-auto"
+                  class="mono mt-3 rounded-md border border-forum-line bg-forum-bg/80 p-5 text-xs leading-relaxed overflow-x-auto"
                 ><span class="text-forum-dim2"># 1. clone</span>
 git clone github.com/Ridwannurudeen/forum
 cd forum
@@ -1258,7 +1208,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               <strong class="text-forum-ok">pnl: valid</strong>.
             </p>
           </div>
-          <div class="grid sm:grid-cols-2 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden">
+          <div class="grid sm:grid-cols-2 gap-px rounded-lg ring-soft bg-forum-line2 overflow-hidden">
             <div class="bg-forum-panel p-6">
               <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Polymarket settlement</div>
               <div class="mt-3 text-sm leading-relaxed">
@@ -1320,7 +1270,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </span>
           </div>
           <div
-            class="grid sm:grid-cols-2 md:grid-cols-4 gap-px rounded-2xl ring-soft bg-forum-line2 overflow-hidden"
+            class="grid sm:grid-cols-2 md:grid-cols-4 gap-px rounded-lg ring-soft bg-forum-line2 overflow-hidden"
           >
             <div class="bg-forum-panel p-5">
               <div
@@ -1427,7 +1377,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
 
           <div class="grid lg:grid-cols-[2fr_1fr] gap-6">
-            <div class="rounded-2xl ring-soft bg-forum-panel p-8">
+            <div class="rounded-lg ring-soft bg-forum-panel p-8">
               <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
                 <div>
                   <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Wallet</div>
@@ -1505,7 +1455,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div id="create-status" class="mt-5 text-sm hidden"></div>
             </div>
 
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Recent factory vaults</div>
               <div id="recent-factory-vaults" class="space-y-2 text-xs text-forum-dim">loading…</div>
               <p class="mt-4 text-[10px] text-forum-dim2 leading-relaxed">
@@ -1524,7 +1474,7 @@ node keeper/scripts/demo-violation.mjs</pre>
 
           <div class="grid lg:grid-cols-2 gap-6">
             <!-- Operator bond panel -->
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="text-[11px] uppercase tracking-widest text-forum-accent mb-3">Operator · post bond</div>
               <p class="text-xs text-forum-dim mb-4 leading-relaxed">
                 Fund the SlashBond so RiskKernelV2 has something to slash on a mandate breach.
@@ -1552,7 +1502,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
 
             <!-- Depositor withdraw panel -->
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="text-[11px] uppercase tracking-widest text-forum-accent2 mb-3">Depositor · withdraw</div>
               <p class="text-xs text-forum-dim mb-4 leading-relaxed">
                 Burn vault shares for USDC. Works in any state — depositors are never trapped.
@@ -1598,7 +1548,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               live · /api/agents
             </span>
           </div>
-          <div class="rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+          <div class="rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="overflow-x-auto scroll-shadow">
               <table class="w-full text-sm">
                 <thead class="border-b border-forum-line text-left text-[11px] uppercase tracking-widest text-forum-dim2">
@@ -1623,7 +1573,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </p>
 
           <!-- Agent inspector + one-click enforce -->
-          <div id="agent-inspector" class="mt-6 rounded-2xl ring-soft bg-forum-panel p-6 hidden">
+          <div id="agent-inspector" class="mt-6 rounded-lg ring-soft bg-forum-panel p-6 hidden">
             <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
               <div>
                 <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Agent detail</div>
@@ -1632,7 +1582,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               <button id="ins-close-btn" class="text-xs text-forum-dim hover:text-forum-ink">close ✕</button>
             </div>
 
-            <div id="ins-score-grid" class="grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-xl overflow-hidden ring-soft mb-5">
+            <div id="ins-score-grid" class="grid sm:grid-cols-4 gap-px bg-forum-line2 rounded-md overflow-hidden ring-soft mb-5">
               <!-- score tiles injected by JS -->
             </div>
 
@@ -1679,7 +1629,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </span>
           </div>
           <div id="markets-list" class="grid lg:grid-cols-2 gap-4">
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-dim text-sm">loading...</div>
+            <div class="rounded-lg ring-soft bg-forum-panel p-6 text-forum-dim text-sm">loading...</div>
           </div>
           <div id="markets-status" class="mt-4 text-xs hidden"></div>
 
@@ -1696,7 +1646,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </span>
           </div>
           <div class="grid lg:grid-cols-3 gap-4">
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6 lg:col-span-2">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6 lg:col-span-2">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Router state</div>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                 <div class="rounded-lg bg-forum-panel2 p-3">
@@ -1721,7 +1671,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div class="text-[10px] text-forum-dim2 mt-2">strategist: <span id="router-strategist" class="mono">…</span></div>
             </div>
 
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Actions</div>
               <div class="space-y-3">
                 <div>
@@ -1746,7 +1696,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
 
-          <div class="rounded-2xl ring-soft bg-forum-panel p-6 mt-4">
+          <div class="rounded-lg ring-soft bg-forum-panel p-6 mt-4">
             <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Reallocation receipts · newest first</div>
               <span class="text-[10px] text-forum-dim2">from <code class="mono">/api/router/activity</code></span>
@@ -1769,11 +1719,11 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
 
           <div class="grid lg:grid-cols-3 gap-4 mb-4">
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6 lg:col-span-2">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6 lg:col-span-2">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Active splits</div>
               <div id="fees-splits-list" class="text-sm text-forum-dim">loading…</div>
             </div>
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Your claimable</div>
               <div id="fees-my-claimable" class="mono text-lg text-forum-ink">connect wallet</div>
               <button id="fees-claim-btn" class="btn btn-primary w-full mt-4 justify-center text-xs" disabled>claim all splits</button>
@@ -1783,7 +1733,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
 
-          <div class="rounded-2xl ring-soft bg-forum-panel p-6 mb-4">
+          <div class="rounded-lg ring-soft bg-forum-panel p-6 mb-4">
             <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
               <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Fee statement · per-vault accruals + router splits</div>
               <a id="fees-statement-download" href="/api/fee-statement" target="_blank" rel="noopener" class="text-xs text-forum-accent hover:text-forum-ink transition">Download JSON ↗</a>
@@ -1792,7 +1742,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             <div id="fees-statement-summary" class="text-sm text-forum-dim">loading…</div>
           </div>
 
-          <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+          <div class="rounded-lg ring-soft bg-forum-panel p-6">
             <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Create a split</div>
             <p class="text-xs text-forum-dim2 mb-4">Add up to 3 (recipient, bps) rows below. bps must sum to exactly 10000.</p>
             <div id="fees-split-rows" class="space-y-2 mb-3">
@@ -1830,7 +1780,7 @@ node keeper/scripts/demo-violation.mjs</pre>
 
 
         <section id="receipts" data-route="/proof" class="pb-24">
-          <div class="rounded-2xl ring-soft bg-forum-panel p-10">
+          <div class="rounded-lg ring-soft bg-forum-panel p-10">
             <div class="flex flex-wrap items-baseline justify-between gap-4">
               <div>
                 <div
@@ -1888,7 +1838,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                 </p>
               </div>
               <div
-                class="rounded-xl border border-forum-line bg-forum-panel2 p-6"
+                class="rounded-md border border-forum-line bg-forum-panel2 p-6"
               >
                 <div
                   class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3"
@@ -1922,7 +1872,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                 </div>
               </div>
               <div
-                class="rounded-xl border border-forum-line bg-forum-panel2 p-6"
+                class="rounded-md border border-forum-line bg-forum-panel2 p-6"
               >
                 <div
                   class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3"
@@ -1965,7 +1915,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               </div>
             </div>
           </div>
-                  <div class="mt-6 rounded-2xl ring-soft bg-forum-panel p-8">
+                  <div class="mt-6 rounded-lg ring-soft bg-forum-panel p-8">
             <div class="flex flex-wrap items-baseline justify-between gap-3 mb-4">
               <div>
                 <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Verify any receipt — in-browser</div>
@@ -2017,7 +1967,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             <button data-dev-tab="cli" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Verifier CLI</button>
           </div>
 
-          <div data-dev-panel="ts" class="dev-tab-panel rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+          <div data-dev-panel="ts" class="dev-tab-panel rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
               <span>sdk-ts/examples/open-covenant.ts</span>
               <span class="text-forum-dim2">v0.3 · npm i forum-arc-sdk</span>
@@ -2050,7 +2000,7 @@ node keeper/scripts/demo-violation.mjs</pre>
 <span class="text-forum-dim2">// → { state: "ACTIVE", verdict: "ALLOW", outstanding: 0n, idle: 1_000_000n }</span></pre>
           </div>
 
-          <div data-dev-panel="py" class="dev-tab-panel hidden rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+          <div data-dev-panel="py" class="dev-tab-panel hidden rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
               <span>sdk_py/examples/open_covenant.py</span>
               <span class="text-forum-dim2">v0.3 · pip install forum-arc</span>
@@ -2082,7 +2032,7 @@ verdict = forum.risk_kernel.evaluate(vault)
 <span class="text-forum-dim2"># → State.ACTIVE Verdict.ALLOW</span></pre>
           </div>
 
-          <div data-dev-panel="sol" class="dev-tab-panel hidden rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+          <div data-dev-panel="sol" class="dev-tab-panel hidden rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
               <span>src/RiskKernelV2.sol · enforce(vault)</span>
               <span class="text-forum-dim2">live · 0x0af356f2…feec4055</span>
@@ -2114,7 +2064,7 @@ verdict = forum.risk_kernel.evaluate(vault)
 }</pre>
           </div>
 
-          <div data-dev-panel="cli" class="dev-tab-panel hidden rounded-2xl ring-soft bg-forum-panel overflow-hidden">
+          <div data-dev-panel="cli" class="dev-tab-panel hidden rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
               <span>keeper/scripts/verify-receipt.mjs</span>
               <span class="text-forum-dim2">node ≥ 20 · zero deps beyond viem</span>
@@ -2152,7 +2102,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           </div>
 
           <div class="grid lg:grid-cols-3 gap-6 mb-8">
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="flex items-center gap-2 mb-3">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-ok"></span>
                 <span class="section-eyebrow text-forum-ok">Shipped</span>
@@ -2165,7 +2115,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 <li class="flex gap-2"><span class="text-forum-ok">✓</span> CovenantVaultFactory · permissionless self-serve vault creation</li>
               </ul>
             </div>
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="flex items-center gap-2 mb-3">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-warn"></span>
                 <span class="section-eyebrow" style="color:#f5a623">Caveats we won't hide</span>
@@ -2178,7 +2128,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 <li class="flex gap-2"><span class="text-forum-warn">!</span> Bug bounty intake via GitHub Issues. Formal program will open after audit.</li>
               </ul>
             </div>
-            <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+            <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="flex items-center gap-2 mb-3">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent2"></span>
                 <span class="section-eyebrow text-forum-accent2">Test coverage</span>
@@ -2209,7 +2159,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           </div>
 
           <!-- Self-test honesty block -->
-          <div class="rounded-2xl border border-forum-warn/20 bg-forum-warn/[0.03] p-8 sm:p-10">
+          <div class="rounded-lg border border-forum-warn/20 bg-forum-warn/[0.03] p-8 sm:p-10">
             <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
               <div>
                 <div class="section-eyebrow text-forum-accent2">We tested it on ourselves</div>
@@ -2249,7 +2199,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                   <code class="mono text-forum-dim">tsx scripts/run-backtest.mjs</code>.
                 </p>
               </div>
-              <div class="rounded-xl bg-forum-panel2 ring-soft p-6 mono text-sm leading-relaxed">
+              <div class="rounded-md bg-forum-panel2 ring-soft p-6 mono text-sm leading-relaxed">
                 <div class="flex justify-between"><span class="text-forum-dim2">total fills</span> <span class="text-forum-ink">57</span></div>
                 <div class="flex justify-between mt-2"><span class="text-forum-dim2">mean Sharpe</span> <span class="text-forum-err">−5.05</span></div>
                 <div class="flex justify-between mt-2"><span class="text-forum-dim2">total PnL</span> <span class="text-forum-err">−$77.93</span></div>
@@ -2262,13 +2212,13 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
         <!-- PRE-FOOTER CTA -->
         <section id="cta-prefooter" data-route="/" class="pb-24">
-          <div class="rounded-xl ring-soft grad-bg-cta p-10 sm:p-16 text-center">
+          <div class="rounded-md ring-soft grad-bg-cta p-10 sm:p-16 text-center">
             <div class="section-eyebrow inline-flex items-center gap-2">
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent" aria-hidden="true"></span>
               Live on Arc · permissionless
             </div>
             <h2 class="mt-5 text-3xl sm:text-[3.25rem] font-semibold tracking-[-0.035em] leading-[1.04] max-w-3xl mx-auto">
-              <span class="grad-text">Open your first Covenant Account.</span>
+              <span>Open your first Covenant Account.</span>
               <span class="block text-forum-dim2 text-2xl sm:text-3xl font-normal tracking-[-0.02em] mt-3">One transaction. No admin signer. No fallback path.</span>
             </h2>
             <p class="mt-7 text-forum-dim max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
@@ -2739,7 +2689,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               .map(
                 ([name, addr, blurb]) => `
               <a href="${safeExplorerAddr(addr)}" target="_blank" rel="noopener"
-                 class="block rounded-xl ring-soft bg-forum-panel p-4 hover:ring-accent group">
+                 class="block rounded-md ring-soft bg-forum-panel p-4 hover:ring-accent group">
                 <div class="flex justify-between items-baseline">
                   <span class="text-sm text-forum-ink font-medium">${escapeHtml(name)}</span>
                   <span class="text-[10px] text-forum-dim2 group-hover:text-forum-accent">view ↗</span>
@@ -3691,7 +3641,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           const n = Number(count);
           if (n === 0) {
-            list.innerHTML = `<div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-dim2 text-sm">no markets yet — anyone can call <code class="mono">SlashMarket.createMarket(bond, expiryAt)</code> to open one.</div>`;
+            list.innerHTML = `<div class="rounded-lg ring-soft bg-forum-panel p-6 text-forum-dim2 text-sm">no markets yet — anyone can call <code class="mono">SlashMarket.createMarket(bond, expiryAt)</code> to open one.</div>`;
             return;
           }
           const ids = Array.from({ length: n }, (_, i) => BigInt(i));
@@ -3740,7 +3690,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-forum-warn/15 text-forum-warn">expired · awaiting settle</span>`
               : `<span class="px-2 py-0.5 rounded-full text-[10px] bg-forum-ok/15 text-forum-ok">OPEN · ${fmtSec(secsLeft)} left</span>`;
             return `
-              <div class="rounded-2xl ring-soft bg-forum-panel p-6">
+              <div class="rounded-lg ring-soft bg-forum-panel p-6">
                 <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
                   <div>
                     <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Market #${id} · bond</div>
@@ -3813,7 +3763,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             btn.addEventListener("click", () => marketClaim(Number(btn.dataset.marketId)));
           });
         } catch (e) {
-          list.innerHTML = `<div class="rounded-2xl ring-soft bg-forum-panel p-6 text-forum-err text-sm">load error: ${escapedError(e)}</div>`;
+          list.innerHTML = `<div class="rounded-lg ring-soft bg-forum-panel p-6 text-forum-err text-sm">load error: ${escapedError(e)}</div>`;
         }
       }
       function setMarketStatus(html, kind = "info") {
@@ -4110,7 +4060,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             document.getElementById("fees-splits-list").innerHTML = `<div class="text-forum-dim2">no splits yet — create one below.</div>`;
           } else {
             document.getElementById("fees-splits-list").innerHTML = data.splits.map((s) => `
-              <div class="rounded-xl bg-forum-panel2 p-4 mb-3">
+              <div class="rounded-md bg-forum-panel2 p-4 mb-3">
                 <div class="flex justify-between items-baseline mb-2">
                   <div class="text-xs uppercase tracking-wider text-forum-dim2">split #${escapeHtml(s.splitId)} · creator <a class="mono text-forum-accent hover:underline" target="_blank" rel="noopener" href="${safeExplorerAddr(s.creator)}">${safeShortAddr(s.creator)}</a></div>
                   <div class="text-xs mono text-forum-dim">routed ${(Number(s.totalRoutedMicros) / 1e6).toFixed(6)} USDC</div>
