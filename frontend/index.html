@@ -1736,6 +1736,18 @@ node keeper/scripts/demo-violation.mjs</pre>
             <p class="mt-2 text-sm text-forum-dim leading-relaxed">Operators post bond. Depositors withdraw shares. Same wallet.</p>
           </div>
 
+          <div class="rounded-lg ring-soft bg-forum-panel p-4 mb-6">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Latest factory vault</div>
+                <div id="manage-latest-vault" class="mt-1 text-xs text-forum-dim">loading...</div>
+              </div>
+              <a id="manage-latest-vault-link" href="#/console?t=create" class="text-xs text-forum-accent hover:text-forum-ink transition">
+                view created vaults
+              </a>
+            </div>
+          </div>
+
           <div class="grid lg:grid-cols-2 gap-6">
             <!-- Operator bond panel -->
             <div class="rounded-lg ring-soft bg-forum-panel p-6">
@@ -3430,6 +3442,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           // Default operator field to the connected wallet if empty
           const opField = document.getElementById("f-operator");
           if (!opField.value) opField.value = connectedAddr;
+          loadRecentFactoryVaults();
         } catch (e) {
           setStatus("Wallet connect failed: " + escapedError(e), "err");
         }
@@ -3503,6 +3516,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
              The indexer will pick it up within ~30s — refresh the "Recent factory vaults" panel to see it.`,
             "ok",
           );
+          for (const id of ["br-vault", "withdraw-vault"]) {
+            const field = document.getElementById(id);
+            if (field && /^0x[0-9a-fA-F]{40}$/.test(vault)) field.value = vault;
+          }
           loadRecentFactoryVaults(); // optimistic refresh
         } catch (e) {
           setStatus("Failed: " + escapedError(e), "err");
@@ -3517,9 +3534,34 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         try {
           const res = await fetch("/api/factory-vaults?limit=5");
           const list = await res.json();
+          const manageEl = document.getElementById("manage-latest-vault");
+          const manageLink = document.getElementById("manage-latest-vault-link");
           if (!Array.isArray(list) || list.length === 0) {
             el.innerHTML = `<div class="text-forum-dim2 text-xs">No factory vaults yet. Be first.</div>`;
+            if (manageEl) manageEl.innerHTML = `<span class="text-forum-dim2">No factory vaults yet.</span>`;
             return;
+          }
+          const own = connectedAddr
+            ? list.find((v) =>
+                String(v.creator || "").toLowerCase() === connectedAddr.toLowerCase() ||
+                String(v.operator || "").toLowerCase() === connectedAddr.toLowerCase())
+            : null;
+          const selected = own || list[0];
+          if (manageEl) {
+            manageEl.innerHTML = `
+              <a href="${safeExplorerAddr(selected.vault)}" target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent">
+                ${safeShortAddr(selected.vault)}
+              </a>
+              <span class="text-forum-dim2">
+                Â· ${(Number(selected.budgetMicros) / 1e6).toFixed(0)} USDC budget${own ? " Â· yours" : ""}
+              </span>`;
+          }
+          if (manageLink) manageLink.href = safeExplorerAddr(selected.vault);
+          if (own) {
+            for (const id of ["br-vault", "withdraw-vault"]) {
+              const field = document.getElementById(id);
+              if (field && (!field.value || field.value === COVENANT_V12)) field.value = own.vault;
+            }
           }
           el.innerHTML = list
             .slice(0, 5)
@@ -4820,14 +4862,20 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         throw new Error("timed out waiting for tx " + txHash);
       }
       async function brSwitchChain(chainIdHex, addParams) {
+        const isUnknownChain = (e) => {
+          const msg = String(e?.message || e || "").toLowerCase();
+          return e?.code === 4902 || msg.includes("unrecognized chain") || msg.includes("unknown chain");
+        };
         try {
           await window.ethereum.request({
             method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }],
           });
         } catch (e) {
-          if (e?.code === 4902 && addParams) {
-            await window.ethereum.request({ method: "wallet_addEthereumChain", params: [addParams] });
-          } else { throw e; }
+          if (!isUnknownChain(e) || !addParams) throw e;
+          await window.ethereum.request({ method: "wallet_addEthereumChain", params: [addParams] });
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }],
+          });
         }
       }
       async function brPollAttestation(sourceDomain, burnTx) {
@@ -4858,6 +4906,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         }
         window.ethereum.request({ method: "eth_requestAccounts" }).then((accts) => {
           brAccount = accts[0];
+          connectedAddr = brAccount;
           document.getElementById("br-wallet-status").textContent = brAccount;
           document.getElementById("br-wallet-status").classList.replace("text-forum-dim", "text-forum-ink");
           document.getElementById("br-connect-btn").textContent = "Connected";
@@ -4866,6 +4915,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const btn = document.getElementById("br-action-btn");
           btn.disabled = false;
           btn.textContent = "Bridge USDC to Arc";
+          loadRecentFactoryVaults();
         }).catch((e) => brSetStatus("Connect failed: " + escapedError(e), "err"));
       }
 
