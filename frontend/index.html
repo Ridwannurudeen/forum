@@ -1723,7 +1723,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                   <span class="br-step-dot mt-0.5">2</span>
                   <div>
                     <div class="text-sm text-forum-ink">Circle attestation</div>
-                    <div class="text-xs text-forum-dim2 mt-0.5">Iris signs the burn (standard finality, usually under a minute on testnet)</div>
+                    <div class="text-xs text-forum-dim2 mt-0.5">Iris signs the burn at fast finality (seconds on testnet when Circle fee is available)</div>
                   </div>
                 </li>
                 <li class="flex gap-3" id="br-step-redeem">
@@ -5163,7 +5163,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             return { message: m.message, attestation: m.attestation };
           }
           brSetStatus(
-            `Waiting for Circle attestation… <span class="text-forum-dim2">(${i * 5}s; standard finality on testnet is usually under a minute)</span>`,
+            `Waiting for Circle fast attestation… <span class="text-forum-dim2">(${i * 5}s; if this is an older 0-fee burn, it waits for finalized standard attestation)</span>`,
             "info",
           );
           await new Promise((res) => setTimeout(res, 5000));
