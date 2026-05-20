@@ -199,6 +199,18 @@ async function main() {
   let cycleBookSnapshots = [];
   let cycleFills = [];
   let cycleDecisions = [];
+  let cycleAgentHalt = false;
+  let cycleHaltReason = "";
+
+  // Per-market rolling context for the LLM: recent midprice window + EWMA
+  // variance. Without these the model sees one static midprice each tick and
+  // decides the same thing every time.
+  const ctxState = new Map(); // yesToken -> { mids:[], ewmaVar, lastMid }
+  const MID_WINDOW = 20;
+  const EWMA_LAMBDA = 0.94;
+  // Live CovenantVaultV1.2 mandate the agent reasons against (budget / max DD).
+  const MANDATE = { budgetUsdc: 200, maxDrawdownBps: 500 };
+  let cachedVaultState = 0; // last on-chain vault state; refreshed each publish
 
   // Phase 3 risk-control state — kept local to the loop so it dies with the
   // process (no persisted halt state to manually clear; restart = reset).
@@ -318,6 +330,19 @@ async function main() {
           continue;
         }
         const midprice = (bid.price + ask.price) / 2;
+
+        // Update the rolling midprice window + EWMA variance for this market.
+        let st = ctxState.get(m.yesToken);
+        if (!st) {
+          st = { mids: [], ewmaVar: 0, lastMid: midprice };
+          ctxState.set(m.yesToken, st);
+        }
+        const ret = midprice - st.lastMid;
+        st.ewmaVar = EWMA_LAMBDA * st.ewmaVar + (1 - EWMA_LAMBDA) * ret * ret;
+        st.lastMid = midprice;
+        st.mids.push(midprice);
+        if (st.mids.length > MID_WINDOW) st.mids.shift();
+
         const ctx = {
           marketSlug: m.slug,
           marketQuestion: m.question,
@@ -328,15 +353,26 @@ async function main() {
             bidDepth: bid.size,
             askDepth: ask.size,
           },
-          recentMidprices: [midprice],
+          recentMidprices: st.mids.slice(),
           inventory: 0,
-          variance: 0,
+          variance: st.ewmaVar,
+          covenant: {
+            budgetUsdc: MANDATE.budgetUsdc,
+            maxDrawdownBps: MANDATE.maxDrawdownBps,
+            vaultState: cachedVaultState,
+          },
           ts,
         };
         const decision = await llm.decide(ctx);
         const trHash = reasoningHash(decision);
+        if (decision.requestPause || decision.riskPosture === "halt") {
+          cycleAgentHalt = true;
+          cycleHaltReason = `${m.slug}: ${(decision.reasoning || "")
+            .replace(/\s+/g, " ")
+            .slice(0, 200)}`;
+        }
         console.log(
-          `tick=${tick} ${m.slug} mid=${midprice.toFixed(3)} -> ${decision.action} size=${decision.sizeUsdc} skew=${decision.spreadSkewBps}bps trace=${trHash.slice(0, 10)}`,
+          `tick=${tick} ${m.slug} mid=${midprice.toFixed(3)} -> ${decision.action} size=${decision.sizeUsdc} conv=${decision.convictionPct}% risk=${decision.riskPosture} skew=${decision.spreadSkewBps}bps trace=${trHash.slice(0, 10)}`,
         );
 
         cycleBookSnapshots.push({
@@ -359,6 +395,10 @@ async function main() {
           action: decision.action,
           model: decision.model,
           marketSlug: m.slug,
+          convictionPct: decision.convictionPct,
+          riskPosture: decision.riskPosture,
+          sizeUsdc: decision.sizeUsdc,
+          reasoning: decision.reasoning,
         });
       } catch (e) {
         console.error(`tick=${tick} ${m.slug} ERROR`, e.message);
@@ -366,9 +406,17 @@ async function main() {
     }
 
     if (tick % args.publishEvery === 0) {
+      // Self-governance: if the agent itself decided to halt this cycle, log it
+      // as an agent-initiated action before nudging the permissionless kernel.
+      if (cycleAgentHalt) {
+        console.log(
+          `AGENT-SELF-GOVERNANCE seq=${seq} agent requested pause -> ${cycleHaltReason}`,
+        );
+      }
       // Covenant gate: skip publish if vault is PAUSED. Always nudge kernel.
       await nudgeRiskKernel();
       const vaultState = await readVaultState();
+      cachedVaultState = vaultState;
       if (vaultState !== 0) {
         console.log(
           `COVENANT-PAUSED state=${vaultState} skipping publish for seq=${seq}`,
@@ -376,6 +424,8 @@ async function main() {
         cycleBookSnapshots = [];
         cycleFills = [];
         cycleDecisions = [];
+        cycleAgentHalt = false;
+        cycleHaltReason = "";
         await new Promise((r) => setTimeout(r, args.intervalSec * 1000));
         continue;
       }
@@ -388,6 +438,8 @@ async function main() {
         cycleBookSnapshots = [];
         cycleFills = [];
         cycleDecisions = [];
+        cycleAgentHalt = false;
+        cycleHaltReason = "";
         await new Promise((r) => setTimeout(r, args.intervalSec * 1000));
         continue;
       }
@@ -465,6 +517,8 @@ async function main() {
         cycleBookSnapshots = [];
         cycleFills = [];
         cycleDecisions = [];
+        cycleAgentHalt = false;
+        cycleHaltReason = "";
       } catch (e) {
         console.error("PUBLISH-V2 failed:", e.message);
       }
