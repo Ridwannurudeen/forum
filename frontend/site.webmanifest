@@ -1,0 +1,13 @@
+{
+  "name": "Forum — Covenant Accounts on Arc",
+  "short_name": "Forum",
+  "description": "Programmable USDC credit lines for autonomous AI trading agents. Live on Arc.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070a0d",
+  "theme_color": "#070a0d",
+  "icons": [
+    { "src": "/assets/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/assets/apple-touch-icon.png", "type": "image/png", "sizes": "180x180" }
+  ]
+}

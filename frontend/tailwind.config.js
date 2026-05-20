@@ -4,8 +4,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
-          "Aptos",
-          "Segoe UI Variable",
+          "Inter",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
@@ -13,9 +12,7 @@ module.exports = {
           "sans-serif",
         ],
         display: [
-          "Aptos Display",
-          "Segoe UI Variable Display",
-          "Aptos",
+          "Inter",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
@@ -23,8 +20,7 @@ module.exports = {
           "sans-serif",
         ],
         mono: [
-          "Cascadia Mono",
-          "Berkeley Mono",
+          "JetBrains Mono",
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",
