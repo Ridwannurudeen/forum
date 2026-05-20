@@ -100,6 +100,14 @@ Receipt proof:
 - Local verifier: `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>`
 - The frontend now performs the same browser-side hash check against `TrackRecordV2`.
 
+Real Polymarket V2 fill (anchored on Arc):
+
+- Live proof API (full hashes + clickable links): https://forum.gudman.xyz/api/proof — also surfaced in the **Polymarket** console tab.
+- Real-fill botId: `0x75d6577d…0ef0`
+- Receipt: https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json — `verifiedPnl: recomputed-from-fills`, `verifiedFillCount: 1`.
+- Polygon settlement tx `0x5207a52…b80c0`; Arc publish tx `0x8fbbdb97…d931`.
+- Builder attribution confirmed on-chain; builder fee rate currently 0 bps. Write-up: `docs/phase-3-live-fill-proof.md`.
+
 ## Traction During The Event
 
 - 8 indexed bot identities on Arc across `TrackRecord` v1 + v2 (live count at `/api/agents`).
@@ -138,9 +146,9 @@ Local Windows does not currently have `forge`; Foundry verification is via GitHu
 
 ## Risks And Scope
 
-- Arc testnet only.
-- Reference trading is paper-mode.
-- No real Polymarket order execution or real builder-fee capture is claimed.
+- Arc testnet only (Forum's own contracts). The Polymarket fills are real Polygon mainnet trades.
+- The reference keeper trades in paper mode (real market data, simulated fills).
+- Real Polymarket V2 mainnet execution **is** proven: two live fills, builder attribution confirmed on-chain, receipts anchored on Arc with PnL recomputed by the verifier (see `/api/proof` and the **Polymarket** console tab). Builder fee capture is wired but currently **0 bps** (rate not yet configured), and continuous user-facing execution is **operator-gated** (Polymarket geoblocking + operator keys), not self-serve.
 - External adapters are not shipped yet.
 - Contracts are immutable and unaudited.
 - The current vault bounds operator credit by amount and state, but does not enforce allowed venues on-chain.
