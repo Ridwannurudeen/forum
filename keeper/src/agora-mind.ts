@@ -65,7 +65,7 @@ export interface Decision {
   requestPause: boolean;
   /** Free-text reasoning trace. Hashed and committed to the receipt. */
   reasoning: string;
-  /** Model identifier (e.g., 'claude-opus-4-7', 'mock-v1'). */
+  /** Model identifier (e.g., 'claude-sonnet-4-6', 'mock-v1'). */
   model: string;
   /** Decision timestamp (unix seconds). */
   ts: number;
@@ -162,7 +162,8 @@ export class AnthropicProvider implements LlmProvider {
     fallback?: LlmProvider;
   }) {
     this.apiKey = opts?.apiKey ?? process.env.ANTHROPIC_API_KEY ?? "";
-    this.model = opts?.model ?? "claude-opus-4-7";
+    this.model =
+      opts?.model ?? process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
     this.fallback = opts?.fallback ?? new MockLlmProvider();
   }
 

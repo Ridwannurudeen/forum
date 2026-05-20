@@ -148,7 +148,7 @@ describe("AnthropicProvider parsing", () => {
     );
     const p = new AnthropicProvider({ apiKey: "test-key" });
     const d = await p.decide(ctx(0.3));
-    expect(d.model).toBe("claude-opus-4-7");
+    expect(d.model).toBe("claude-sonnet-4-6");
     expect(d.action).toBe("BUY");
     expect(d.sizeUsdc).toBe(7);
     expect(d.spreadSkewBps).toBe(-12);
