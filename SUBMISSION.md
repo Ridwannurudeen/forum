@@ -106,7 +106,7 @@ Real Polymarket V2 fill (anchored on Arc):
 - Real-fill botId: `0x75d6577d…0ef0`
 - Receipt: https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json — `verifiedPnl: recomputed-from-fills`, `verifiedFillCount: 1`.
 - Polygon settlement tx `0x5207a52…b80c0`; Arc publish tx `0x8fbbdb97…d931`.
-- Polygon settlement is on-chain; builder attribution is confirmed by Polymarket's attribution API. Builder fee rate is currently 0 bps. Write-up: `docs/phase-3-live-fill-proof.md`.
+- Polygon settlement is on-chain; builder attribution is confirmed by Polymarket's attribution API. Builder fee rate is currently 0 bps on Forum's taker flow (a maker rate of 0.1% is configured, effective 2026-05-24; a capturing taker rate is gated by Polymarket's fee-update cooldown until 2026-05-27 — post-deadline). Write-up: `docs/phase-3-live-fill-proof.md`.
 
 ## Traction During The Event
 
@@ -148,7 +148,7 @@ Local Windows does not currently have `forge`; Foundry verification is via GitHu
 
 - Arc testnet only (Forum's own contracts). The Polymarket fills are real Polygon mainnet trades.
 - The reference keeper trades in paper mode (real market data, simulated fills).
-- Real Polymarket V2 mainnet execution **is** proven: two live fills, on-chain Polygon settlements, builder attribution confirmed by Polymarket's attribution API, and receipts anchored on Arc with PnL recomputed by the verifier (see `/api/proof` and the **Polymarket** console tab). Builder fee capture is wired but currently **0 bps** (rate not yet configured), and continuous user-facing execution is **operator-gated** (Polymarket geoblocking + operator keys), not self-serve.
+- Real Polymarket V2 mainnet execution **is** proven: two live fills, on-chain Polygon settlements, builder attribution confirmed by Polymarket's attribution API, and receipts anchored on Arc with PnL recomputed by the verifier (see `/api/proof` and the **Polymarket** console tab). Builder fee capture is wired but currently **0 bps** on Forum's taker flow (maker rate 0.1% configured, effective 2026-05-24; a capturing taker rate is blocked by Polymarket's fee-update cooldown until 2026-05-27), and continuous user-facing execution is **operator-gated** (Polymarket geoblocking + operator keys), not self-serve.
 - External adapters are not shipped yet.
 - Contracts are immutable and unaudited.
 - The current vault bounds operator credit by amount and state, but does not enforce allowed venues on-chain.
