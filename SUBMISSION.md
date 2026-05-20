@@ -106,7 +106,7 @@ Real Polymarket V2 fill (anchored on Arc):
 - Real-fill botId: `0x75d6577d…0ef0`
 - Receipt: https://forum.gudman.xyz/receipts/75d6577d49ef/000001.json — `verifiedPnl: recomputed-from-fills`, `verifiedFillCount: 1`.
 - Polygon settlement tx `0x5207a52…b80c0`; Arc publish tx `0x8fbbdb97…d931`.
-- Builder attribution confirmed on-chain; builder fee rate currently 0 bps. Write-up: `docs/phase-3-live-fill-proof.md`.
+- Polygon settlement is on-chain; builder attribution is confirmed by Polymarket's attribution API. Builder fee rate is currently 0 bps. Write-up: `docs/phase-3-live-fill-proof.md`.
 
 ## Traction During The Event
 
@@ -148,7 +148,7 @@ Local Windows does not currently have `forge`; Foundry verification is via GitHu
 
 - Arc testnet only (Forum's own contracts). The Polymarket fills are real Polygon mainnet trades.
 - The reference keeper trades in paper mode (real market data, simulated fills).
-- Real Polymarket V2 mainnet execution **is** proven: two live fills, builder attribution confirmed on-chain, receipts anchored on Arc with PnL recomputed by the verifier (see `/api/proof` and the **Polymarket** console tab). Builder fee capture is wired but currently **0 bps** (rate not yet configured), and continuous user-facing execution is **operator-gated** (Polymarket geoblocking + operator keys), not self-serve.
+- Real Polymarket V2 mainnet execution **is** proven: two live fills, on-chain Polygon settlements, builder attribution confirmed by Polymarket's attribution API, and receipts anchored on Arc with PnL recomputed by the verifier (see `/api/proof` and the **Polymarket** console tab). Builder fee capture is wired but currently **0 bps** (rate not yet configured), and continuous user-facing execution is **operator-gated** (Polymarket geoblocking + operator keys), not self-serve.
 - External adapters are not shipped yet.
 - Contracts are immutable and unaudited.
 - The current vault bounds operator credit by amount and state, but does not enforce allowed venues on-chain.
@@ -160,11 +160,12 @@ To be recorded.
 
 Recommended flow:
 
-1. Show the live site and the active `CovenantVaultV1.2`.
-2. Show the autonomous pause plus slash tx on Arc explorer.
-3. Show a public receipt JSON.
-4. Run `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>`.
-5. Show the SDK snippet and explain how another bot plugs in.
+1. Show the live console evidence strip: Claude Sonnet 4.6 trace, real-fill vault, router targets, and the operator-gated caveat.
+2. Open the Polymarket tab: show the two real Polygon fills, the verified Arc receipt, and the 0 bps builder-fee caveat.
+3. Show the autonomous pause plus slash tx on Arc explorer.
+4. Open Agents: click the real-fill bot and show its linked funded Covenant Account.
+5. Open Router and Fees: show allocator routing and fee-split primitives.
+6. Run `npx tsx keeper/scripts/verify-receipt.mjs <receipt-url>` on the real-fill receipt.
 
 ## Team
 

@@ -13,8 +13,8 @@ activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api
 - **Programmable credit line works end-to-end.** The operator credit surface was
   exercised on-chain: `pullCredit` → `returnCapital` → `crystalliseFee` on
   `CovenantVaultV1_2`. The vault now shows a live drawn balance
-  (`operatorOutstanding = 1 USDC`, `idle = 5`, `assets = 6`). See
-  `keeper/scripts/demo-credit-cycle.mjs`.
+  (`operatorOutstanding = 1 USDC`; live idle/assets vary as router and risk
+  events settle). See `keeper/scripts/demo-credit-cycle.mjs`.
 - **Autonomous risk control.** `RiskKernelV2.enforce()` is permissionless and
   atomically pauses + slashes. One genuine historical slash (1.25 USDC; 4.33 USDC
   cumulative on-chain). `SlashBondV1_1` internal and real token balances agree.
@@ -33,9 +33,10 @@ activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api
 - **Live infra:** self-serve `CovenantVaultFactory.createVault()`, fresh indexer
   (`/api/health`), AgentScore, in-browser CCTP V2 bridge tx-builder, SDKs
   (TS clean, source-only — not published, stated honestly).
-- **Live AI agent.** The AgoraMind keeper publishes enriched decision traces
+- **Live Claude agent.** The AgoraMind keeper publishes enriched decision traces
   (action / conviction / risk-posture / reasoning) and self-governs (can request
-  pause). Currently `mock-v1` — see key flip below.
+  pause). Live trace `000145` is stamped `claude-sonnet-4-6`; D95 throttles
+  model calls to publish cycles for cost control.
 
 ## ⚠️ First-party demo (real mechanism, but self-operated)
 
@@ -43,7 +44,7 @@ These work on real contracts but every participant is the operator wallet. The
 mechanism is proven; **adoption is not**.
 
 - Vault deposits, the credit pull, the CapitalRouter (5 USDC, 1 depositor,
-  routes to 1 vault today), the FeeRouter split, SlashMarket stake, and
+  routing across 2 vault targets today), the FeeRouter split, SlashMarket stake, and
   SlashInsurance premium are all the deployer transacting with itself. Total real
   capital deposited into contracts is single-digit USDC (the deployer wallet
   itself holds ~77 USDC that is simply not in the product).
@@ -58,8 +59,6 @@ mechanism is proven; **adoption is not**.
   CCTP → Polymarket-deposit automation. Not built. This is why the credit-pull
   proof and the real-fill proof are connected at the *account/risk* layer but not
   at the *capital-flow* layer.
-- **Real Claude agent.** The keeper runs `mock-v1` until `ANTHROPIC_API_KEY` is
-  set on the `forum-agora-mind` service (one env line + restart).
 - **CCTP mainnet transfer.** The bridge builds correct, address-verified txs and
   polls Circle's Iris sandbox; a full mainnet end-to-end transfer needs
   source-chain gas + USDC and has not been run.
