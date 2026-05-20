@@ -40,7 +40,7 @@ Arc/Circle usage:
 
 - Arc testnet stores the live mandate, vault, bond, risk, identity, and receipt commitments.
 - USDC is used for vault capital, operator bond, slashing, and fee split demos.
-- **Circle CCTP V2 is wired**: `CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) deployed to Arc testnet — accepts USDC bridged in via CCTP V2 (Arc = Domain 26) and deposits into any `CovenantVault` on behalf of a designated recipient. Canonical Circle/Arc addresses pinned in `deployments/arc-testnet.json` under `circle.*` (CCTP V2 TokenMessenger / MessageTransmitter / TokenMinter / MessageV2, Gateway Wallet + Minter, USYC + Teller + Entitlements, EURC, FxEscrow — all verified against `docs.arc.io/arc/references/contract-addresses`).
+- **Circle CCTP V2 is integrated two ways.** (1) An in-browser bridge in the console (`/#/console?t=bridge`) that builds and submits the real CCTP V2 flow with the user's wallet: `TokenMessengerV2.depositForBurn` on a source testnet (Ethereum Sepolia / Base Sepolia / Polygon Amoy / Avalanche Fuji) → Circle Iris attestation → `MessageTransmitterV2.receiveMessage` on Arc (Domain 26) → optional `CovenantVault.deposit`. Native USDC, burn-and-mint — not a wrapped-asset bridge. (2) A CLI helper, `keeper/scripts/cctp-bridge-and-deposit.mjs` (`--simulate` / `--build-source` / `--redeem`), with the same calldata. `CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) is a deployed deposit wrapper: a caller already holding USDC can deposit into any `CovenantVault` on behalf of a designated recipient (who later claims) — it is a convenience landing spot, not an automatic CCTP hook target. Canonical Circle/Arc addresses pinned in `deployments/arc-testnet.json` under `circle.*` (CCTP V2 TokenMessenger / MessageTransmitter / TokenMinter / MessageV2, Gateway Wallet + Minter, USYC + Teller + Entitlements, EURC, FxEscrow — all verified against `docs.arc.io/arc/references/contract-addresses`).
 - Circle Paymaster is **upstream-blocked on Arc**: the supported-chains list at `developers.circle.com/paymaster` covers Arbitrum, Avalanche, Base, Ethereum, Optimism, Polygon, Unichain — Arc is not listed for either ERC-4337 v0.7 or v0.8.
 - USYC: token + Teller + Entitlements all live on Arc testnet (addresses pinned), but the Teller's buy/sell ABI is undocumented and the Entitlements gate appears to be permissioned. Read-only `totalSupply` verified; deposit/redeem integration deferred.
 - Circle Gateway (`GatewayWallet` + `GatewayMinter`) and App Kit are addressed but not wired in v1.
@@ -60,7 +60,7 @@ Live contracts on Arc testnet:
 | `RiskKernelV2` | `0x0af356f280af1d8b7a43f0746c581614feec4055` | permissionless enforcement |
 | `SlashBondV1.1` | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | slashable USDC bond |
 | `CovenantVaultV1.2` | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | live AgoraMind credit line |
-| `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP V2 bridge-friendly deposit wrapper; deposits incoming USDC into a vault for a designated recipient |
+| `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP-adjacent deposit wrapper: a caller holding USDC deposits into a vault for a designated recipient, who later claims (post-bridge landing spot, not an automatic CCTP hook) |
 | `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | self-serve vault creation — anyone calls `createVault(mandate)` to launch a fresh Covenant Account; emits `VaultCreated` for indexer auto-discovery |
 | `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Phase 5 allocator product. Pools depositor USDC and routes across strategist-whitelisted `CovenantVault` instances per weight table. Permissionless `rebalance()` enforces targets. Initial strategy: 100% → CovenantVaultV1.2. |
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Per-bond binary prediction market: "will this `SlashBond` have a slash event before expiry?" Oracle-free settlement: reads `SlashBond.totalSlashed` delta at expiry; winners get stake + pro-rata share of losers' pool. Initial 24h market live vs SlashBondV1.1. |
@@ -76,6 +76,7 @@ Live services:
 Self-serve UI:
 
 - <https://forum.gudman.xyz/#/console?t=create>: any visitor with a browser wallet (MetaMask / Backpack / Rabby) creates a Covenant Account in one tx via `CovenantVaultFactory.createVault(mandate)`. Auto-switches to Arc testnet. New vaults auto-appear in `/api/factory-vaults` within ~30s.
+- <https://forum.gudman.xyz/#/console?t=bridge>: Circle CCTP V2 bridge — burn native USDC on a source testnet, wait for the Iris attestation, mint on Arc, optionally deposit into a vault. Handles chain-switching in-browser.
 - <https://forum.gudman.xyz/#/console?t=manage>: operator bond (USDC approve → `SlashBond.bond`) + depositor withdraw (`CovenantVault.withdraw(shares)`) flows.
 - <https://forum.gudman.xyz/#/console?t=agents>: live AgentScore leaderboard. Click any row → agent inspector with score tiles, linked vaults, and one-click `RiskKernelV2.enforce(vault)` button.
 
@@ -101,7 +102,7 @@ Receipt proof:
 
 ## Traction During The Event
 
-- 5 registered bot identities on Arc across the original `TrackRecord` surface.
+- 8 indexed bot identities on Arc across `TrackRecord` v1 + v2 (live count at `/api/agents`).
 - Continuous keeper activity during the event window.
 - 1 live AgoraMind bot publishing public `TrackRecordV2` receipts.
 - 1 live Covenant Account funded and bonded with USDC on Arc testnet.
@@ -143,6 +144,7 @@ Local Windows does not currently have `forge`; Foundry verification is via GitHu
 - External adapters are not shipped yet.
 - Contracts are immutable and unaudited.
 - The current vault bounds operator credit by amount and state, but does not enforce allowed venues on-chain.
+- The in-browser CCTP V2 bridge builds the correct, address-verified transactions, but a full end-to-end transfer has not been run on camera (needs source-chain testnet gas + USDC). Contract addresses are verified live on Base Sepolia and Arc; the calldata matches the CLI helper.
 
 ## Demo Video
 

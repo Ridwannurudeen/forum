@@ -128,6 +128,7 @@ The reference agora-mind keeper supports opt-in risk controls: `--max-loss-day-u
 ## Self-Serve UI
 
 - <https://forum.gudman.xyz/#/console?t=create>: browser wallet + mandate form → factory.createVault in one tx.
+- <https://forum.gudman.xyz/#/console?t=bridge>: Circle CCTP V2 bridge — burn native USDC on a source testnet → Iris attestation → mint on Arc → optional vault deposit, with in-browser chain switching.
 - <https://forum.gudman.xyz/#/console?t=manage>: operator bond + depositor withdraw flows.
 - <https://forum.gudman.xyz/#/console?t=agents>: AgentScore leaderboard with row-click inspector + one-click `RiskKernelV2.enforce(vault)` per linked vault.
 - <https://forum.gudman.xyz/#/console?t=markets>: SlashMarket YES/NO staking UI per market.
@@ -152,7 +153,12 @@ A standalone bridge helper script ships in `keeper/scripts/cctp-bridge-and-depos
 - `--build-source` — same calldata plus instructions for a funded source-chain wallet to sign + broadcast, then poll Iris.
 - `--redeem --message --attestation` — uses the Arc deployer key to call `MessageTransmitterV2.receiveMessage` on Arc, completing the bridge.
 
-Circle tools currently used directly: Arc, USDC, and **CCTP V2** via `CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) — a deployed Arc-side wrapper that receives USDC bridged in via CCTP V2 (Arc = Domain 26) and atomically deposits into a `CovenantVault` for a designated recipient. Source-domain TokenMessenger / MessageTransmitter addresses for Ethereum Sepolia (Domain 0), Avalanche Fuji (1), Base Sepolia (6), and Polygon Amoy (7) are all pinned in `deployments/arc-testnet.json` under `circle.cctp`. Gateway addresses (`GatewayWallet` + `GatewayMinter`) are pinned but not yet wired. USYC token + Teller + Entitlements are pinned (read-only verified, deposit/redeem ABI undocumented). App Kit and Paymaster are not used — Paymaster does not support Arc upstream.
+Circle tools used directly: Arc, USDC, and **CCTP V2**. CCTP is integrated two ways:
+
+1. **In-browser bridge** at `/#/console?t=bridge` — runs the real CCTP V2 flow with the connected wallet: `TokenMessengerV2.depositForBurn` on a source testnet → Circle Iris attestation → `MessageTransmitterV2.receiveMessage` on Arc (Domain 26) → optional `CovenantVault.deposit`. Native USDC, burn-and-mint, with chain-switching handled in-page.
+2. **CLI helper** `keeper/scripts/cctp-bridge-and-deposit.mjs` with the same calldata (`--simulate` / `--build-source` / `--redeem`).
+
+`CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) is a deployed deposit wrapper: a caller already holding USDC deposits into a `CovenantVault` for a designated recipient (who later claims). It is a convenience landing spot, **not** an automatic CCTP hook target — bridged USDC mints to the recipient's own wallet, then is deposited. Source-domain addresses for Ethereum Sepolia (Domain 0), Avalanche Fuji (1), Base Sepolia (6), and Polygon Amoy (7) are pinned in `deployments/arc-testnet.json` under `circle.cctp`. Gateway addresses (`GatewayWallet` + `GatewayMinter`) are pinned but not yet wired. USYC token + Teller + Entitlements are pinned (read-only verified, deposit/redeem ABI undocumented). App Kit and Paymaster are not used — Paymaster does not support Arc upstream.
 
 ## Develop
 
@@ -185,6 +191,7 @@ forge build && forge test -vv
 - External bot adapters are not shipped yet.
 - Full receipt verification now recomputes PnL where fills are market-attributed; historical receipts with no fills verify by hash and zero-PnL accounting.
 - The current vault transfers pulled credit to the operator wallet. The mandate bounds amount and state, but venue restrictions are not enforced on-chain yet.
+- The in-browser CCTP V2 bridge builds correct, address-verified transactions (Base Sepolia + Arc contracts confirmed live), but a full end-to-end transfer has not been run on camera — it needs source-chain testnet gas + USDC.
 - Contracts are immutable and unaudited hackathon code.
 
 ## License
