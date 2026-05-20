@@ -1702,6 +1702,9 @@ node keeper/scripts/demo-violation.mjs</pre>
               <button id="br-action-btn" class="btn btn-primary w-full justify-center mt-6 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled>
                 Connect a wallet to start
               </button>
+              <button id="br-reset-btn" class="w-full mt-2 text-xs mono rounded-lg border border-forum-line px-3 py-2 text-forum-dim hover:text-forum-ink transition">
+                Reset · clear last transfer
+              </button>
               <div id="br-status" class="mt-4 text-sm text-forum-dim leading-relaxed"></div>
             </div>
 
@@ -5320,6 +5323,25 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         }
       }
 
+      // Clear past-transfer state so the user can start a fresh bridge without
+      // reloading the page (resets brFlow + the stepper + tx links + status).
+      function brReset() {
+        brFlow.burnTx = null;
+        brFlow.sourceDomain = null;
+        brFlow.message = null;
+        brFlow.attestation = null;
+        brFlow.redeemed = false;
+        ["burn", "attest", "redeem", "deposit"].forEach((id) => brStep(id, ""));
+        ["burn-tx", "redeem-tx", "deposit-tx"].forEach((id) => {
+          const a = document.getElementById("br-" + id);
+          if (a) a.classList.add("hidden");
+        });
+        const btn = document.getElementById("br-action-btn");
+        btn.disabled = !brAccount;
+        btn.textContent = brAccount ? "Bridge USDC to Arc" : "Connect a wallet to start";
+        brSetStatus(brAccount ? "Cleared — ready for a new bridge." : "", "info");
+      }
+
       (function initBridge() {
         document.getElementById("br-vault").value = COVENANT_V12;
         const tm = document.getElementById("br-addr-tm");
@@ -5330,6 +5352,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         mt.href = explorerAddr(CCTP.messageTransmitterV2);
         document.getElementById("br-connect-btn").addEventListener("click", brConnect);
         document.getElementById("br-action-btn").addEventListener("click", brRun);
+        document.getElementById("br-reset-btn").addEventListener("click", brReset);
       })();
     </script>
   </body>
