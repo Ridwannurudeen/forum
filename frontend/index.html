@@ -5099,16 +5099,36 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         a.textContent = label;
         a.classList.remove("hidden");
       }
-      async function brWaitTx(txHash) {
-        // Poll the currently-selected chain for a mined receipt.
+      async function brWaitTx(txHash, label) {
+        // Poll the currently-selected chain for a mined receipt, with live
+        // progress so the step never looks frozen while a tx confirms.
         for (let i = 0; i < 100; i++) {
           const r = await window.ethereum.request({
             method: "eth_getTransactionReceipt", params: [txHash],
           });
           if (r && r.blockNumber) return r;
+          if (label) brSetStatus(`${label} <span class="text-forum-dim2">(confirming… ${i * 3}s)</span>`, "info");
           await new Promise((res) => setTimeout(res, 3000));
         }
         throw new Error("timed out waiting for tx " + txHash);
+      }
+      // Fast-transfer fee: query Circle's live fee API for this route and return a
+      // maxFee (BigInt micros) covering the fast (threshold 1000) fee + 50% buffer.
+      // Fast attestation is "confirmed" level (seconds); standard (threshold 2000,
+      // fee 0) waits for source-chain finality (many minutes) — the slow path.
+      async function brFastMaxFee(srcDomain, amount) {
+        let bps = 0;
+        try {
+          const r = await fetch(`${CCTP.irisBase}/v2/burn/USDC/fees/${srcDomain}/${CCTP.arcDomain}`);
+          if (r.ok) {
+            const arr = await r.json();
+            const fast = Array.isArray(arr) ? arr.find((x) => Number(x.finalityThreshold) <= 1000) : null;
+            if (fast && Number.isFinite(Number(fast.minimumFee))) bps = Number(fast.minimumFee);
+          }
+        } catch (e) { /* fall through to fallback cap */ }
+        const effBps = bps > 0 ? bps * 1.5 : 10; // API bps + buffer, or generous 10bps fallback
+        const fee = (amount * BigInt(Math.ceil(effBps * 100))) / 1000000n; // amount * effBps/10000
+        return fee > 0n ? fee : 1n;
       }
       async function brSwitchChain(chainIdHex, addParams) {
         const isUnknownChain = (e) => {
@@ -5201,22 +5221,23 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 method: "eth_sendTransaction",
                 params: [{ from: brAccount, to: src.usdc, data: approveData }],
               });
-              await brWaitTx(approveTx);
+              await brWaitTx(approveTx, `Approving USDC on ${src.label}…`);
 
-              brSetStatus(`Burning ${amtWhole} USDC on ${src.label} (depositForBurn → Arc)…`, "info");
+              const maxFee = await brFastMaxFee(src.domain, amount);
+              brSetStatus(`Burning ${amtWhole} USDC on ${src.label} (fast depositForBurn → Arc)…`, "info");
               const burnData = encodeFunctionData({
                 abi: TM_DEPOSIT_ABI, functionName: "depositForBurn",
                 args: [
                   amount, CCTP.arcDomain, addrToBytes32(recipient), src.usdc,
                   addrToBytes32("0x0000000000000000000000000000000000000000"), // anyone may redeem
-                  0n, 2000, // maxFee 0 = standard transfer, standard finality threshold
+                  maxFee, 1000, // FAST transfer: maxFee covers Circle's fast fee; threshold 1000 = "confirmed" attestation (seconds), not 2000/finalized (minutes)
                 ],
               });
               const burnTx = await window.ethereum.request({
                 method: "eth_sendTransaction",
                 params: [{ from: brAccount, to: CCTP.tokenMessengerV2, data: burnData }],
               });
-              await brWaitTx(burnTx);
+              await brWaitTx(burnTx, `Burning on ${src.label}…`);
               brFlow.burnTx = burnTx;
               brFlow.sourceDomain = src.domain;
               brStep("burn", "is-done");
