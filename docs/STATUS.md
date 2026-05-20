@@ -37,6 +37,15 @@ activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api
   (action / conviction / risk-posture / reasoning) and self-governs (can request
   pause). Live trace `000145` is stamped `claude-sonnet-4-6`; D95 throttles
   model calls to publish cycles for cost control.
+- **On-chain funded-agent loop.** `keeper/scripts/agent-fund-cycle.mjs` runs:
+  funded vault → real Claude decision → conviction-sized **`pullCredit`** from the
+  agent's own Covenant Account → `returnCapital`/`crystalliseFee`. The agent only
+  draws on conviction (a HOLD draws nothing — the mandate working). This proves
+  the on-chain capital-draw leg; the cross-chain venue execution stays gated
+  (below). Vault-agnostic (`--vault`), so any operator can run it for their vault.
+- **Bridge resume persistence.** The CCTP bridge persists an in-flight burn to
+  `localStorage`, so a page refresh after the burn **resumes the mint** instead of
+  re-burning USDC.
 
 ## ⚠️ First-party demo (real mechanism, but self-operated)
 
