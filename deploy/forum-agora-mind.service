@@ -7,7 +7,11 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/opt/forum/keeper
-ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/agora-mind-keeper.mjs --markets 3 --interval 60 --publish-every 10 --label forum-agora-mind-prod-v1 --receipts-dir /opt/forum/web/receipts --receipts-base-url https://forum.gudman.xyz/receipts --auto-pause-on-verifier-failure
+# Operator creates this file (mode 600) with ANTHROPIC_API_KEY and optional
+# ANTHROPIC_MODEL (default claude-sonnet-4-6). Leading '-' = optional: if absent,
+# the keeper falls back to the deterministic mock-v1 provider. NEVER commit the key.
+EnvironmentFile=-/root/.forum-keys/agora.env
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/agora-mind-keeper.mjs --markets 3 --interval 60 --publish-every 10 --label forum-agora-mind-prod-v1 --receipts-dir /opt/forum/web/receipts --receipts-base-url https://forum.gudman.xyz/receipts --auto-pause-on-verifier-failure --llm-on-publish-only
 Restart=on-failure
 RestartSec=30s
 StandardOutput=journal
