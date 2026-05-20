@@ -65,6 +65,8 @@ The receipt schema (`keeper/src/receipt.ts`) is `forum.receipt.v1`: botId, seq, 
 
 ## SDKs
 
+Not yet published to npm / PyPI — install from source in this repo (`sdk-ts/`, `sdk-py/`). The package names below (`forum-arc-sdk`, `forum_arc`) resolve once you build/link the local packages; see **Develop** below.
+
 TypeScript:
 
 ```typescript

@@ -2207,8 +2207,8 @@ node keeper/scripts/demo-violation.mjs</pre>
               </p>
             </div>
             <div class="flex flex-wrap gap-2 text-xs">
-              <a href="https://www.npmjs.com/package/forum-arc-sdk" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">npm · forum-arc-sdk</a>
-              <a href="https://pypi.org/project/forum-arc/" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">PyPI · forum-arc</a>
+              <a href="https://github.com/Ridwannurudeen/forum/tree/main/sdk-ts" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">TypeScript · sdk-ts/</a>
+              <a href="https://github.com/Ridwannurudeen/forum/tree/main/sdk-py" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">Python · sdk-py/</a>
               <a href="https://github.com/Ridwannurudeen/forum" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">GitHub ↗</a>
             </div>
           </div>
@@ -2223,10 +2223,11 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-dev-panel="ts" class="dev-tab-panel rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
               <span>sdk-ts/examples/open-covenant.ts</span>
-              <span class="text-forum-dim2">v0.3 · npm i forum-arc-sdk</span>
+              <span class="text-forum-dim2">v0.3 · install from sdk-ts/ source</span>
             </div>
-            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2">// 1. install</span>
-<span class="text-forum-dim2">//    npm i forum-arc-sdk viem</span>
+            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2">// 1. install from source (not yet on npm)</span>
+<span class="text-forum-dim2">//    git clone github.com/Ridwannurudeen/forum</span>
+<span class="text-forum-dim2">//    cd forum/sdk-ts && npm install && npm run build</span>
 
 <span class="text-forum-accent2">import</span> { createPublicClient, createWalletClient, custom, http } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">"viem"</span>;
 <span class="text-forum-accent2">import</span> { ForumClient } <span class="text-forum-accent2">from</span> <span class="text-forum-ok">"forum-arc-sdk"</span>;
@@ -2256,10 +2257,11 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-dev-panel="py" class="dev-tab-panel hidden rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="px-5 py-3 border-b border-forum-line text-xs text-forum-dim mono flex justify-between items-center">
               <span>sdk_py/examples/open_covenant.py</span>
-              <span class="text-forum-dim2">v0.3 · pip install forum-arc</span>
+              <span class="text-forum-dim2">v0.3 · install from sdk-py/ source</span>
             </div>
-            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2"># 1. install</span>
-<span class="text-forum-dim2">#    pip install forum-arc web3</span>
+            <pre class="mono p-6 text-xs leading-relaxed overflow-x-auto"><span class="text-forum-dim2"># 1. install from source (not yet on PyPI)</span>
+<span class="text-forum-dim2">#    git clone github.com/Ridwannurudeen/forum</span>
+<span class="text-forum-dim2">#    pip install -e forum/sdk-py  # plus web3</span>
 
 <span class="text-forum-accent2">from</span> web3 <span class="text-forum-accent2">import</span> Web3
 <span class="text-forum-accent2">from</span> forum_arc <span class="text-forum-accent2">import</span> ForumClient
@@ -2540,8 +2542,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               <div class="section-eyebrow mb-4">Developers</div>
               <ul class="space-y-2.5 text-sm">
                 <li><a href="#/developers" class="text-forum-dim hover:text-forum-ink transition">SDK overview</a></li>
-                <li><a href="https://www.npmjs.com/package/forum-arc-sdk" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">TypeScript · npm</a></li>
-                <li><a href="https://pypi.org/project/forum-arc/" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Python · PyPI</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/tree/main/sdk-ts" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">TypeScript SDK · source</a></li>
+                <li><a href="https://github.com/Ridwannurudeen/forum/tree/main/sdk-py" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Python SDK · source</a></li>
                 <li><a href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/scripts/verify-receipt.mjs" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Verifier CLI</a></li>
                 <li><a href="https://forum.gudman.xyz/api/health" target="_blank" rel="noopener" class="text-forum-dim hover:text-forum-ink transition">Indexer API</a></li>
                 <li><a href="#/architecture" class="text-forum-dim hover:text-forum-ink transition">Contract addresses</a></li>
