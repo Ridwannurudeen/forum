@@ -1507,6 +1507,17 @@ node keeper/scripts/demo-violation.mjs</pre>
                 capital, or split fees.
               </p>
             </div>
+            <div class="w-full sm:w-auto rounded-lg ring-soft bg-forum-panel px-4 py-3">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Wallet</div>
+                  <div id="app-wallet-status" class="mt-1 text-xs mono text-forum-dim">not connected</div>
+                </div>
+                <button id="app-connect-btn" class="btn btn-ghost shrink-0">
+                  Connect wallet
+                </button>
+              </div>
+            </div>
           </div>
           <div id="app-tabs" class="flex flex-wrap gap-1 mb-6 border-b border-forum-line" role="tablist">
             <button data-app-tab="create"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">Create</button>
@@ -1865,6 +1876,10 @@ node keeper/scripts/demo-violation.mjs</pre>
                 <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Last 10 records (TrackRecord v1)</div>
                 <div id="ins-records" class="space-y-1 text-xs mono">—</div>
               </div>
+            </div>
+            <div class="mt-6">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Latest agent reasoning — live LLM decision trace</div>
+              <div id="ins-reasoning" class="space-y-2 text-xs">—</div>
             </div>
             <div id="ins-status" class="mt-4 text-xs hidden"></div>
           </div>
@@ -3349,6 +3364,26 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       let walletClient = null;
       let connectedAddr = null;
 
+      function setConnectedWalletUi(addr) {
+        for (const id of ["app-wallet-status", "create-wallet-status"]) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          el.textContent = addr;
+          el.classList.add("text-forum-ink");
+          el.classList.remove("text-forum-dim");
+        }
+        for (const id of ["app-connect-btn", "create-connect-btn"]) {
+          const el = document.getElementById(id);
+          if (el) el.textContent = "Connected";
+        }
+        const createBtn = document.getElementById("create-submit-btn");
+        if (createBtn) createBtn.disabled = false;
+        const bondBtn = document.getElementById("bond-submit-btn");
+        if (bondBtn) bondBtn.disabled = false;
+        const withdrawBtn = document.getElementById("withdraw-submit-btn");
+        if (withdrawBtn) withdrawBtn.disabled = false;
+      }
+
       function setStatus(html, kind = "info") {
         const el = document.getElementById("create-status");
         const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
@@ -3391,11 +3426,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             chain: ARC_TESTNET,
             transport: custom(window.ethereum),
           });
-          document.getElementById("create-wallet-status").textContent = connectedAddr;
-          document.getElementById("create-wallet-status").classList.add("text-forum-ink");
-          document.getElementById("create-wallet-status").classList.remove("text-forum-dim");
-          document.getElementById("create-connect-btn").textContent = "Connected";
-          document.getElementById("create-submit-btn").disabled = false;
+          setConnectedWalletUi(connectedAddr);
           // Default operator field to the connected wallet if empty
           const opField = document.getElementById("f-operator");
           if (!opField.value) opField.value = connectedAddr;
@@ -3404,6 +3435,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         }
       }
 
+      document.getElementById("app-connect-btn").addEventListener("click", connectWallet);
       document.getElementById("create-connect-btn").addEventListener("click", connectWallet);
 
       document.getElementById("create-form").addEventListener("submit", async (ev) => {
@@ -3841,8 +3873,68 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 <span class="text-forum-dim2">${ago(r.ts)}</span>
               </div>`).join("");
           }
+
+          // Latest agent reasoning — the live LLM decision trace for the newest
+          // receipt. Isolated so a missing/old trace never breaks the inspector.
+          renderAgentReasoning(botId, recRes);
         } catch (e) {
           document.getElementById("ins-vaults").innerHTML = `<div class="text-forum-err">load error: ${escapedError(e)}</div>`;
+        }
+      }
+
+      // Fetch the decision-trace sidecar for a bot's newest receipt and render
+      // the per-market LLM decision (action · conviction · risk posture · model)
+      // plus the rationale. The trace URI is deterministic from botId + seq:
+      //   /receipts/<botId[2..14]>/traces/<6-digit seq>.json
+      async function renderAgentReasoning(botId, recRes) {
+        const el = document.getElementById("ins-reasoning");
+        if (!el) return;
+        if (!Array.isArray(recRes) || recRes.length === 0) {
+          el.innerHTML = `<div class="text-forum-dim2">no decision trace yet</div>`;
+          return;
+        }
+        const latestSeq = Math.max(...recRes.map((r) => Number(r.seq)));
+        const seqStr = String(latestSeq).padStart(6, "0");
+        const traceUri = `/receipts/${botId.slice(2, 14)}/traces/${seqStr}.json`;
+        try {
+          const res = await fetch(traceUri);
+          if (!res.ok) {
+            el.innerHTML = `<div class="text-forum-dim2">no decision trace for seq #${escapeHtml(latestSeq)}</div>`;
+            return;
+          }
+          const trace = await res.json();
+          if (!Array.isArray(trace) || trace.length === 0) {
+            el.innerHTML = `<div class="text-forum-dim2">empty decision trace for seq #${escapeHtml(latestSeq)}</div>`;
+            return;
+          }
+          // Keep the most recent decision per market.
+          const byMarket = new Map();
+          for (const d of trace) byMarket.set(d.marketSlug, d);
+          const colour = (a) =>
+            a === "BUY" ? "text-forum-ok" : a === "SELL" ? "text-forum-err" : "text-forum-dim";
+          el.innerHTML =
+            `<div class="text-[10px] text-forum-dim2 mb-1">seq #${escapeHtml(latestSeq)} · ${escapeHtml(byMarket.size)} market(s)</div>` +
+            [...byMarket.values()]
+              .map((d) => {
+                const conv =
+                  d.convictionPct != null ? ` · ${escapeHtml(d.convictionPct)}% conv` : "";
+                const reasoning =
+                  typeof d.reasoning === "string" && d.reasoning.length > 0
+                    ? d.reasoning.slice(0, 700)
+                    : "(no reasoning recorded for this trace)";
+                return `
+                  <div class="rounded-lg border border-forum-line bg-forum-panel2 p-3">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <span class="mono text-forum-ink truncate">${escapeHtml(d.marketSlug)}</span>
+                      <span class="mono ${colour(d.action)}">${escapeHtml(d.action)}${conv}</span>
+                    </div>
+                    <div class="text-[10px] text-forum-dim2 mb-1">model ${escapeHtml(d.model)} · risk ${escapeHtml(d.riskPosture || "—")}</div>
+                    <div class="text-forum-dim whitespace-pre-wrap leading-relaxed">${escapeHtml(reasoning)}</div>
+                  </div>`;
+              })
+              .join("");
+        } catch (e) {
+          el.innerHTML = `<div class="text-forum-dim2">trace unavailable: ${escapedError(e)}</div>`;
         }
       }
 
