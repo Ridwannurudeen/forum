@@ -5082,6 +5082,39 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       let brAccount = null;
       // Resumable state: persists the burn across attestation/redeem retries.
       const brFlow = { burnTx: null, sourceDomain: null, message: null, attestation: null, redeemed: false };
+      // Persist an in-flight bridge so a page refresh after the burn can RESUME
+      // (finish minting on Arc) instead of accidentally burning USDC a second time.
+      const BR_LS_KEY = "forum.bridge.flow.v1";
+      function brSaveFlow() {
+        try {
+          localStorage.setItem(BR_LS_KEY, JSON.stringify({
+            burnTx: brFlow.burnTx, sourceDomain: brFlow.sourceDomain,
+            message: brFlow.message, attestation: brFlow.attestation, redeemed: brFlow.redeemed,
+            amount: document.getElementById("br-amount").value,
+            recipient: document.getElementById("br-recipient").value,
+            vault: document.getElementById("br-vault").value,
+          }));
+        } catch (e) { /* localStorage unavailable — resume just won't persist */ }
+      }
+      function brClearFlow() {
+        try { localStorage.removeItem(BR_LS_KEY); } catch (e) { /* noop */ }
+      }
+      function brRestoreFlow() {
+        let s;
+        try { s = JSON.parse(localStorage.getItem(BR_LS_KEY) || "null"); } catch (e) { s = null; }
+        if (!s || !s.burnTx || s.redeemed) { brClearFlow(); return; }
+        brFlow.burnTx = s.burnTx; brFlow.sourceDomain = s.sourceDomain;
+        brFlow.message = s.message; brFlow.attestation = s.attestation; brFlow.redeemed = !!s.redeemed;
+        if (s.amount) document.getElementById("br-amount").value = s.amount;
+        if (s.recipient) document.getElementById("br-recipient").value = s.recipient;
+        if (s.vault) document.getElementById("br-vault").value = s.vault;
+        brStep("burn", "is-done");
+        if (brFlow.attestation) brStep("attest", "is-done");
+        const btn = document.getElementById("br-action-btn");
+        btn.textContent = "Resume bridge";
+        btn.disabled = false;
+        brSetStatus(`Unfinished bridge found (burn <code class="mono">${escapeHtml(s.burnTx.slice(0, 10))}…</code> already landed). Click <strong>Resume bridge</strong> to finish minting on Arc — don't re-bridge.`, "info");
+      }
 
       function brSetStatus(html, kind = "info") {
         const el = document.getElementById("br-status");
@@ -5245,12 +5278,14 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               brFlow.sourceDomain = src.domain;
               brStep("burn", "is-done");
               brTxLink("burn-tx", src.explorerTx + burnTx, "source tx ↗");
+              brSaveFlow();
             }
             brStep("attest", "is-active");
             const att = await brPollAttestation(brFlow.sourceDomain, brFlow.burnTx);
             brFlow.message = att.message;
             brFlow.attestation = att.attestation;
             brStep("attest", "is-done");
+            brSaveFlow();
           }
 
           // ── Step 3: redeem on Arc (mint native USDC to the user) ──
@@ -5275,6 +5310,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             brFlow.redeemed = true;
             brStep("redeem", "is-done");
             brTxLink("redeem-tx", explorerTx(redeemTx), "Arc tx ↗");
+            brSaveFlow();
           }
 
           // ── Step 4: optional deposit into a Covenant Account ──
@@ -5311,6 +5347,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           // Reset for a fresh run.
           brFlow.burnTx = null; brFlow.sourceDomain = null;
           brFlow.message = null; brFlow.attestation = null; brFlow.redeemed = false;
+          brClearFlow();
           btn.disabled = false;
         } catch (e) {
           brSetStatus(
@@ -5331,6 +5368,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         brFlow.message = null;
         brFlow.attestation = null;
         brFlow.redeemed = false;
+        brClearFlow();
         ["burn", "attest", "redeem", "deposit"].forEach((id) => brStep(id, ""));
         ["burn-tx", "redeem-tx", "deposit-tx"].forEach((id) => {
           const a = document.getElementById("br-" + id);
@@ -5353,6 +5391,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         document.getElementById("br-connect-btn").addEventListener("click", brConnect);
         document.getElementById("br-action-btn").addEventListener("click", brRun);
         document.getElementById("br-reset-btn").addEventListener("click", brReset);
+        brRestoreFlow();
       })();
     </script>
   </body>
