@@ -49,7 +49,7 @@
     "builderCodeAttached": true,
     "polymarketAttributionConfirmed": true,
     "builderFeeRateBps": 0,
-    "builderFeeStatus": "wiring complete + attribution confirmed; fee rate is 0 bps (operator has not configured a rate on polymarket.com/settings?tab=builder yet). Set a rate (max 100 bps taker, 50 bps maker) for the same flow to capture real revenue."
+    "builderFeeStatus": "Builder attribution confirmed on-chain + capture wiring proven (D78). A maker rate (0.1%) is configured (effective 2026-05-24), but Forum trades takers, so capturing needs a non-zero TAKER rate — and Polymarket's fee-update cooldown blocks the next change until 2026-05-27 (after the May 25 hackathon). Live revenue capture is a post-hackathon step; the wiring + attribution are already proven."
   },
   "reproduce": {
     "docs": "docs/phase-3-live-fill-proof.md",

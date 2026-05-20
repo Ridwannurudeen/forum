@@ -63,7 +63,10 @@ mechanism is proven; **adoption is not**.
   polls Circle's Iris sandbox; a full mainnet end-to-end transfer needs
   source-chain gas + USDC and has not been run.
 - **Builder fee revenue.** Wiring + attribution proven, but `builderFeeRateBps = 0`
-  → $0 captured. Setting a rate on Polymarket is a settings-page knob.
+  on Forum's taker flow → $0 captured. A maker rate (0.1%) is configured
+  (effective 2026-05-24); capturing needs a non-zero **taker** rate, which
+  Polymarket's fee-update cooldown blocks until 2026-05-27 (after the May 25
+  deadline) — so live capture is a post-hackathon step.
 
 ## ❌ Needs real third parties (we will not fake these)
 

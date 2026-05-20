@@ -101,7 +101,7 @@ bond = forum.slash_bond.bond_balance()
 - `forum-keeper.service`: v1 paper-mode market-making keeper publishing to `TrackRecord`.
 - `forum-agora-mind.service`: AgoraMind keeper publishing `TrackRecordV2` receipts and reasoning traces to the public receipt directory.
 
-The keepers run in paper mode by default (real market data, simulated fills). Separately, **real Polymarket V2 mainnet orders have been executed and anchored on Arc** — see the **Polymarket** tab on the live site, `GET /api/proof`, and `docs/phase-3-live-fill-proof.md`. The Polygon settlements are on-chain; builder attribution is confirmed through Polymarket's attribution API. The fills were published as `TrackRecordV2` receipts and the verifier recomputes PnL from them. Builder fee capture is wired but currently **0 bps** (the operator has not set a fee rate on Polymarket yet). Continuous, user-facing execution is **operator-gated** — Polymarket geoblocks order submission and it requires the operator's keys — so it is exposed as an operator flow with verifiable proof, not a public trade button.
+The keepers run in paper mode by default (real market data, simulated fills). Separately, **real Polymarket V2 mainnet orders have been executed and anchored on Arc** — see the **Polymarket** tab on the live site, `GET /api/proof`, and `docs/phase-3-live-fill-proof.md`. The Polygon settlements are on-chain; builder attribution is confirmed through Polymarket's attribution API. The fills were published as `TrackRecordV2` receipts and the verifier recomputes PnL from them. Builder fee capture is wired but currently **0 bps** on Forum's flow: a maker rate (0.1%) is configured (effective 2026-05-24), but Forum trades takers, and Polymarket's fee-update cooldown blocks setting a capturing taker rate until 2026-05-27 — so live capture is a post-hackathon step. Continuous, user-facing execution is **operator-gated** — Polymarket geoblocks order submission and it requires the operator's keys — so it is exposed as an operator flow with verifiable proof, not a public trade button.
 
 ## Indexer API
 
@@ -189,7 +189,7 @@ forge build && forge test -vv
 ## Honest Scope
 
 - Arc testnet only.
-- Reference keeper is paper-mode by default. Real Polymarket V2 fills are proven separately (`/api/proof`, `docs/phase-3-live-fill-proof.md`) with on-chain Polygon settlements and builder attribution confirmed by Polymarket's attribution API; live execution is operator-gated, not continuous or self-serve, and builder fee capture is 0 bps until a rate is configured.
+- Reference keeper is paper-mode by default. Real Polymarket V2 fills are proven separately (`/api/proof`, `docs/phase-3-live-fill-proof.md`) with on-chain Polygon settlements and builder attribution confirmed by Polymarket's attribution API; live execution is operator-gated, not continuous or self-serve, and builder fee capture is 0 bps on Forum's taker flow (a maker rate of 0.1% is configured, effective 2026-05-24; a capturing taker rate is blocked by Polymarket's fee-update cooldown until 2026-05-27, post-deadline).
 - External bot adapters are not shipped yet.
 - Full receipt verification now recomputes PnL where fills are market-attributed; historical receipts with no fills verify by hash and zero-PnL accounting.
 - The current vault transfers pulled credit to the operator wallet. The mandate bounds amount and state, but venue restrictions are not enforced on-chain yet.

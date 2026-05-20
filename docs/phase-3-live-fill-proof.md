@@ -90,10 +90,12 @@ moved real money.
   carried our builder code `0x31bc0f22…ec56`. Polymarket's
   `getBuilderTrades({ builder_code })` API returns the trade with the
   correct `builderCode` + `transactionHash`. **Fee captured: 0 USDC**
-  — the operator hasn't configured a fee rate on
-  `polymarket.com/settings?tab=builder` yet (max 100 bps taker, 50 bps
-  maker). The SAME flow with a non-zero rate captures real revenue.
-  Wiring is fully proven; revenue is a settings-page knob away.
+  — a maker rate (0.1%) is now configured (effective 2026-05-24), but
+  Forum trades **takers** (FOK), so capture needs a non-zero TAKER rate,
+  and Polymarket's fee-update cooldown blocks the next change until
+  2026-05-27 (after the May 25 deadline). Max 100 bps taker / 50 bps maker.
+  The SAME flow with a non-zero taker rate captures real revenue — proven
+  wiring + attribution; live capture is a post-hackathon step.
 
 - **The indexer's `verifiedPnl` label — closed in D75.**
   `forum-indexer/0.11.0` fetches each bot's latest receipt at the
@@ -156,7 +158,7 @@ What this DOESN'T fix (still on the user):
 - Zero external operators. Every signer on the leaderboard, every
   CapitalRouter share, every SlashMarket stake, every Insurance
   premium is the deployer wallet. Adoption gap is unchanged.
-- Builder fee rate is still 0 bps. Polymarket Verified-tier email
+- Builder fee rate is still 0 bps on Forum's taker flow. A maker rate (0.1%) is configured (effective 2026-05-24); a capturing taker rate is blocked by Polymarket's fee-update cooldown until 2026-05-27 (after the May 25 deadline). Polymarket Verified-tier email
   sent earlier; response pending.
 - "Real strategy with edge" is still not shipped — the arb
   scanner correctly found no edge in 49 liquid markets, so the
