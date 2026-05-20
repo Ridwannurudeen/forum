@@ -1,6 +1,6 @@
-# Forum Demo Video Script — v2 (post-D53 hero rewrite)
+# Forum Demo Video Script — v3 (post-redesign + CCTP V2 bridge)
 
-Target: **2:30–3:00**, 1080p screen capture, real human voiceover.
+Target: **2:45–3:15**, 1080p screen capture, real human voiceover.
 Tone: confident, allocator-facing. **No emojis. No bragging. Plain English where possible.**
 
 > **Do not submit the video or hackathon form without explicit user approval.**
@@ -31,9 +31,20 @@ cd keeper && npx tsx scripts/verify-receipt.mjs \
 
 # 5. Vault status (paused = use existing proof tx; active = can demo a live enforce)
 cd .. && node keeper/scripts/demo-violation.mjs --dry-run
+
+# 6. CCTP path is live (only if you'll show/run the Bridge tab)
+#    Base Sepolia USDC + TokenMessengerV2 have code; Arc MessageTransmitterV2 has code.
+#    Verified 2026-05-20 — re-run if recording on another day.
 ```
 
 If anything above fails, **don't record yet** — fix it first.
+
+> **Bridge tab — live run vs. show-and-narrate.** A real CCTP transfer needs
+> Base Sepolia ETH (gas) + Base Sepolia testnet USDC (Circle testnet faucet),
+> and the attestation takes ~30–60s. For a tight cut, **show the Bridge UI and
+> narrate it** rather than waiting on-camera. If you want a live run, do it
+> *before* recording and screen-capture only the final "Done" state, or splice
+> the wait out in the edit.
 
 ---
 
@@ -41,13 +52,14 @@ If anything above fails, **don't record yet** — fix it first.
 
 1. `https://forum.gudman.xyz/` — landing
 2. `https://forum.gudman.xyz/#/console?t=create` — App console, Create tab
-3. `https://forum.gudman.xyz/#/console?t=agents` — App console, Agents tab
-4. `https://forum.gudman.xyz/#/console?t=markets` — App console, Markets tab
-5. `https://forum.gudman.xyz/#/console?t=router` — App console, Router tab
-6. `https://forum.gudman.xyz/#/console?t=fees` — App console, Fees tab
-7. `https://testnet.arcscan.app/tx/<full proof tx hash from README>` — the slash tx
-8. `https://forum.gudman.xyz/receipts/201c8909dca1/000014.json` — a real signed receipt
-9. Terminal in the repo root with the verifier ready to paste
+3. `https://forum.gudman.xyz/#/console?t=bridge` — App console, Bridge tab (CCTP V2)
+4. `https://forum.gudman.xyz/#/console?t=agents` — App console, Agents tab
+5. `https://forum.gudman.xyz/#/console?t=markets` — App console, Markets tab
+6. `https://forum.gudman.xyz/#/console?t=router` — App console, Router tab
+7. `https://forum.gudman.xyz/#/console?t=fees` — App console, Fees tab
+8. `https://testnet.arcscan.app/tx/<full proof tx hash from README>` — the slash tx
+9. `https://forum.gudman.xyz/receipts/201c8909dca1/000014.json` — a real signed receipt
+10. Terminal in the repo root with the verifier ready to paste
 
 ---
 
@@ -108,23 +120,43 @@ the USDC transfer out of the bond.
 ### 1:00 → 1:25 — The product surface, in one screen
 
 **On screen**: back to `https://forum.gudman.xyz/`. Scroll to the App console.
-Click through tabs in this order, ~3 seconds each: Create → Manage → Agents →
-Markets → Router → Fees.
+Click through tabs in this order, ~2.5 seconds each: Create → Bridge → Manage →
+Agents → Markets → Router → Fees.
 
 **Voiceover**:
 
-> Six surfaces, one wallet. Anyone can create a Covenant Account with a
-> mandate in one transaction. Operators post bond and depositors withdraw
-> from Manage. Agents shows a live reputation leaderboard ranked by
-> drawdown, slash history, and receipt freshness. Markets is an oracle-free
-> prediction market that prices the probability of an agent being slashed.
-> Router pools depositor USDC across whitelisted vaults. Fees splits
-> performance fees across operator, researcher, and referrer with a
-> pull-pattern claim. All ten contracts are immutable and live on Arc.
+> Seven surfaces, one wallet. Anyone can create a Covenant Account with a
+> mandate in one transaction. Bridge brings native USDC in from other chains —
+> more on that in a second. Operators post bond and depositors withdraw from
+> Manage. Agents shows a live reputation leaderboard ranked by drawdown, slash
+> history, and receipt freshness. Markets is an oracle-free prediction market
+> that prices the probability of an agent being slashed. Router pools depositor
+> USDC across whitelisted vaults. Fees splits performance fees across operator,
+> researcher, and referrer with a pull-pattern claim. All ten contracts are
+> immutable and live on Arc.
 
 ---
 
-### 1:25 → 1:55 — Receipts are recomputable, not screenshots
+### 1:25 → 1:45 — Funding is native USDC, any chain (Circle CCTP V2)
+
+**On screen**: open the Bridge tab. Show the source-chain dropdown (Base
+Sepolia selected), the 4-step transfer flow (burn → attest → mint → deposit),
+and the verifiable TokenMessengerV2 / MessageTransmitterV2 addresses. Do **not**
+wait for a live transfer on camera — narrate over the UI (or show a
+pre-completed "Done" state spliced in).
+
+**Voiceover**:
+
+> Funding a vault doesn't require USDC that's already on Arc. Forum bridges
+> native USDC straight in using Circle's Cross-Chain Transfer Protocol — burn
+> on the source chain, Circle attests, mint on Arc, deposit into the vault.
+> Burn-and-mint, not a wrapped-asset liquidity bridge. So an allocator on
+> Ethereum, Base, Polygon, or Avalanche funds an agent on Arc without touching
+> a third-party bridge.
+
+---
+
+### 1:45 → 2:10 — Receipts are recomputable, not screenshots
 
 **On screen**: switch to the receipt JSON tab. Highlight the `evidenceUri`,
 `evidenceHash`, and one bookSnapshot. Then cut to terminal:
@@ -145,7 +177,7 @@ cd keeper && npx tsx scripts/verify-receipt.mjs \
 
 ---
 
-### 1:55 → 2:25 — Why this scales beyond one agent
+### 2:10 → 2:40 — Why this scales beyond one agent
 
 **On screen**: back to the App console. Click Router tab to show the deposit
 + rebalance UI, then Fees tab to show the splits and claim panel.
@@ -162,7 +194,7 @@ cd keeper && npx tsx scripts/verify-receipt.mjs \
 
 ---
 
-### 2:25 → 2:50 — Close + ask
+### 2:40 → 3:05 — Close + ask
 
 **On screen**: scroll back to the hero. Hover the "Become an operator" CTA.
 
