@@ -74,6 +74,8 @@ function parseArgs() {
     maxLossDayUsdc: Number(get("--max-loss-day-usdc", "0")),
     minReceiptIntervalSec: Number(get("--min-receipt-interval-sec", "0")),
     autoPauseOnVerifierFailure: process.argv.includes("--auto-pause-on-verifier-failure"),
+    // Cost throttle: only call the LLM on publish ticks (default off → unchanged).
+    llmOnPublishOnly: process.argv.includes("--llm-on-publish-only"),
   };
 }
 
@@ -343,6 +345,33 @@ async function main() {
         st.mids.push(midprice);
         if (st.mids.length > MID_WINDOW) st.mids.shift();
 
+        // Book snapshot every tick (free) — feeds the receipt regardless of
+        // whether the LLM is called this tick.
+        cycleBookSnapshots.push({
+          marketId: m.yesToken,
+          start: {
+            bids: [{ price: bid.price, size: bid.size }],
+            asks: [{ price: ask.price, size: ask.size }],
+            ts,
+            source: "polymarket-clob-v2",
+          },
+          end: {
+            bids: [{ price: bid.price, size: bid.size }],
+            asks: [{ price: ask.price, size: ask.size }],
+            ts,
+            source: "polymarket-clob-v2",
+          },
+        });
+
+        // Cost throttle: with --llm-on-publish-only, only pay for an LLM call on
+        // publish ticks. The rolling context above still updates every tick, so
+        // the publish-tick decision sees the full price window.
+        const callLlm = !args.llmOnPublishOnly || tick % args.publishEvery === 0;
+        if (!callLlm) {
+          console.log(`tick=${tick} ${m.slug} mid=${midprice.toFixed(3)} -> (llm throttled)`);
+          continue;
+        }
+
         const ctx = {
           marketSlug: m.slug,
           marketQuestion: m.question,
@@ -374,22 +403,6 @@ async function main() {
         console.log(
           `tick=${tick} ${m.slug} mid=${midprice.toFixed(3)} -> ${decision.action} size=${decision.sizeUsdc} conv=${decision.convictionPct}% risk=${decision.riskPosture} skew=${decision.spreadSkewBps}bps trace=${trHash.slice(0, 10)}`,
         );
-
-        cycleBookSnapshots.push({
-          marketId: m.yesToken,
-          start: {
-            bids: [{ price: bid.price, size: bid.size }],
-            asks: [{ price: ask.price, size: ask.size }],
-            ts,
-            source: "polymarket-clob-v2",
-          },
-          end: {
-            bids: [{ price: bid.price, size: bid.size }],
-            asks: [{ price: ask.price, size: ask.size }],
-            ts,
-            source: "polymarket-clob-v2",
-          },
-        });
         cycleDecisions.push({
           trHash,
           action: decision.action,
