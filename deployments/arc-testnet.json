@@ -171,6 +171,32 @@
       "txHash": "0xa41a75220adba822d55afb199fc29377c664b6a20aea62e9317ba8520ac90a69",
       "block": "42854277",
       "note": "Phase 6 fee router. createSplit(recipients, bps) → pay(splitId, amount) → recipient.claim(). Per-split allocation table immutable, pull-pattern claim across all splits."
+    },
+    "CovenantVaultV2": {
+      "address": "0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5",
+      "txHash": "0x1af25662f409067c0a9fba16f465a3d23addf7e93f8e565b9b44ab19d47f1dd8",
+      "block": "43330417",
+      "governor": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "mandate": {
+        "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+        "botId": "0x80192d10f2027065eb5aeec80ce961fa18ab608a401a311a8f060b3eff77e8ec",
+        "budgetUsdc": "200000000",
+        "maxDrawdownBps": 500,
+        "receiptFreshnessSec": 1800,
+        "expiry": "0",
+        "perfFeeBps": 2000,
+        "bondContract": "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939",
+        "riskKernel": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+        "trackRecordV2": "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66"
+      },
+      "note": "V2 = vault-custodied strategy deployment. governor curates the adapter allowlist; operator deploys credit into approved adapters only; funds move vault->adapter, never through the operator."
+    },
+    "IdleStrategyAdapter": {
+      "address": "0xa47f32dfdfc199a2df34d96029273ca0e2c7d343",
+      "txHash": "0x0de1642a453189fada817994f65de3ea905fc1b207319792ce281dc397ff9754",
+      "block": "43330422",
+      "vault": "0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5",
+      "note": "Zero-yield strategy adapter (allowlist-free). Proves the deploy/recall custody path; USYC adapter is the real-yield variant pending Entitlements allowlist."
     }
   },
   "circle": {
