@@ -42,7 +42,7 @@ Arc/Circle usage:
 - USDC is used for vault capital, operator bond, slashing, and fee split demos.
 - **Circle CCTP V2 is integrated two ways.** (1) An in-browser bridge in the console (`/#/console?t=bridge`) that builds and submits the real CCTP V2 flow with the user's wallet: `TokenMessengerV2.depositForBurn` on a source testnet (Ethereum Sepolia / Base Sepolia / Polygon Amoy / Avalanche Fuji) → Circle Iris attestation → `MessageTransmitterV2.receiveMessage` on Arc (Domain 26) → optional `CovenantVault.deposit`. Native USDC, burn-and-mint — not a wrapped-asset bridge. (2) A CLI helper, `keeper/scripts/cctp-bridge-and-deposit.mjs` (`--simulate` / `--build-source` / `--redeem`), with the same calldata. `CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) is a deployed deposit wrapper: a caller already holding USDC can deposit into any `CovenantVault` on behalf of a designated recipient (who later claims) — it is a convenience landing spot, not an automatic CCTP hook target. Canonical Circle/Arc addresses pinned in `deployments/arc-testnet.json` under `circle.*` (CCTP V2 TokenMessenger / MessageTransmitter / TokenMinter / MessageV2, Gateway Wallet + Minter, USYC + Teller + Entitlements, EURC, FxEscrow — all verified against `docs.arc.io/arc/references/contract-addresses`).
 - Circle Paymaster is **upstream-blocked on Arc**: the supported-chains list at `developers.circle.com/paymaster` covers Arbitrum, Avalanche, Base, Ethereum, Optimism, Polygon, Unichain — Arc is not listed for either ERC-4337 v0.7 or v0.8.
-- USYC: token + Teller + Entitlements all live on Arc testnet (addresses pinned), but the Teller's buy/sell ABI is undocumented and the Entitlements gate appears to be permissioned. Read-only `totalSupply` verified; deposit/redeem integration deferred.
+- USYC: token + Teller + Entitlements all live on Arc testnet (addresses pinned). The Teller's `ITeller` ABI is documented (`buy(uint256)` / `sell(uint256)`) and integrated by `UsycStrategyAdapter`; the Entitlements gate is permissioned, so the adapter address must be allowlisted (a Circle Support request) before `buy` succeeds — verified on-chain that `buy` reverts until then. Real Treasury yield is one allowlist away on the same `StrategyAdapter` interface.
 - Circle Gateway (`GatewayWallet` + `GatewayMinter`) and App Kit are addressed but not wired in v1.
 
 ## What Is Live
@@ -66,6 +66,9 @@ Live contracts on Arc testnet:
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Per-bond binary prediction market: "will this `SlashBond` have a slash event before expiry?" Oracle-free settlement: reads `SlashBond.totalSlashed` delta at expiry; winners get stake + pro-rata share of losers' pool. Initial 24h market live vs SlashBondV1.1. |
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Phase 9 continuous-premium insurance pool, complementary to the binary prediction market. Funders call `payPremium`; permissionless `notifySlash` reads bond's `totalSlashed` delta and transfers the delta out to the bond's `topUpRecipient`. Pro-rata burn-down on withdraw after partial payouts. |
 | `FeeRouterV1` | `0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59` | Phase 6 fee router. `createSplit(recipients, bps)` (immutable per split) → permissionless `pay(splitId, amount)` allocates per `bps` with rounding dust folded into the first recipient → recipient `claim()` aggregates across every split. Closes the operator/researcher/referrer revenue loop. Reconciler emits a JSON statement at `reports/fee-statement-<unix>.json`. |
+| `CovenantVaultV2` | `0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5` | Vault-custodied strategy deployment. The operator deploys idle vault USDC into a **governor-approved** `StrategyAdapter` via `deployToStrategy`/`recallFromStrategy` — funds move vault→adapter and the operator **never holds them**. The governor (adapter allowlist) is a separate role from the operator. Realized yield is recomputable on-chain from `RecalledFromStrategy` events. Custody flow proven on-chain. |
+| `IdleStrategyAdapter` | `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343` | Allowlist-free, zero-yield `StrategyAdapter` that proves the vault-custodied deploy/recall path on-chain today. `UsycStrategyAdapter` (real USYC Treasury yield, same interface) is code-complete and gated only by the adapter address's USYC Entitlements allowlist. |
+| `RiskKernelV3` | `0x554cdad3cac1f640b39816193310166afc2bde06` | Hardened risk engine. Persistent, monotonic drawdown peak (un-spammable — fixes V2's rolling-window high-water reset; also O(1)) plus an on-chain NAV circuit breaker (`PAUSE_NAV`: per-share NAV vs high-water mark, independent of published receipts). |
 
 Live services:
 
@@ -129,6 +132,11 @@ The new primitive is the Covenant Account:
 - on-chain drawdown, staleness, budget, and expiry checks;
 - operator bond;
 - pause plus slash in one transaction.
+
+The v2/v3 layer hardens this for real capital:
+
+- **vault-custodied strategy deployment** (`CovenantVaultV2`): the agent deploys credit into governor-approved adapters and **never holds the funds**, with realized yield recomputable on-chain;
+- **a hardened risk engine** (`RiskKernelV3`): a persistent, un-spammable drawdown peak plus a receipt-independent on-chain NAV circuit breaker.
 
 That combination is the difference between "I built a bot" and "a third party can allocate capital to this bot under enforceable rules."
 
