@@ -38,6 +38,8 @@ const { ForumV2Bridge } = await import(fileUrl("keeper/src/forum-v2.ts"));
 const { buildReceipt } = await import(fileUrl("keeper/src/receipt.ts"));
 const { UsycVenue, IdleVenue, sizeDraw, computeRealizedPnl, selectVenue } =
   await import(fileUrl("keeper/src/yield-venue.ts"));
+const { MockTreasuryProvider, AnthropicTreasuryProvider } =
+  await import(fileUrl("keeper/src/treasury-mind.ts"));
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(k);
@@ -110,35 +112,55 @@ if (state !== 0) {
   process.exit(1);
 }
 const available = await readVault("availableCredit");
-const amount = sizeDraw(available, PULL_CAP, CONVICTION);
-console.log(`\navailableCredit=${usd(available)} pullCap=${usd(PULL_CAP)} conviction=${CONVICTION}% -> draw=${usd(amount)} USDC`);
-if (amount <= 0n) { console.log("nothing to deploy (zero draw)"); process.exit(0); }
+const mandateMeta = dep.contracts.CovenantVaultV1_2?.mandate ?? {};
+console.log(`\navailableCredit=${usd(available)} pullCap=${usd(PULL_CAP)}`);
 
-// Build the ranked venue list per preference.
+// Build venues + preflight at the cap so availability reflects the max draw.
 const usyc = new UsycVenue(TELLER, USYC);
 const idle = new IdleVenue();
 const ranked =
   VENUE_PREF === "usyc" ? [usyc] : VENUE_PREF === "idle" ? [idle] : [usyc, idle];
-
-// Preflight every candidate (read-only) and select.
+const probe = PULL_CAP > available ? available : PULL_CAP;
 const preflights = [];
+const venueOptions = [];
 for (const v of ranked) {
-  const pf = await v.preflight(venueCtx, amount);
+  const pf = await v.preflight(venueCtx, probe);
   console.log(`  preflight[${v.name}]: ${pf.ok ? "OK" : "SKIP"} — ${pf.reason}`);
   preflights.push({ venue: v, preflight: pf });
+  venueOptions.push({ name: v.name, kind: v.kind, available: pf.ok, reason: pf.reason });
 }
+
+// Claude-driven (or deterministic mock) treasury-allocation decision.
+const provider = process.env.ANTHROPIC_API_KEY
+  ? new AnthropicTreasuryProvider()
+  : new MockTreasuryProvider();
+const decision = await provider.decide({
+  availableCreditUsdc: Number(available) / 1e6,
+  budgetUsdc: Number(mandateMeta.budgetUsdc ?? 0) / 1e6,
+  maxDrawdownBps: Number(mandateMeta.maxDrawdownBps ?? 0),
+  vaultState: state,
+  venues: venueOptions,
+  ts: Math.floor(Date.now() / 1000),
+});
+console.log(`\nTREASURY DECISION (${decision.model}): venue=${decision.venue} conviction=${decision.convictionPct}% posture=${decision.riskPosture} deploy=${decision.deployUsdc.toFixed(6)} USDC`);
+
+if (decision.riskPosture === "halt" || decision.requestPause) {
+  console.log("agent self-governed: halt / request pause — no deployment (the mandate working).");
+  process.exit(0);
+}
+
+// --conviction overrides the agent's sizing; otherwise use the decision's.
+const convPct = has("--conviction") ? CONVICTION : decision.convictionPct;
+const amount = sizeDraw(available, PULL_CAP, convPct);
+if (amount <= 0n) { console.log("zero draw — hold"); process.exit(0); }
+
 const venue = selectVenue(preflights);
 if (!venue) { console.error("\nno deployable venue (all preflights failed)"); process.exit(1); }
-console.log(`\nselected venue: ${venue.name} (${venue.kind})`);
+console.log(`selected venue: ${venue.name} (${venue.kind}); draw ${usd(amount)} USDC (conviction ${convPct}%)`);
 
 const reasoning =
-  `[Covenant treasury-agent on Arc]\n` +
-  `Mandate vault ${VAULT} ACTIVE; availableCredit ${usd(available)} USDC.\n` +
-  `Policy: deploy bounded credit to the best available capital venue, conviction ${CONVICTION}%.\n` +
-  `Venue: ${venue.name} (${venue.kind}). Draw ${usd(amount)} USDC.\n` +
-  (venue.kind === "idle"
-    ? `USYC (real Treasury yield) gated by operator allowlist; degrading to idle so the loop still settles on Arc.`
-    : `USYC: deposit USDC -> Hashnote Teller buy -> hold yield -> sell -> recover principal + yield.`);
+  decision.reasoning +
+  `\nExecuting on Arc: venue=${venue.name} (${venue.kind}), draw=${usd(amount)} USDC.`;
 
 if (DRY) {
   console.log("\n--- DRY RUN (no writes) ---");
