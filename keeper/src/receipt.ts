@@ -111,8 +111,37 @@ export interface Receipt {
     /** Source-chain tx hash of the depositForBurnWithHook call. */
     txHash: Hex;
   };
+  /** Realized yield from vault-custodied strategy round trips (CovenantVaultV2
+   *  deployToStrategy -> recallFromStrategy). Each leg's realized PnL is
+   *  `recoveredMicros - deployedMicros`; the sum is added to totalUsdcMicros.
+   *  Kept separate from `pnl.realizedUsdc` (trading) so the two sources don't
+   *  conflate. Optional + backward-compatible. When `recallTx` is present the
+   *  leg is independently recomputable on-chain from the RecalledFromStrategy
+   *  event (see strategy-onchain.ts). */
+  strategyLegs?: StrategyLeg[];
   /** UTC timestamp the receipt was produced. */
   generatedAt: number;
+}
+
+/** A vault-custodied strategy round trip, in micro-USDC. */
+export interface StrategyLeg {
+  /** The strategy adapter the vault deployed into. */
+  adapter: Hex;
+  deployedMicros: number;
+  recoveredMicros: number;
+  /** Optional on-chain references for independent recomputation. */
+  deployTx?: Hex;
+  recallTx?: Hex;
+}
+
+/** Sum of realized yield across strategy legs, in micro-USDC (can be negative). */
+export function strategyRealizedMicros(
+  legs: StrategyLeg[] | undefined,
+): number {
+  if (!legs) return 0;
+  let sum = 0;
+  for (const l of legs) sum += l.recoveredMicros - l.deployedMicros;
+  return sum;
 }
 
 /** Stable, canonical JSON encoding — sorted keys, no whitespace. */
@@ -175,6 +204,7 @@ export interface BuildReceiptInput {
     codeHash?: Hex;
   };
   decisionTrace?: { traceUri: string; traceHash: Hex };
+  strategyLegs?: StrategyLeg[];
 }
 
 export function buildReceipt(input: BuildReceiptInput): Receipt {
@@ -195,6 +225,7 @@ export function buildReceipt(input: BuildReceiptInput): Receipt {
     decisionTrace: input.decisionTrace,
     sourceData: { booksHash, fillsHash },
     ...(input.sourceChain ? { sourceChain: input.sourceChain } : {}),
+    ...(input.strategyLegs ? { strategyLegs: input.strategyLegs } : {}),
     generatedAt: Math.floor(Date.now() / 1000),
   };
 }
@@ -340,9 +371,33 @@ export function verifyReceipt(r: Receipt): string | null {
     return `maker rebate mismatch: expected ${makerRebatesUsdc} got ${r.pnl.makerRebatesUsdc}`;
   }
 
-  const expectedMicros = toMicros(
-    realizedUsdc + unrealizedUsdc + makerRebatesUsdc,
-  );
+  // Strategy (yield) legs: validate shape, then fold realized yield
+  // (recovered - deployed) into the total. Each leg is independently
+  // recomputable on-chain from its recallTx (see strategy-onchain.ts).
+  if (r.strategyLegs) {
+    for (const leg of r.strategyLegs) {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(leg.adapter))
+        return "strategyLeg.adapter malformed";
+      if (!Number.isFinite(leg.deployedMicros) || leg.deployedMicros < 0)
+        return "strategyLeg.deployedMicros invalid";
+      if (!Number.isFinite(leg.recoveredMicros) || leg.recoveredMicros < 0)
+        return "strategyLeg.recoveredMicros invalid";
+      if (
+        leg.deployTx !== undefined &&
+        !/^0x[0-9a-fA-F]{64}$/.test(leg.deployTx)
+      )
+        return "strategyLeg.deployTx malformed";
+      if (
+        leg.recallTx !== undefined &&
+        !/^0x[0-9a-fA-F]{64}$/.test(leg.recallTx)
+      )
+        return "strategyLeg.recallTx malformed";
+    }
+  }
+
+  const expectedMicros =
+    toMicros(realizedUsdc + unrealizedUsdc + makerRebatesUsdc) +
+    strategyRealizedMicros(r.strategyLegs);
   if (expectedMicros !== r.pnl.totalUsdcMicros) {
     return `pnl mismatch: expected ${expectedMicros} got ${r.pnl.totalUsdcMicros}`;
   }
