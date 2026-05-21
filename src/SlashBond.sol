@@ -74,9 +74,9 @@ contract SlashBond {
 
     function bond(uint256 amount) external onlyOperator {
         if (amount == 0) revert ZeroAmount();
-        bool ok = usdc.transferFrom(operator, address(this), amount);
-        require(ok, "usdc transferFrom failed");
         bondBalance += amount;
+        bool ok = usdc.transferFrom(msg.sender, address(this), amount);
+        require(ok, "usdc transferFrom failed");
         emit Bonded(amount, bondBalance);
     }
 

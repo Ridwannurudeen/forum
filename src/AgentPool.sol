@@ -83,12 +83,12 @@ contract AgentPool {
             sharesMinted = (amount * totalShares) / assets();
             if (sharesMinted == 0) revert ZeroAmount();
         }
-        // pull first, then mint (CEI: external call before state if it reverts we revert)
-        bool ok = usdc.transferFrom(msg.sender, address(this), amount);
-        require(ok, "usdc transferFrom failed");
+        // CEI: effects before the external pull; a failed transfer reverts the lot.
         sharesOf[msg.sender] += sharesMinted;
         totalShares += sharesMinted;
         depositTotalIdle += amount;
+        bool ok = usdc.transferFrom(msg.sender, address(this), amount);
+        require(ok, "usdc transferFrom failed");
         emit Deposit(msg.sender, amount, sharesMinted);
     }
 
@@ -123,14 +123,14 @@ contract AgentPool {
     ///         operatorWithdraw minus operatorReturn.
     function operatorReturn(uint256 amount) external onlyOperator {
         if (amount == 0) revert ZeroAmount();
-        bool ok = usdc.transferFrom(operator, address(this), amount);
-        require(ok, "usdc transferFrom failed");
         depositTotalIdle += amount;
         // If outstanding underflows, that means operator returned MORE than
         // they pulled — that's profit. Clamp at zero; the difference shows
         // up as a per-share-price increase.
         if (amount >= operatorOutstanding) operatorOutstanding = 0;
         else operatorOutstanding -= amount;
+        bool ok = usdc.transferFrom(msg.sender, address(this), amount);
+        require(ok, "usdc transferFrom failed");
         emit OperatorReturn(amount);
     }
 

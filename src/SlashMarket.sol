@@ -114,7 +114,6 @@ contract SlashMarket {
         Market storage m = _markets[id];
         if (m.settled) revert MarketSettled();
         if (block.timestamp >= m.expiryAt) revert MarketExpired();
-        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
         if (yesSide) {
             m.yesStake += amount;
             yesStakeOf[id][msg.sender] += amount;
@@ -122,6 +121,7 @@ contract SlashMarket {
             m.noStake += amount;
             noStakeOf[id][msg.sender] += amount;
         }
+        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
         emit Staked(id, msg.sender, yesSide, amount);
     }
 
