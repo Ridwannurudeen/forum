@@ -54,6 +54,7 @@ contract CapitalRouter {
 
     uint64 public strategyVersion;
     uint64 public lastRebalanceAt;
+    uint256 private _reentrancyGuard = 1;
 
     uint256 private constant ONE = 1e18;
     uint16 private constant WEIGHTS_TOTAL_BPS = 10_000;
@@ -71,6 +72,14 @@ contract CapitalRouter {
     error WeightsLengthMismatch();
     error WeightsMustSumTo10000();
     error TooManyVaults();
+    error Reentrancy();
+
+    modifier nonReentrant() {
+        if (_reentrancyGuard != 1) revert Reentrancy();
+        _reentrancyGuard = 2;
+        _;
+        _reentrancyGuard = 1;
+    }
 
     constructor(IERC20 _usdc, address _strategist) {
         if (address(_usdc) == address(0)) revert ZeroAddress();
@@ -144,7 +153,7 @@ contract CapitalRouter {
     // Depositor surface
     // ------------------------------------------------------------------
 
-    function deposit(uint256 amount) external returns (uint256 sharesMinted) {
+    function deposit(uint256 amount) external nonReentrant returns (uint256 sharesMinted) {
         if (amount == 0) revert ZeroAmount();
         if (totalShares == 0) {
             sharesMinted = amount;
@@ -152,10 +161,10 @@ contract CapitalRouter {
             sharesMinted = (amount * totalShares) / assets();
             if (sharesMinted == 0) revert ZeroAmount();
         }
-        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert();
         sharesOf[msg.sender] += sharesMinted;
         totalShares += sharesMinted;
         idleUsdc += amount;
+        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert();
         emit Deposit(msg.sender, amount, sharesMinted);
     }
 
@@ -164,7 +173,7 @@ contract CapitalRouter {
     ///         If a vault is paused with no idle, that slice stays trapped
     ///         in that vault (depositor keeps the claim until the vault
     ///         unpauses or its idle replenishes from operator returns).
-    function withdraw(uint256 shares) external returns (uint256 usdcOut) {
+    function withdraw(uint256 shares) external nonReentrant returns (uint256 usdcOut) {
         if (shares == 0) revert ZeroAmount();
         uint256 userShares = sharesOf[msg.sender];
         if (shares > userShares) revert InsufficientShares();
@@ -218,7 +227,7 @@ contract CapitalRouter {
     ///         the strategist need not pay gas every cycle. A vault that
     ///         is PAUSED simply gets skipped on deposit (vault.deposit
     ///         will revert) and may be partly withdrawable on withdraw.
-    function rebalance() external returns (uint256 vaultsTouched) {
+    function rebalance() external nonReentrant returns (uint256 vaultsTouched) {
         uint256 n = targetVaults.length;
         if (n == 0) return 0;
         uint256 totalNow = assets();

@@ -125,10 +125,10 @@ contract CovenantVault {
             sharesMinted = (amount * totalShares) / assets();
             if (sharesMinted == 0) revert ZeroAmount();
         }
-        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert();
         sharesOf[msg.sender] += sharesMinted;
         totalShares += sharesMinted;
         depositTotalIdle += amount;
+        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert();
         emit Deposit(msg.sender, amount, sharesMinted);
     }
 
@@ -169,10 +169,10 @@ contract CovenantVault {
 
     function returnCapital(uint256 amount) external onlyOperator {
         if (amount == 0) revert ZeroAmount();
-        if (!usdc.transferFrom(mandate.operator, address(this), amount)) revert();
         depositTotalIdle += amount;
         if (amount >= operatorOutstanding) operatorOutstanding = 0;
         else operatorOutstanding -= amount;
+        if (!usdc.transferFrom(msg.sender, address(this), amount)) revert();
         emit CapitalReturned(amount, operatorOutstanding);
     }
 

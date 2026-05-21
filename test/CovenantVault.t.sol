@@ -113,6 +113,16 @@ contract CovenantVaultTest is Test {
         assertEq(usdc.balanceOf(alice), before_ + 500e6);
     }
 
+    function test_returnCapital_reverts_for_non_operator() public {
+        _deposit(alice, 1_000e6);
+        vm.prank(operator); vault.pullCredit(400e6);
+        // Only the operator can return capital; nobody can pull another address's USDC.
+        vm.prank(bob); usdc.approve(address(vault), 400e6);
+        vm.prank(bob);
+        vm.expectRevert(CovenantVault.NotOperator.selector);
+        vault.returnCapital(400e6);
+    }
+
     function test_returnCapital_with_profit_raises_pershare_price() public {
         _deposit(alice, 1_000e6);
         vm.prank(operator); vault.pullCredit(500e6);
