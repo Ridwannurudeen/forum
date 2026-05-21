@@ -197,6 +197,12 @@
       "block": "43330422",
       "vault": "0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5",
       "note": "Zero-yield strategy adapter (allowlist-free). Proves the deploy/recall custody path; USYC adapter is the real-yield variant pending Entitlements allowlist."
+    },
+    "RiskKernelV3": {
+      "address": "0x554cdad3cac1f640b39816193310166afc2bde06",
+      "txHash": "0xb1e315611ba5f534056b09b68d2086aeae1d2c5aeb07efb0d2641cbc0c8687d7",
+      "block": "43344767",
+      "note": "Hardened risk engine: persistent monotonic drawdown peak (un-spammable, O(1)) + on-chain NAV circuit breaker (perSharePrice vs highWaterMark). Adds Verdict.PAUSE_NAV. Bind as a vault's riskKernel + bond attestor to enable enforce+slash."
     }
   },
   "circle": {
