@@ -2743,6 +2743,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               "live AgoraMind vault, autonomous slash",
             ],
             [
+              "CovenantVaultV2",
+              "0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5",
+              "vault-custodied strategy: operator deploys credit into governor-approved adapters, never holds the funds",
+            ],
+            [
               "RiskKernel (v1)",
               "0x041a79c214e9daf876b5f2e76d7870ef4359630a",
               "permissionless mandate enforcer",
@@ -2751,6 +2756,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               "RiskKernelV2",
               "0x0af356f280af1d8b7a43f0746c581614feec4055",
               "enforce(vault) → pause AND slash, one tx",
+            ],
+            [
+              "RiskKernelV3",
+              "0x554cdad3cac1f640b39816193310166afc2bde06",
+              "persistent un-spammable drawdown peak + on-chain NAV circuit breaker",
             ],
             [
               "SlashBond (v1)",
@@ -2786,6 +2796,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               "AgentPool",
               "0x13855be80b6122187c0bcba007946f9fbaae3fae",
               "permissionless deposit, 20%/HWM perf fee",
+            ],
+            [
+              "IdleStrategyAdapter",
+              "0xa47f32dfdfc199a2df34d96029273ca0e2c7d343",
+              "vault-custodied yield venue (USYC variant pending Entitlements allowlist)",
             ],
             [
               "FeeDistributor",

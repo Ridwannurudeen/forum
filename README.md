@@ -22,6 +22,8 @@ A Forum Covenant Account has four parts:
 
 The product thesis is simple: agents can trade, but capital needs enforceable mandates, receipt-backed performance, and instant USDC settlement before it can trust them.
 
+**Production hardening (v2/v3, live on Arc testnet):** `CovenantVaultV2` adds vault-custodied strategy deployment — the agent puts credit to work through governor-approved `StrategyAdapter`s and **never holds the funds itself** (vault→adapter), with realized yield recomputable on-chain from `RecalledFromStrategy` events (`docs/yield-adapter.md`). `RiskKernelV3` adds a persistent, un-spammable drawdown peak plus a receipt-independent on-chain NAV circuit breaker. Role separation (operator / governor / risk attestor as distinct addresses) is documented in `docs/security-roles.md`.
+
 ## Live Arc Testnet Deployment
 
 Chain: Arc testnet `5042002`
@@ -43,6 +45,9 @@ Chain: Arc testnet `5042002`
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Phase 9 Risk Markets v0. Binary YES/NO prediction market per `SlashBond` per time window. Oracle-free settle via `SlashBond.totalSlashed` delta. |
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Phase 9 continuous-premium insurance pool for `SlashBondV1.1`. `payPremium` funds the pool; permissionless `notifySlash` reads bond's `totalSlashed` delta and pays the delta out to the bond's `recipient`. |
 | `FeeRouterV1` | `0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59` | Phase 6 fee router. `createSplit(recipients, bps)` → permissionless `pay(splitId, amount)` allocates per-recipient → `claim()` pulls running total across every split. Closes the operator/researcher/referrer revenue loop. Off-chain reconciliation in `keeper/scripts/fee-reconcile.mjs`. |
+| `CovenantVaultV2` | `0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5` | Vault-custodied strategy deployment. `deployToStrategy`/`recallFromStrategy` route idle USDC into a **governor-approved** `StrategyAdapter` — funds move vault→adapter, the operator never holds them. Governor (allowlist) is separate from operator. |
+| `IdleStrategyAdapter` | `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343` | Allowlist-free `StrategyAdapter` (zero-yield) that proves the custody deploy/recall path on-chain. `UsycStrategyAdapter` is the real-yield variant on the same interface, pending the adapter address's USYC Entitlements allowlist. |
+| `RiskKernelV3` | `0x554cdad3cac1f640b39816193310166afc2bde06` | Hardened risk engine: persistent monotonic drawdown peak (un-spammable, fixes V2's rolling-window reset; O(1)) + on-chain NAV circuit breaker (`PAUSE_NAV`, perSharePrice vs high-water mark — independent of published receipts). |
 
 Deployment metadata is in `deployments/arc-testnet.json`.
 
@@ -160,7 +165,7 @@ Circle tools used directly: Arc, USDC, and **CCTP V2**. CCTP is integrated two w
 1. **In-browser bridge** at `/#/console?t=bridge` — runs the real CCTP V2 flow with the connected wallet: `TokenMessengerV2.depositForBurn` on a source testnet → Circle Iris attestation → `MessageTransmitterV2.receiveMessage` on Arc (Domain 26) → optional `CovenantVault.deposit`. Native USDC, burn-and-mint, with chain-switching handled in-page.
 2. **CLI helper** `keeper/scripts/cctp-bridge-and-deposit.mjs` with the same calldata (`--simulate` / `--build-source` / `--redeem`).
 
-`CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) is a deployed deposit wrapper: a caller already holding USDC deposits into a `CovenantVault` for a designated recipient (who later claims). It is a convenience landing spot, **not** an automatic CCTP hook target — bridged USDC mints to the recipient's own wallet, then is deposited. Source-domain addresses for Ethereum Sepolia (Domain 0), Avalanche Fuji (1), Base Sepolia (6), and Polygon Amoy (7) are pinned in `deployments/arc-testnet.json` under `circle.cctp`. Gateway addresses (`GatewayWallet` + `GatewayMinter`) are pinned but not yet wired. USYC token + Teller + Entitlements are pinned (read-only verified, deposit/redeem ABI undocumented). App Kit and Paymaster are not used — Paymaster does not support Arc upstream.
+`CovenantInbox` (`0x670f68ff6b90c42f4b7be26a684812e1e5561b12`) is a deployed deposit wrapper: a caller already holding USDC deposits into a `CovenantVault` for a designated recipient (who later claims). It is a convenience landing spot, **not** an automatic CCTP hook target — bridged USDC mints to the recipient's own wallet, then is deposited. Source-domain addresses for Ethereum Sepolia (Domain 0), Avalanche Fuji (1), Base Sepolia (6), and Polygon Amoy (7) are pinned in `deployments/arc-testnet.json` under `circle.cctp`. Gateway addresses (`GatewayWallet` + `GatewayMinter`) are pinned but not yet wired. USYC token + Teller + Entitlements are pinned. The Teller's `ITeller` ABI is documented (`buy(uint256)` / `sell(uint256)`); `UsycStrategyAdapter` integrates it, gated by the adapter address's USYC Entitlements allowlist (a Circle Support request) — verified on-chain that `buy` reverts until allowlisted. App Kit and Paymaster are not used — Paymaster does not support Arc upstream.
 
 ## Develop
 
