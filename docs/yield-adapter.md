@@ -85,5 +85,34 @@ Arc with zero external dependency.
 - Allowlist the operator → flip the hero venue to **USYC** for real yield.
 - Add `AaveVenue` / `MorphoVenue` behind the same `CapitalVenue` interface once
   those protocols deploy on Arc mainnet (Arc's announced DeFi launch partners).
-- v2 (trust-hardening): a vault-custodied strategy adapter so the operator only
-  *triggers* deployment and never custodies the drawn USDC.
+- v2 (trust-hardening): **SHIPPED** — see below.
+
+## v2 (shipped): on-chain vault-custodied strategy
+
+`src/CovenantVaultV2.sol` + `src/IStrategyAdapter.sol` + `src/IdleStrategyAdapter.sol`
++ `src/UsycStrategyAdapter.sol` close the custody gap **on-chain**: idle vault USDC
+is deployed into a **governor-approved** `StrategyAdapter` via
+`deployToStrategy(adapter, amount)` and recovered via
+`recallFromStrategy(adapter, amount)`. Funds move **vault → adapter**; the operator
+only triggers and never holds the capital.
+
+- **Role separation:** `governor` curates the adapter allowlist (the trust
+  boundary); `operator` deploys credit but only into pre-approved adapters;
+  `riskKernel` pauses/slashes. `deployToStrategy` is `onlyActive`;
+  `recallFromStrategy` works in any state (funds never stuck).
+- **Accounting:** `assets() = idle + operatorOutstanding + strategyDeployed`
+  (principal); realized yield lands in idle on recall and raises the per-share
+  price; unrealized yield is not marked up (conservative).
+- **Security:** CEI on `deployToStrategy`; `recallFromStrategy` is
+  `nonReentrant` (its recovered amount is a return value, so it cannot be
+  CEI-reordered — Slither flags it structurally, the guard closes it). Slither:
+  0 arbitrary-send / reentrancy-no-eth on the adapters; only the guarded recall
+  on the vault.
+
+**Live on Arc testnet** (deployed + custody flow proven):
+`CovenantVaultV2` `0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5`,
+`IdleStrategyAdapter` `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343`.
+Proof: `deployToStrategy(idle, 1 USDC)` put the USDC in the **adapter** (not the
+operator); `strategyDeployed=1.0`, `assets=2.0` conserved; recall returned all to
+idle; depositor withdraw non-destructive. The USYC adapter is the real-yield
+variant (same interface) pending the adapter address's Entitlements allowlist.
