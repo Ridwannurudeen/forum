@@ -137,21 +137,15 @@ export class UsycVenue implements CapitalVenue {
     const bal = await ctx.ops.erc20Balance(ctx.usdc, ctx.operator);
     if (bal < amount)
       return { ok: false, reason: `operator USDC ${bal} < deploy ${amount}` };
-    // USYC's Teller reverts for non-entitlement-allowlisted callers; a read-only
-    // simulate of buy() tells us whether this operator is allowlisted yet.
-    const sim = await ctx.ops.simulate(
-      this.teller,
-      TELLER_ABI,
-      "buy",
-      [amount],
-      ctx.operator,
-    );
-    if (!sim.ok)
-      return {
-        ok: false,
-        reason: `USYC Teller.buy would revert (operator not allowlisted?): ${sim.reason}`,
-      };
-    return { ok: true, reason: "allowlisted; Teller.buy simulates clean" };
+    // USYC entitlement can't be proven read-only: Teller.buy needs a USDC
+    // allowance to even reach the entitlement check, so a no-allowance simulate
+    // always reverts and can't distinguish "no approval" from "not entitled".
+    // Pass on balance; deploy() (approve → buy) is the real gate, and the keeper
+    // falls back to another venue if buy reverts (e.g. wallet not yet entitled).
+    return {
+      ok: true,
+      reason: "balance ok; USYC entitlement is verified at deploy()",
+    };
   }
 
   async deploy(ctx: VenueContext, amount: bigint): Promise<DeployResult> {
@@ -237,4 +231,29 @@ export function selectVenue(
 ): CapitalVenue | null {
   for (const r of ranked) if (r.preflight.ok) return r.venue;
   return null;
+}
+
+/** Deploy `amount` into the first venue (in order) whose deploy() succeeds,
+ *  falling back on revert. This is what makes USYC entitlement-ready: preflight
+ *  can't read-only-prove entitlement, so we attempt the real deploy and fall
+ *  back to the next venue (e.g. idle) if Teller.buy reverts. Throws only if
+ *  every venue's deploy reverts. `onSkip` is called for each failed attempt. */
+export async function deployWithFallback(
+  ctx: VenueContext,
+  amount: bigint,
+  ranked: CapitalVenue[],
+  onSkip?: (venue: CapitalVenue, err: unknown) => void,
+): Promise<{ venue: CapitalVenue; result: DeployResult }> {
+  let lastErr: unknown;
+  for (const venue of ranked) {
+    try {
+      const result = await venue.deploy(ctx, amount);
+      return { venue, result };
+    } catch (e) {
+      lastErr = e;
+      if (onSkip) onSkip(venue, e);
+    }
+  }
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new Error(`all venues failed to deploy (last: ${msg})`);
 }
