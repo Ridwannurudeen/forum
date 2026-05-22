@@ -3814,9 +3814,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const [proof, fees] = await Promise.all([readJson("/api/proof"), readJson("/api/fee-statement")]);
           const fills = Array.isArray(proof.fills) ? proof.fills : [];
           const attributed = fills.filter((f) => f.builderCodeAttached).length;
+          const verifiedFillCount = Number(proof.forum?.verifiedFillCount || 0);
           setHtml(
             "verify-proof-status",
-            `${fills.length} real fill${fills.length === 1 ? "" : "s"} · ${attributed} builder-attributed<span class="block mt-1 text-xs text-forum-dim">${escapeHtml(proof.forum?.verifierResult || "verifier pending")}</span>`,
+            `${fills.length} real Polymarket fill${fills.length === 1 ? "" : "s"} · ${attributed} builder-attributed<span class="block mt-1 text-xs text-forum-dim">Forum receipt: ${verifiedFillCount} verified fill${verifiedFillCount === 1 ? "" : "s"} · ${escapeHtml(proof.forum?.verifierResult || "verifier pending")}</span>`,
           );
           setHtml(
             "verify-proof-links",
@@ -5116,7 +5117,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       document.getElementById("fees-claim-btn").addEventListener("click", feesClaim);
       // ── Polymarket proof tab ─────────────────────────────────────────
       // Renders /api/proof (operator-mutable static artifact) into the
-      // Polymarket console tab: integration status, real fills, the Forum
+      // legacy Polymarket proof panel: integration status, real fills, the Forum
       // receipt anchor for the real-fill bot, builder-fee status, and the
       // operator-run command flow. Read-only; no public trade button — live
       // orders are operator-gated by Polymarket geoblocking + private keys.

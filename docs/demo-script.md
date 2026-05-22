@@ -58,7 +58,7 @@ Voiceover:
 
 ### 0:20-0:55 - What Is Real Today
 
-On screen: Polymarket tab.
+On screen: Verify tab.
 
 Voiceover:
 
