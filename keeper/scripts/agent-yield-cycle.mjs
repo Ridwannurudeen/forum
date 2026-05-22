@@ -36,7 +36,7 @@ process.chdir(resolve(__dirname, "..", ".."));
 const fileUrl = (p) => pathToFileURL(resolve(p)).href;
 const { ForumV2Bridge } = await import(fileUrl("keeper/src/forum-v2.ts"));
 const { buildReceipt } = await import(fileUrl("keeper/src/receipt.ts"));
-const { UsycVenue, IdleVenue, sizeDraw, computeRealizedPnl, selectVenue } =
+const { UsycVenue, IdleVenue, sizeDraw, computeRealizedPnl, deployWithFallback } =
   await import(fileUrl("keeper/src/yield-venue.ts"));
 const { MockTreasuryProvider, AnthropicTreasuryProvider } =
   await import(fileUrl("keeper/src/treasury-mind.ts"));
@@ -154,17 +154,18 @@ const convPct = has("--conviction") ? CONVICTION : decision.convictionPct;
 const amount = sizeDraw(available, PULL_CAP, convPct);
 if (amount <= 0n) { console.log("zero draw — hold"); process.exit(0); }
 
-const venue = selectVenue(preflights);
-if (!venue) { console.error("\nno deployable venue (all preflights failed)"); process.exit(1); }
-console.log(`selected venue: ${venue.name} (${venue.kind}); draw ${usd(amount)} USDC (conviction ${convPct}%)`);
+const candidates = preflights.filter((p) => p.preflight.ok).map((p) => p.venue);
+if (!candidates.length) { console.error("\nno deployable venue (all preflights failed)"); process.exit(1); }
+const venueOrder = candidates.map((v) => v.name).join(" -> ");
+console.log(`venue order (deploy-with-fallback): ${venueOrder}; draw ${usd(amount)} USDC (conviction ${convPct}%)`);
 
-const reasoning =
+let reasoning =
   decision.reasoning +
-  `\nExecuting on Arc: venue=${venue.name} (${venue.kind}), draw=${usd(amount)} USDC.`;
+  `\nExecuting on Arc: deploy ${usd(amount)} USDC into [${venueOrder}] (first that succeeds; USYC needs the wallet entitled, else falls back).`;
 
 if (DRY) {
   console.log("\n--- DRY RUN (no writes) ---");
-  console.log(`plan: pullCredit(${usd(amount)}) -> ${venue.name}.deploy -> withdraw -> returnCapital -> crystalliseFee` + (PUBLISH ? " -> publish receipt" : ""));
+  console.log(`plan: pullCredit(${usd(amount)}) -> deploy [${venueOrder}] -> withdraw -> returnCapital -> crystalliseFee` + (PUBLISH ? " -> publish receipt" : ""));
   console.log("reasoning:\n" + reasoning);
   process.exit(0);
 }
@@ -174,9 +175,12 @@ console.log(`\nbefore: operatorOutstanding=${usd(await readVault("operatorOutsta
 console.log("1) pullCredit:", await ops.write(VAULT, VAULT_ABI, "pullCredit", [amount]));
 console.log(`   outstanding now: ${usd(await readVault("operatorOutstanding"))}`);
 
-console.log(`2) ${venue.name}.deploy(${usd(amount)}) ...`);
-const deployRes = await venue.deploy(venueCtx, amount);
-console.log("   deploy tx:", deployRes.txHash ?? "(no on-chain action — idle)");
+console.log(`2) deploy — trying [${venueOrder}] ...`);
+const { venue, result: deployRes } = await deployWithFallback(venueCtx, amount, candidates, (v, e) => {
+  console.log(`   venue[${v.name}] deploy reverted -> falling back: ${(e?.shortMessage || e?.message || String(e)).slice(0, 100)}`);
+});
+reasoning += `\nDeployed via ${venue.name} (${venue.kind}).`;
+console.log(`   deployed via ${venue.name}; tx: ${deployRes.txHash ?? "(no on-chain action — idle)"}`);
 
 console.log(`3) ${venue.name}.withdraw() ...`);
 const wd = await venue.withdraw(venueCtx);

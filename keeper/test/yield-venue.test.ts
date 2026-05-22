@@ -6,6 +6,7 @@ import {
   sizeDraw,
   computeRealizedPnl,
   selectVenue,
+  deployWithFallback,
   type ChainOps,
   type VenueContext,
 } from "../src/yield-venue.js";
@@ -135,14 +136,20 @@ describe("IdleVenue", () => {
 });
 
 describe("UsycVenue", () => {
-  it("preflight fails (gated) when the operator is not allowlisted", async () => {
+  it("preflight passes on balance even when not yet entitled (deferred to deploy)", async () => {
+    const ops = new MockChainOps(OP);
+    ops.set(USDC, OP, 5_000_000n);
+    ops.allowlisted = false; // entitlement can't be read-only-checked
+    const v = new UsycVenue(TELLER, USYC);
+    const pf = await v.preflight(ctxFor(ops), 1_000_000n);
+    expect(pf.ok).toBe(true); // verified at deploy(), not preflight
+  });
+  it("deploy reverts when the operator is not entitled", async () => {
     const ops = new MockChainOps(OP);
     ops.set(USDC, OP, 5_000_000n);
     ops.allowlisted = false;
     const v = new UsycVenue(TELLER, USYC);
-    const pf = await v.preflight(ctxFor(ops), 1_000_000n);
-    expect(pf.ok).toBe(false);
-    expect(pf.reason).toMatch(/allowlist/i);
+    await expect(v.deploy(ctxFor(ops), 1_000_000n)).rejects.toThrow();
   });
   it("preflight fails when the operator is underfunded", async () => {
     const ops = new MockChainOps(OP);
@@ -170,6 +177,46 @@ describe("UsycVenue", () => {
     const w = await v.withdraw(ctxFor(ops));
     expect(w.txHash).toBeNull();
     expect(w.usdcRecovered).toBe(0n);
+  });
+});
+
+describe("deployWithFallback", () => {
+  it("falls back to idle when the yield venue's deploy reverts (not entitled)", async () => {
+    const ops = new MockChainOps(OP);
+    ops.set(USDC, OP, 5_000_000n);
+    ops.allowlisted = false; // USYC deploy will revert
+    const usyc = new UsycVenue(TELLER, USYC);
+    const idle = new IdleVenue();
+    const skipped: string[] = [];
+    const { venue } = await deployWithFallback(
+      ctxFor(ops),
+      1_000_000n,
+      [usyc, idle],
+      (v) => skipped.push(v.name),
+    );
+    expect(venue).toBe(idle);
+    expect(skipped).toEqual(["usyc"]);
+  });
+  it("uses the first venue whose deploy succeeds (entitled → USYC)", async () => {
+    const ops = new MockChainOps(OP);
+    ops.set(USDC, OP, 5_000_000n); // allowlisted true by default
+    const usyc = new UsycVenue(TELLER, USYC);
+    const idle = new IdleVenue();
+    const { venue } = await deployWithFallback(ctxFor(ops), 1_000_000n, [
+      usyc,
+      idle,
+    ]);
+    expect(venue).toBe(usyc);
+  });
+  it("throws when every venue's deploy reverts", async () => {
+    const ops = new MockChainOps(OP);
+    ops.set(USDC, OP, 5_000_000n);
+    ops.allowlisted = false;
+    await expect(
+      deployWithFallback(ctxFor(ops), 1_000_000n, [
+        new UsycVenue(TELLER, USYC),
+      ]),
+    ).rejects.toThrow();
   });
 });
 
