@@ -620,7 +620,16 @@
       // URL hash changes on each navigation. No server changes needed.
       (function () {
         const ROUTES = {
-          "/": ["hero", "proof-strip", "metrics", "thesis", "for", "how", "cta-prefooter"],
+          // Home is a single rich scrolling landing — every marketing section
+          // renders here in DOM order. The console (the interactive app) stays
+          // its own route. The sub-routes below remain for backward-compatible
+          // deep links (e.g. footer/doc links to #/architecture still work as a
+          // focused single-section view); the nav now anchor-scrolls within "/".
+          "/": [
+            "hero", "proof-strip", "metrics", "thesis", "for", "how",
+            "slash-proof", "phase3-proof", "architecture", "receipts",
+            "developers", "security", "cta-prefooter",
+          ],
           "/console":      ["live-mandate", "app"],
           "/proof":        ["slash-proof", "phase3-proof", "receipts"],
           "/developers":   ["developers"],
@@ -687,6 +696,28 @@
         window.__forumRouter.ROUTED_IDS = ROUTED_IDS;
       })();
 
+      // ── Nav anchors ─────────────────────────────────────────────────
+      // The marketing nav links now scroll to their section on the single
+      // rich home page. If the user is on the console route, go home first,
+      // then scroll. Delegated so it covers desktop + mobile-bottom nav.
+      document.addEventListener("click", (e) => {
+        const a = e.target.closest("[data-nav-anchor]");
+        if (!a) return;
+        e.preventDefault();
+        const id = a.getAttribute("data-nav-anchor");
+        const scrollToSection = () => {
+          const el = document.getElementById(id);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+        const r = window.__forumRouter;
+        if (r && r.parseHash().route !== "/") {
+          r.navigate("/");
+          setTimeout(scrollToSection, 80);
+        } else {
+          scrollToSection();
+        }
+      });
+
       // ── Scroll-reveal ───────────────────────────────────────────────
       // Adds .js-reveal to <html> synchronously so [data-reveal] elements
       // start hidden ONLY when JS is available (no-JS = fully visible, no
@@ -748,16 +779,16 @@
             <a href="#/console" data-nav-route="/console" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Console
             </a>
-            <a href="#/proof" data-nav-route="/proof" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#slash-proof" data-nav-anchor="slash-proof" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Proof
             </a>
-            <a href="#/developers" data-nav-route="/developers" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
-              Developers
-            </a>
-            <a href="#/architecture" data-nav-route="/architecture" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#architecture" data-nav-anchor="architecture" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Architecture
             </a>
-            <a href="#/security" data-nav-route="/security" class="hidden lg:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#developers" data-nav-anchor="developers" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+              Developers
+            </a>
+            <a href="#security" data-nav-anchor="security" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Security
             </a>
             <a
@@ -784,10 +815,10 @@
       </nav>
 
       <div class="mobile-bottom-nav" aria-label="Primary mobile navigation">
-        <a href="#/console">Console</a>
-        <a href="#/proof">Proof</a>
-        <a href="#/developers">Docs</a>
-        <a href="#/security">Risk</a>
+        <a href="#/console" data-nav-route="/console">Console</a>
+        <a href="#slash-proof" data-nav-anchor="slash-proof">Proof</a>
+        <a href="#architecture" data-nav-anchor="architecture">Arch</a>
+        <a href="#security" data-nav-anchor="security">Risk</a>
       </div>
 
       <main class="mx-auto max-w-8xl px-5 sm:px-6">
