@@ -23,7 +23,7 @@ activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api
   `keeper/scripts/verify-receipt.mjs` on the real-fill receipt returns `pnl: valid`.
 - **Real Polymarket V2 mainnet fills.** Two real Polygon fills, builder
   attribution confirmed by Polymarket's API, one anchored as a verified Arc
-  receipt. See `GET /api/proof` and the **Polymarket** console tab.
+  receipt. See `GET /api/proof` and the **Verify** console tab.
 - **Real-fill bot is now a funded Covenant Account.** A funded (1 USDC),
   risk-enforced, slashable vault (`0x4B78fa94…E61d`) is bound to the real-fill
   bot `0x75d6577d…0ef0` (`linkedVaults` non-empty). See
@@ -62,7 +62,7 @@ mechanism is proven; **adoption is not**.
 
 - **Live Polymarket trading.** Polymarket geoblocks order submission and requires
   the operator's keys, so it is exposed as the **operator-run flow** in the
-  Polymarket tab (copyable commands), not a public trade button.
+  proof docs and Verify tab, not a public trade button.
 - **Vault-funded Polymarket trading (the deep gap).** Arc vault USDC is not
   Polymarket `pUSD`; truly funding a Polymarket trade from vault capital needs
   CCTP → Polymarket-deposit automation. Not built. This is why the credit-pull

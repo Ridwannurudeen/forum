@@ -2,7 +2,7 @@
   "phase": 3,
   "status": "complete",
   "generatedAt": 1779202200,
-  "description": "Two real Polymarket V2 mainnet fills captured + verified end-to-end through the Forum receipt graph. Fill #2 carries our builder code; Polymarket's attribution API confirms it.",
+  "description": "Two real Polymarket V2 mainnet fills captured. The Arc receipt currently verifies fill #1 and recomputes its PnL; fill #2 carries Forum's builder code and is confirmed by Polymarket's attribution API.",
   "polymarket": {
     "signerEoa": "0x4f9eFA49e092E3dbA6Da3E5b24ADAEe8cDA0Bac9",
     "funderProxy": "0xcD6c77F267aa1745b9B57986Ad1A9C749212D1d8",
