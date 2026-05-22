@@ -419,6 +419,8 @@
       }
       .proof-marquee {
         overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
         mask-image: linear-gradient(
           90deg,
           transparent,
@@ -430,6 +432,7 @@
       .proof-marquee-track {
         display: flex;
         width: max-content;
+        max-width: none;
         gap: 2rem;
         animation: marquee 34s linear infinite;
       }
@@ -447,6 +450,7 @@
       @media (max-width: 900px) {
         .hero-grid {
           grid-template-columns: 1fr;
+          gap: 2.5rem;
         }
       }
       @media (max-width: 640px) {
@@ -481,6 +485,13 @@
         }
         .mobile-bottom-nav a + a {
           border-left: 1px solid var(--line-soft);
+        }
+        .proof-marquee {
+          width: 100%;
+        }
+        .proof-marquee-track {
+          transform: translateX(0);
+          animation: none;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -815,9 +826,9 @@
       </nav>
 
       <div class="mobile-bottom-nav" aria-label="Primary mobile navigation">
-        <a href="#/console" data-nav-route="/console">Console</a>
+        <a href="#/console" data-nav-route="/console">App</a>
+        <a href="#/console?t=bridge">Fund</a>
         <a href="#slash-proof" data-nav-anchor="slash-proof">Proof</a>
-        <a href="#architecture" data-nav-anchor="architecture">Arch</a>
         <a href="#security" data-nav-anchor="security">Risk</a>
       </div>
 
@@ -1142,19 +1153,17 @@
             <div class="bg-forum-panel p-8 flex flex-col lift">
               <div class="flex items-center gap-2">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-forum-accent3" aria-hidden="true"></span>
-                <span class="section-eyebrow text-forum-accent3">Venues &amp; aggregators</span>
+                <span class="section-eyebrow text-forum-accent3">Venues &amp; operators</span>
               </div>
-              <h3 class="mt-4 text-xl font-semibold tracking-[-0.015em]">Route fees by receipt.</h3>
+              <h3 class="mt-4 text-xl font-semibold tracking-[-0.015em]">Prove fills without exposing keys.</h3>
               <p class="mt-3 text-sm text-forum-dim leading-relaxed">
-                The FeeRouter pays operators, researchers, and referrers from a
-                single
-                <code class="mono text-xs text-forum-accent2">pay(splitId, amount)</code>
-                call. Splits are permissionless. Each recipient pulls accrual
-                across every split via one
-                <code class="mono text-xs text-forum-accent2">claim()</code>.
+                Venue credentials and trade submission stay operator-side.
+                Forum publishes fills, builder attribution, and receipt hashes
+                so allocators can verify the result without a public trade
+                button.
               </p>
-              <a href="#/console?t=fees" class="mt-auto pt-6 inline-flex items-center gap-1 text-sm text-forum-accent3 hover:text-forum-ink transition">
-                Inspect the fee router
+              <a href="#/console?t=verify" class="mt-auto pt-6 inline-flex items-center gap-1 text-sm text-forum-accent3 hover:text-forum-ink transition">
+                Verify the proof
                 <span aria-hidden="true">→</span>
               </a>
             </div>
@@ -1330,11 +1339,13 @@
                 <div
                   class="text-[11px] uppercase tracking-widest text-forum-dim2"
                 >
-                  Try it yourself
+                  Reproduce locally
                 </div>
-                <pre
-                  class="mono mt-3 rounded-md border border-forum-line bg-forum-bg/80 p-5 text-xs leading-relaxed overflow-x-auto"
-                ><span class="text-forum-dim2"># 1. clone</span>
+                <details class="mt-3 rounded-md border border-forum-line bg-forum-bg/80 p-4">
+                  <summary class="cursor-pointer text-xs text-forum-accent mono">show advanced commands</summary>
+                  <pre
+                    class="mono mt-3 text-xs leading-relaxed overflow-x-auto"
+                  ><span class="text-forum-dim2"># 1. clone</span>
 git clone github.com/Ridwannurudeen/forum
 cd forum
 
@@ -1343,6 +1354,7 @@ node keeper/scripts/seed-tvl-and-bond.mjs
 
 <span class="text-forum-dim2"># 3. trigger violation (when in stale window)</span>
 node keeper/scripts/demo-violation.mjs</pre>
+                </details>
               </div>
               <div>
                 <div
@@ -1538,12 +1550,11 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-8">
             <div>
               <div class="section-eyebrow text-forum-accent">Console · live on Arc testnet</div>
-              <h2 class="mt-2 section-title">Seven flows, one wallet.</h2>
+              <h2 class="mt-2 section-title">Agent operations, visible on-chain.</h2>
               <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
-                Every interactive flow lives below. Switch tabs to create a
-                Covenant Account, bridge USDC in via CCTP V2, manage bonds and
-                withdrawals, browse agents, trade risk markets, allocate
-                capital, or split fees.
+                The keeper runs the strategy loop off-UI. The console shows the
+                evidence: vault custody, adapter status, receipts, risk verdicts,
+                and the few user actions allocators actually need.
               </p>
             </div>
             <div class="w-full sm:w-auto rounded-lg ring-soft bg-forum-panel px-4 py-3">
@@ -1581,16 +1592,91 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
           <div id="app-tabs" class="flex flex-wrap gap-1 mb-6 border-b border-forum-line" role="tablist">
-            <button data-app-tab="create"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">Create</button>
-            <button data-app-tab="bridge"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Bridge</button>
-            <button data-app-tab="manage"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Manage</button>
+            <button data-app-tab="overview" class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">Operations</button>
+            <button data-app-tab="create"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Create</button>
+            <button data-app-tab="bridge"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Fund</button>
+            <button data-app-tab="manage"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Vault</button>
             <button data-app-tab="agents"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Agents</button>
-            <button data-app-tab="markets" class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Markets</button>
-            <button data-app-tab="router"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Router</button>
-            <button data-app-tab="fees"    class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Fees</button>
-            <button data-app-tab="polymarket" class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Polymarket</button>
+            <button data-app-tab="verify" class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Verify</button>
           </div>
-          <div data-tab="create" class="app-tab-panel">
+          <div data-tab="overview" class="app-tab-panel">
+            <div class="grid xl:grid-cols-[1.35fr_0.65fr] gap-6">
+              <div class="rounded-lg ring-soft bg-forum-panel p-6 sm:p-8">
+                <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+                  <div>
+                    <div class="text-[11px] uppercase tracking-widest text-forum-accent">Keeper loop - hidden action, public evidence</div>
+                    <h3 class="mt-2 text-2xl font-semibold tracking-[-0.02em]">Funds move vault to adapter, not operator wallet.</h3>
+                    <p class="mt-3 text-sm text-forum-dim leading-relaxed max-w-2xl">
+                      The keeper runs <code class="mono text-forum-accent2">agent-strategy-cycle.mjs</code> off-UI. Users inspect custody,
+                      receipts, and risk state instead of manually pressing a deploy-funds button.
+                    </p>
+                  </div>
+                  <a href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/scripts/agent-strategy-cycle.mjs" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">keeper script</a>
+                </div>
+
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-px rounded-md overflow-hidden bg-forum-line2 ring-soft">
+                  <div class="bg-forum-panel2 p-4">
+                    <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Keeper</div>
+                    <div id="op-keeper-status" class="mt-1 mono text-base text-forum-ink">checking...</div>
+                    <div id="op-keeper-block" class="mt-1 text-[10px] text-forum-dim2">block -</div>
+                  </div>
+                  <div class="bg-forum-panel2 p-4">
+                    <div class="text-[10px] uppercase tracking-widest text-forum-dim2">V2 vault assets</div>
+                    <div id="op-v2-assets" class="mt-1 mono text-base text-forum-ink">-</div>
+                    <div id="op-v2-split" class="mt-1 text-[10px] text-forum-dim2">idle / strategy -</div>
+                  </div>
+                  <div class="bg-forum-panel2 p-4">
+                    <div class="text-[10px] uppercase tracking-widest text-forum-dim2">RiskKernelV3</div>
+                    <div id="op-v2-verdict" class="mt-1 mono text-base text-forum-ink">-</div>
+                    <div id="op-v2-state" class="mt-1 text-[10px] text-forum-dim2">state -</div>
+                  </div>
+                  <div class="bg-forum-panel2 p-4">
+                    <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Yield venue</div>
+                    <div id="op-yield-venue" class="mt-1 mono text-base text-forum-ink">Idle adapter</div>
+                    <div id="op-yield-status" class="mt-1 text-[10px] text-forum-warn">USYC entitlement pending</div>
+                  </div>
+                </div>
+
+                <div class="mt-6 grid lg:grid-cols-2 gap-4">
+                  <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
+                    <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">Latest strategy receipt</div>
+                    <div id="op-strategy-receipt" class="mono text-sm text-forum-ink">checking...</div>
+                    <div id="op-strategy-cycle" class="mt-2 text-xs text-forum-dim leading-relaxed">Waiting for indexed strategy bot.</div>
+                  </div>
+                  <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
+                    <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">External user proof</div>
+                    <div id="op-user-vault" class="mono text-sm text-forum-ink">checking...</div>
+                    <div class="mt-2 text-xs text-forum-dim leading-relaxed">
+                      Shows the user-created funded vault separately from the deployer-operated AgoraMind vault.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-lg ring-soft bg-forum-panel p-6">
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-4">What is intentionally not a button</div>
+                <div class="space-y-4 text-sm">
+                  <div>
+                    <div class="text-forum-ink">Strategy deployment</div>
+                    <p class="mt-1 text-xs text-forum-dim leading-relaxed">The keeper decides and calls <code class="mono">deployToStrategy</code>. Users inspect receipts and risk state.</p>
+                  </div>
+                  <div>
+                    <div class="text-forum-ink">Polymarket order execution</div>
+                    <p class="mt-1 text-xs text-forum-dim leading-relaxed">Operator-gated by venue credentials and geofencing. Public UI stays read-only.</p>
+                  </div>
+                  <div>
+                    <div class="text-forum-ink">Fee/router/risk-market admin</div>
+                    <p class="mt-1 text-xs text-forum-dim leading-relaxed">Those remain proof primitives and docs, not the default allocator path.</p>
+                  </div>
+                </div>
+                <div class="mt-6 flex flex-wrap gap-2">
+                  <a href="#/console?t=bridge" class="btn btn-primary">Fund vault</a>
+                  <a href="#/console?t=agents" class="btn btn-ghost">Inspect agents</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-tab="create" class="app-tab-panel hidden">
           <div class="mb-6">
             <div class="text-[11px] uppercase tracking-widest text-forum-accent">Launch your own · permissionless</div>
             <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Connect a wallet, set the mandate, click create. <code class="mono text-forum-accent2">CovenantVaultFactory.createVault(mandate)</code> deploys a fresh immutable vault with RiskKernelV2 + SlashBondV1.1 pre-wired.</p>
@@ -1797,8 +1883,8 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
           <div data-tab="manage" class="app-tab-panel hidden">
           <div class="mb-6">
-            <div class="text-[11px] uppercase tracking-widest text-forum-accent">Manage · operator + depositor</div>
-            <p class="mt-2 text-sm text-forum-dim leading-relaxed">Operators post bond. Depositors withdraw shares. Same wallet.</p>
+            <div class="text-[11px] uppercase tracking-widest text-forum-accent">Vault controls - operator + depositor</div>
+            <p class="mt-2 text-sm text-forum-dim leading-relaxed">Bond and withdrawal controls for the active Covenant Account. Strategy deployment remains keeper-run and is shown in Operations.</p>
           </div>
 
           <div class="rounded-lg ring-soft bg-forum-panel p-4 mb-6">
@@ -1881,7 +1967,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="agents" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
-              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore · ranked by drawdown / slash / freshness</div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v1 - ranked by drawdown / slash / freshness</div>
               <p class="mt-2 text-sm text-forum-dim leading-relaxed">Click any row for the inspector + one-click enforce per linked vault.</p>
             </div>
             <span class="text-xs text-forum-dim">
@@ -1910,7 +1996,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
           <p class="mt-4 text-[10px] text-forum-dim2 leading-relaxed">
-            v0 score: 100 - max(40, drawdownBps/100) - max(30, (secondsStale-1800)/60) - 15×slashEventCount + (bond ? 10 : 0). Source in <code class="mono">keeper/scripts/forum-indexer.mjs</code>. Will be hardened with per-vault bond attribution, longest-uninterrupted-streak, and verified-fill PnL recompute in v1.
+            v1 score extends the v0 freshness/drawdown/slash formula with per-vault bond attribution, uninterrupted streaks, mandate drift, exposure-change, and verified-fill signals. Source in <code class="mono">keeper/scripts/forum-indexer.mjs</code>.
           </p>
 
           <!-- Agent inspector + one-click enforce -->
@@ -1959,6 +2045,55 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div id="ins-reasoning" class="space-y-2 text-xs">—</div>
             </div>
             <div id="ins-status" class="mt-4 text-xs hidden"></div>
+          </div>
+
+          </div>
+          <div data-tab="verify" class="app-tab-panel hidden">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Verify - receipts, fills, and fee status</div>
+              <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">
+                Read-only proof for the parts that should not be public buttons:
+                Polymarket fills, builder attribution, receipt hashes, and fee
+                routing state.
+              </p>
+            </div>
+            <a href="#receipts" data-nav-anchor="receipts" class="chip hover:border-forum-accent transition">receipt verifier</a>
+          </div>
+
+          <div class="grid lg:grid-cols-3 gap-4">
+            <div class="rounded-lg ring-soft bg-forum-panel p-5">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Real-fill proof</div>
+              <div id="verify-proof-status" class="mono text-sm text-forum-ink">checking...</div>
+              <div id="verify-proof-links" class="mt-4 flex flex-wrap gap-2 text-xs"></div>
+            </div>
+            <div class="rounded-lg ring-soft bg-forum-panel p-5">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Builder fee status</div>
+              <div id="verify-builder-status" class="text-sm text-forum-dim leading-relaxed">checking...</div>
+            </div>
+            <div class="rounded-lg ring-soft bg-forum-panel p-5">
+              <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Fee statement</div>
+              <div id="verify-fee-status" class="mono text-sm text-forum-ink">checking...</div>
+              <a href="/api/fee-statement" target="_blank" rel="noopener" class="mt-4 inline-flex text-xs text-forum-accent hover:text-forum-ink transition">Download JSON</a>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-lg ring-soft bg-forum-panel p-5">
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Advanced proof surfaces moved out of the main app path</div>
+            <div class="grid sm:grid-cols-3 gap-3 text-xs text-forum-dim">
+              <a href="https://github.com/Ridwannurudeen/forum/blob/main/docs/yield-adapter.md" target="_blank" rel="noopener" class="rounded-md border border-forum-line bg-forum-panel2 p-3 hover:border-forum-accent transition">
+                <span class="block text-forum-ink mb-1">Yield adapter notes</span>
+                USYC entitlement gate + idle fallback.
+              </a>
+              <a href="https://forum.gudman.xyz/api/router/activity" target="_blank" rel="noopener" class="rounded-md border border-forum-line bg-forum-panel2 p-3 hover:border-forum-accent transition">
+                <span class="block text-forum-ink mb-1">Router activity JSON</span>
+                Allocator events without admin controls.
+              </a>
+              <a href="https://github.com/Ridwannurudeen/forum/blob/main/docs/phase-3-live-fill-proof.md" target="_blank" rel="noopener" class="rounded-md border border-forum-line bg-forum-panel2 p-3 hover:border-forum-accent transition">
+                <span class="block text-forum-ink mb-1">Polymarket proof doc</span>
+                Operator-run flow and tx trail.
+              </a>
+            </div>
           </div>
 
           </div>
@@ -2145,7 +2280,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div class="section-eyebrow">Architecture · all bytecode verifiable on testnet.arcscan.app</div>
               <h2 class="mt-2 section-title">
                 The live Arc contract set
-                <span class="block text-forum-dim2 text-base font-normal mt-2">10 immutable modules · no proxies · no upgradeability</span>
+                <span class="block text-forum-dim2 text-base font-normal mt-2">15 deployed modules · 5 core surfaces shown first</span>
               </h2>
             </div>
             <a
@@ -2342,7 +2477,13 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
 
-          <div id="dev-tabs" class="flex flex-wrap gap-1 mb-4 border-b border-forum-line" role="tablist">
+          <details class="rounded-lg ring-soft bg-forum-panel p-5">
+            <summary class="flex items-center justify-between gap-3 cursor-pointer">
+              <span class="text-sm text-forum-ink">Show SDK and verifier snippets</span>
+              <span class="text-xs mono text-forum-accent">advanced</span>
+            </summary>
+
+          <div id="dev-tabs" class="flex flex-wrap gap-1 mt-5 mb-4 border-b border-forum-line" role="tablist">
             <button data-dev-tab="ts" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">TypeScript</button>
             <button data-dev-tab="py" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Python</button>
             <button data-dev-tab="sol" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Solidity</button>
@@ -2470,6 +2611,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
   <span class="text-forum-ok">RECEIPT VERIFIED</span></pre>
           </div>
+          </details>
         </section>
 
         <!-- SECURITY · honest about where we are -->
@@ -2657,13 +2799,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             <div>
               <div class="section-eyebrow mb-4">Product</div>
               <ul class="space-y-2.5 text-sm">
-                <li><a href="#/console" class="text-forum-dim hover:text-forum-ink transition">Console</a></li>
+                <li><a href="#/console" class="text-forum-dim hover:text-forum-ink transition">Operations console</a></li>
                 <li><a href="#/console?t=create" class="text-forum-dim hover:text-forum-ink transition">Create vault</a></li>
-                <li><a href="#/console?t=bridge" class="text-forum-dim hover:text-forum-ink transition">Bridge (CCTP V2)</a></li>
+                <li><a href="#/console?t=bridge" class="text-forum-dim hover:text-forum-ink transition">Fund with CCTP V2</a></li>
                 <li><a href="#/console?t=agents" class="text-forum-dim hover:text-forum-ink transition">AgentScore</a></li>
-                <li><a href="#/console?t=markets" class="text-forum-dim hover:text-forum-ink transition">Risk markets</a></li>
-                <li><a href="#/console?t=router" class="text-forum-dim hover:text-forum-ink transition">Capital router</a></li>
-                <li><a href="#/console?t=fees" class="text-forum-dim hover:text-forum-ink transition">Fee router</a></li>
+                <li><a href="#/console?t=verify" class="text-forum-dim hover:text-forum-ink transition">Verify proof</a></li>
               </ul>
             </div>
 
@@ -2841,6 +2981,13 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           ],
         },
       ];
+      const CORE_CONTRACTS = new Set([
+        "CovenantVaultFactory",
+        "CovenantVaultV2",
+        "IdleStrategyAdapter",
+        "RiskKernelV3",
+        "TrackRecordV2",
+      ]);
 
       const ADDR_V1 = "0xaace70a50573cb077f65d601cd19103afc4aef9d";
       const ADDR_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
@@ -2962,11 +3109,33 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       ];
 
       const COVENANT_V12 = "0x80384963c0c93414ff16e018c6618a64bc94df6d";
+      const COVENANT_V2 = "0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5";
+      const IDLE_STRATEGY_ADAPTER = "0xa47f32dfdfc199a2df34d96029273ca0e2c7d343";
+      const RISK_KERNEL_V3 = "0x554cdad3cac1f640b39816193310166afc2bde06";
       const SLASH_BOND_V11 = "0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939";
       const REAL_FILL_BOT_ID =
         "0x" +
         "75d6577d49eff276e2ada42f9ebb04ab" +
         "7f74cc3fdeef072aab6c2d5e3f8a0ef0";
+      const STRATEGY_BOT_ID =
+        "0x" +
+        "bc6f8f40260903ff9c53f18a968c7e26" +
+        "a3400a71fe8416dee60e643644a26b97";
+      const ASSETS_ABI = [
+        { type: "function", name: "assets", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+      ];
+      const STRATEGY_DEPLOYED_ABI = [
+        { type: "function", name: "strategyDeployed", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+      ];
+      const DEPLOYED_TO_ABI = [
+        { type: "function", name: "deployedTo", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+      ];
+      const PER_SHARE_PRICE_ABI = [
+        { type: "function", name: "perSharePrice", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+      ];
+      const RISK_EVALUATE_ABI = [
+        { type: "function", name: "evaluate", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint8" }] },
+      ];
 
       function shortAddr(a) {
         return a.slice(0, 6) + "…" + a.slice(-4);
@@ -3217,28 +3386,42 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
       function renderContractsGrouped() {
         const root = document.getElementById("contracts-grouped");
-        root.innerHTML = GROUPS.map(
-          (g) => `
-        <div>
-          <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">${escapeHtml(g.label)}</div>
-          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            ${g.items
-              .map(
-                ([name, addr, blurb]) => `
+        const core = GROUPS.flatMap((g) => g.items).filter(([name]) =>
+          CORE_CONTRACTS.has(name),
+        );
+        const card = ([name, addr, blurb]) => `
               <a href="${safeExplorerAddr(addr)}" target="_blank" rel="noopener"
                  class="block rounded-md ring-soft bg-forum-panel p-4 hover:ring-accent group">
                 <div class="flex justify-between items-baseline">
                   <span class="text-sm text-forum-ink font-medium">${escapeHtml(name)}</span>
-                  <span class="text-[10px] text-forum-dim2 group-hover:text-forum-accent">view ↗</span>
+                  <span class="text-[10px] text-forum-dim2 group-hover:text-forum-accent">view</span>
                 </div>
                 <div class="mono mt-1.5 text-xs text-forum-dim">${safeShortAddr(addr)}</div>
                 <div class="mt-2 text-xs text-forum-dim2 leading-relaxed">${escapeHtml(blurb)}</div>
-              </a>`,
-              )
-              .join("")}
+              </a>`;
+        const full = GROUPS.map(
+          (g) => `
+        <div>
+          <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">${escapeHtml(g.label)}</div>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            ${g.items.map(card).join("")}
           </div>
         </div>`,
         ).join("");
+        root.innerHTML = `
+          <div>
+            <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-3">Core surface</div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              ${core.map(card).join("")}
+            </div>
+          </div>
+          <details class="rounded-lg ring-soft bg-forum-panel p-5">
+            <summary class="flex items-center justify-between gap-3 cursor-pointer">
+              <span class="text-sm text-forum-ink">Show all 15 deployed modules</span>
+              <span class="text-xs mono text-forum-accent">advanced</span>
+            </summary>
+            <div class="mt-6 space-y-10">${full}</div>
+          </details>`;
       }
 
       async function getLogsChunked(
@@ -3526,7 +3709,134 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         chain: ARC_TESTNET,
         transport: http(),
       });
+      const RISK_V3_VERDICTS = [
+        "ALLOW",
+        "PAUSE_DRAWDOWN",
+        "PAUSE_OVERSUBSCRIBED",
+        "PAUSE_STALE",
+        "PAUSE_EXPIRED",
+        "PAUSE_NAV",
+      ];
+
+      function setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      }
+      function setHtml(id, html) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+      }
+      function formatPerShare(px) {
+        return (Number(px) / 1e18).toLocaleString(undefined, {
+          minimumFractionDigits: 6,
+          maximumFractionDigits: 6,
+        });
+      }
+
+      async function loadOperations() {
+        const [healthRes, agentsRes, feeRes] = await Promise.allSettled([
+          readJson("/api/health"),
+          readJson("/api/agents"),
+          readJson("/api/fee-statement"),
+        ]);
+
+        if (healthRes.status === "fulfilled") {
+          const h = healthRes.value;
+          setHtml(
+            "op-keeper-status",
+            `<span class="${h.stale ? "text-forum-warn" : "text-forum-ok"}">${h.stale ? "stale" : "live"}</span>`,
+          );
+          setText("op-keeper-block", `block ${Number(h.lastBlock || 0).toLocaleString()} · ${h.freshnessSec}s freshness`);
+        } else {
+          setHtml("op-keeper-status", `<span class="text-forum-err">unavailable</span>`);
+        }
+
+        try {
+          const [state, idle, outstanding, strategy, assets, deployedTo, px, verdict] = await Promise.all([
+            client.readContract({ address: COVENANT_V2, abi: STATE_ABI, functionName: "state" }),
+            client.readContract({ address: COVENANT_V2, abi: IDLE_ABI, functionName: "depositTotalIdle" }),
+            client.readContract({ address: COVENANT_V2, abi: OUTSTND_ABI, functionName: "operatorOutstanding" }),
+            client.readContract({ address: COVENANT_V2, abi: STRATEGY_DEPLOYED_ABI, functionName: "strategyDeployed" }),
+            client.readContract({ address: COVENANT_V2, abi: ASSETS_ABI, functionName: "assets" }),
+            client.readContract({ address: COVENANT_V2, abi: DEPLOYED_TO_ABI, functionName: "deployedTo", args: [IDLE_STRATEGY_ADAPTER] }),
+            client.readContract({ address: COVENANT_V2, abi: PER_SHARE_PRICE_ABI, functionName: "perSharePrice" }),
+            client.readContract({ address: RISK_KERNEL_V3, abi: RISK_EVALUATE_ABI, functionName: "evaluate", args: [COVENANT_V2] }),
+          ]);
+          const verdictLabel = RISK_V3_VERDICTS[Number(verdict)] || `V${Number(verdict)}`;
+          setText("op-v2-assets", fmtUsdc(assets));
+          setText("op-v2-split", `${fmtUsdc(idle)} idle · ${fmtUsdc(strategy)} in strategy`);
+          setHtml(
+            "op-v2-verdict",
+            `<span class="${verdictLabel === "ALLOW" ? "text-forum-ok" : "text-forum-warn"}">${escapeHtml(verdictLabel)}</span>`,
+          );
+          setText("op-v2-state", `${["ACTIVE", "PAUSED"][Number(state)] || `S${Number(state)}`} · px ${formatPerShare(px)}`);
+          setText("op-yield-venue", deployedTo > 0n ? "Idle active" : "Idle ready");
+          setText("op-yield-status", outstanding > 0n ? `${fmtUsdc(outstanding)} operator credit outstanding` : "USYC entitlement pending");
+        } catch (e) {
+          setHtml("op-v2-assets", `<span class="text-forum-err">read error</span>`);
+          setText("op-v2-split", errorText(e));
+        }
+
+        if (agentsRes.status === "fulfilled" && Array.isArray(agentsRes.value)) {
+          const strategyAgent = agentsRes.value.find(
+            (a) => String(a.botId).toLowerCase() === STRATEGY_BOT_ID.toLowerCase(),
+          );
+          if (strategyAgent) {
+            setHtml(
+              "op-strategy-receipt",
+              `<a class="text-forum-accent hover:text-forum-ink" target="_blank" rel="noopener" href="${safeExplorerAddr(strategyAgent.signer)}">${safeShortHash(strategyAgent.botId)}</a>`,
+            );
+            setText(
+              "op-strategy-cycle",
+              `${strategyAgent.recordCount} receipt · ${ago(strategyAgent.lastReceiptAt)} · ${strategyAgent.verifiedPnl || "strategy receipt"}`,
+            );
+          } else {
+            setText("op-strategy-receipt", "strategy bot not indexed");
+          }
+        }
+
+        if (feeRes.status === "fulfilled") {
+          const vaults = Array.isArray(feeRes.value.vaults) ? feeRes.value.vaults : [];
+          const userVault = vaults.find((v) => String(v.vault).toLowerCase().startsWith("0xb808"));
+          if (userVault) {
+            setHtml(
+              "op-user-vault",
+              `<a class="text-forum-accent hover:text-forum-ink" target="_blank" rel="noopener" href="${safeExplorerAddr(userVault.vault)}">${safeShortAddr(userVault.vault)}</a><span class="block mt-1 text-xs text-forum-dim">${fmtUsdcMicros(userVault.assetsMicros)} · ${escapeHtml(userVault.state)}</span>`,
+            );
+          } else {
+            setText("op-user-vault", "no external funded vault indexed");
+          }
+        }
+      }
+
+      async function loadConsoleVerify() {
+        try {
+          const [proof, fees] = await Promise.all([readJson("/api/proof"), readJson("/api/fee-statement")]);
+          const fills = Array.isArray(proof.fills) ? proof.fills : [];
+          const attributed = fills.filter((f) => f.builderCodeAttached).length;
+          setHtml(
+            "verify-proof-status",
+            `${fills.length} real fill${fills.length === 1 ? "" : "s"} · ${attributed} builder-attributed<span class="block mt-1 text-xs text-forum-dim">${escapeHtml(proof.forum?.verifierResult || "verifier pending")}</span>`,
+          );
+          setHtml(
+            "verify-proof-links",
+            `<a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="${escapeHtml(pmUrl(proof.forum?.receiptUri || "#"))}">receipt JSON</a>
+             <a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="${escapeHtml(pmUrl(proof.forum?.arcscan || "#"))}">Arc publish tx</a>
+             <a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="/api/proof">/api/proof</a>`,
+          );
+          setText("verify-builder-status", proof.fees?.builderFeeStatus || "Builder status unavailable.");
+          setHtml(
+            "verify-fee-status",
+            `${fees.vaultCount || 0} vaults · ${fmtUsdcMicros(fees.totalOperatorClaimableMicros || 0)} claimable<span class="block mt-1 text-xs text-forum-dim">${fees.router?.splitCount || 0} fee split(s)</span>`,
+          );
+        } catch (e) {
+          setHtml("verify-proof-status", `<span class="text-forum-err">proof unavailable: ${escapedError(e)}</span>`);
+        }
+      }
+
       renderContractsGrouped();
+      loadOperations();
+      setInterval(loadOperations, 30_000);
       loadAll(client);
       document.getElementById("vr-verify-btn").addEventListener("click", () => verifyAnyReceipt(client));
 
@@ -3939,7 +4249,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       });
 
       // ============================================================
-      // AgentScore v0 leaderboard
+      // AgentScore leaderboard
       // ============================================================
       async function loadAgents() {
         const body = document.getElementById("agents-body");
@@ -3951,11 +4261,12 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             return;
           }
           body.innerHTML = list.map((a) => {
-            const scoreColour = a.scoreV0 >= 80 ? "text-forum-ok" : a.scoreV0 >= 50 ? "text-forum-warn" : "text-forum-err";
+            const score = a.scoreV1 ?? a.scoreV0 ?? 0;
+            const scoreColour = score >= 80 ? "text-forum-ok" : score >= 50 ? "text-forum-warn" : "text-forum-err";
             return `<tr class="border-b border-forum-line2 last:border-0 row-hover cursor-pointer" data-botid="${escapeHtml(a.botId)}">
               <td class="px-5 py-3"><span title="${escapeHtml(a.botId)}" class="text-forum-ink">${safeShortHash(a.botId)}</span></td>
               <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${escapeHtml(a.kind)}</span></td>
-              <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${escapeHtml(a.scoreV0)}</td>
+              <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${escapeHtml(score)}</td>
               <td class="px-5 py-3 text-right tnum text-forum-ink">${escapeHtml(a.recordCount)}</td>
               <td class="px-5 py-3 text-right tnum text-forum-dim">${escapeHtml(a.drawdownBps)}</td>
               <td class="px-5 py-3 text-right tnum text-forum-dim">${escapeHtml(a.slashEventCount)}</td>
@@ -4040,8 +4351,9 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           ]);
 
           // Score tiles
+          const score = scoreRes.scoreV1 ?? scoreRes.scoreV0 ?? 0;
           const tiles = [
-            ["Score (v0)", scoreRes.scoreV0, scoreRes.scoreV0 >= 80 ? "text-forum-ok" : scoreRes.scoreV0 >= 50 ? "text-forum-warn" : "text-forum-err"],
+            ["Score (v1)", score, score >= 80 ? "text-forum-ok" : score >= 50 ? "text-forum-warn" : "text-forum-err"],
             ["Records", scoreRes.recordCount, "text-forum-ink"],
             ["DD bps", scoreRes.drawdownBps, "text-forum-dim"],
             ["Slashes", scoreRes.slashEventCount, scoreRes.slashEventCount > 0 ? "text-forum-err" : "text-forum-dim"],
@@ -4468,9 +4780,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           setMarketStatus("failed: " + escapedError(e), "err");
         }
       }
-      loadMarkets();
-      setInterval(loadMarkets, 30_000);
-
       // ── Phase 5 · Capital Router ──────────────────────────────────────
       const CAPITAL_ROUTER = "0x13617989cd443147b6f14ff98e492c6175bb0afc";
       // CapitalRouter surface — matches src/CapitalRouter.sol. `targets()`
@@ -4612,9 +4921,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       document.getElementById("router-deposit-btn").addEventListener("click", routerDeposit);
       document.getElementById("router-withdraw-btn").addEventListener("click", routerWithdraw);
       document.getElementById("router-rebalance-btn").addEventListener("click", routerRebalance);
-      loadRouter();
-      setInterval(loadRouter, 30_000);
-
       // Phase 5 reallocation receipts feed.
       async function loadRouterActivity() {
         try {
@@ -4650,9 +4956,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           document.getElementById("router-activity").textContent = "fetch failed";
         }
       }
-      loadRouterActivity();
-      setInterval(loadRouterActivity, 30_000);
-
       // ── Phase 6 · Fee statement (vault accruals + router splits) ────
       async function loadFeeStatement() {
         try {
@@ -4682,9 +4985,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           document.getElementById("fees-statement-summary").textContent = "fetch failed";
         }
       }
-      loadFeeStatement();
-      setInterval(loadFeeStatement, 30_000);
-
       // ── Phase 6 · Fee Router ─────────────────────────────────────────
       async function loadFees() {
         try {
@@ -4814,9 +5114,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       }
       document.getElementById("fees-create-btn").addEventListener("click", feesCreate);
       document.getElementById("fees-claim-btn").addEventListener("click", feesClaim);
-      loadFees();
-      setInterval(loadFees, 30_000);
-
       // ── Polymarket proof tab ─────────────────────────────────────────
       // Renders /api/proof (operator-mutable static artifact) into the
       // Polymarket console tab: integration status, real fills, the Forum
@@ -4918,16 +5215,14 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           statusEl.innerHTML = `<div class="bg-forum-panel2 p-4 text-forum-err text-xs">proof unavailable: ${escapedError(e)}</div>`;
         }
       }
-      loadPolyProof();
-
       // ── App console tab switcher ────────────────────────────────────
       // The router owns URL state. activateAppTab only mutates DOM.
       // Tab-button clicks navigate through the router so the URL becomes
       // `#/console?t=<tab>`, which keeps deep-links, back/forward, and the
       // active-nav highlight in sync.
-      const APP_TABS = ["create", "bridge", "manage", "agents", "markets", "router", "fees", "polymarket"];
+      const APP_TABS = ["overview", "create", "bridge", "manage", "agents", "verify"];
       function activateAppTab(name) {
-        if (!APP_TABS.includes(name)) name = "create";
+        if (!APP_TABS.includes(name)) name = "overview";
         document.querySelectorAll(".app-tab-panel").forEach((p) => {
           if (p.dataset.tab === name) p.classList.remove("hidden");
           else p.classList.add("hidden");
@@ -4939,7 +5234,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           b.classList.toggle("border-transparent", !active);
           b.classList.toggle("text-forum-dim", !active);
         });
-        if (name === "polymarket") loadPolyProof();
+        if (name === "overview") loadOperations();
+        if (name === "verify") loadConsoleVerify();
       }
       window.activateAppTab = activateAppTab;
       document.querySelectorAll(".app-tab-btn").forEach((btn) => {
@@ -4949,7 +5245,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       });
       // Safe default before the router fires; router.apply() will overwrite
       // this with the tab named in the hash when on /console.
-      activateAppTab("create");
+      activateAppTab("overview");
 
       // ── Developers section · code-tab switcher ──────────────────────
       const DEV_TABS = ["ts", "py", "sol", "cli"];
