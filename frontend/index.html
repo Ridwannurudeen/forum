@@ -1689,7 +1689,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="create" class="app-tab-panel hidden">
           <div class="mb-6">
             <div class="text-[11px] uppercase tracking-widest text-forum-accent">Launch your own · permissionless</div>
-            <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Connect a wallet, set the mandate, click create. <code class="mono text-forum-accent2">CovenantVaultFactory.createVault(mandate)</code> deploys a fresh immutable vault with RiskKernelV2 + SlashBondV1.1 pre-wired.</p>
+            <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Connect a wallet, set the mandate, click create. It deploys a fresh <strong class="text-forum-ink">SlashBond you own</strong> (attested by RiskKernelV2), then <code class="mono text-forum-accent2">CovenantVaultFactory.createVault(mandate)</code> deploys an immutable vault wired to it — two signatures, both from your wallet.</p>
           </div>
 
           <div class="grid lg:grid-cols-[2fr_1fr] gap-6">
@@ -1752,7 +1752,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                     <div id="pin-kernel" class="mono mt-1 text-forum-dim truncate">—</div>
                   </div>
                   <div class="rounded-lg border border-forum-line bg-forum-panel2 p-3">
-                    <div class="uppercase tracking-wider text-forum-dim2 text-[10px]">SlashBondV1.1</div>
+                    <div class="uppercase tracking-wider text-forum-dim2 text-[10px]">SlashBond (yours)</div>
                     <div id="pin-bond" class="mono mt-1 text-forum-dim truncate">—</div>
                   </div>
                   <div class="rounded-lg border border-forum-line bg-forum-panel2 p-3">
@@ -2755,12 +2755,12 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             </div>
             <h2 class="mt-5 text-3xl sm:text-[3.25rem] font-semibold tracking-[-0.035em] leading-[1.04] max-w-3xl mx-auto">
               <span>Open your first Covenant Account.</span>
-              <span class="block text-forum-dim2 text-2xl sm:text-3xl font-normal tracking-[-0.02em] mt-3">One transaction. No admin signer. No fallback path.</span>
+              <span class="block text-forum-dim2 text-2xl sm:text-3xl font-normal tracking-[-0.02em] mt-3">Two signatures. No admin signer. A bond you own.</span>
             </h2>
             <p class="mt-7 text-forum-dim max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
-              Connect a wallet. Set a mandate. Sign one transaction. The
-              factory deploys a fresh immutable vault with RiskKernelV2 and
-              SlashBondV1.1 pre-wired.
+              Connect a wallet. Set a mandate. Sign two transactions — one
+              deploys a SlashBond you own, one creates the immutable vault
+              wired to it, with RiskKernelV2 enforcement.
             </p>
             <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
               <a href="#/console" class="btn btn-primary">
@@ -3914,8 +3914,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       // Populate pinned address tiles
       document.getElementById("pin-kernel").textContent = shortAddr(RISK_KERNEL_V2);
       document.getElementById("pin-kernel").title = RISK_KERNEL_V2;
-      document.getElementById("pin-bond").textContent = shortAddr(SLASH_BOND_V11);
-      document.getElementById("pin-bond").title = SLASH_BOND_V11;
+      document.getElementById("pin-bond").textContent = "per-operator · on create";
+      document.getElementById("pin-bond").title = "A fresh SlashBond you own is deployed when you create the account";
       document.getElementById("pin-trv2").textContent = shortAddr(TRACK_RECORD_V2);
       document.getElementById("pin-trv2").title = TRACK_RECORD_V2;
 
