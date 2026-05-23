@@ -21,7 +21,9 @@ process.chdir(REPO_ROOT);
 
 const fileUrl = (p: string) => pathToFileURL(resolve(p)).href;
 const { ForumV2Bridge } = await import(fileUrl("keeper/src/forum-v2.ts"));
-const { buildReceipt } = await import(fileUrl("keeper/src/receipt.ts"));
+const { buildReceipt, canonicalize } = await import(
+  fileUrl("keeper/src/receipt.ts")
+);
 
 const BOT_LABEL = process.env.FORUM_BOT_LABEL || "template-bot-v1";
 const RECEIPTS_DIR = process.env.RECEIPT_LOCAL_DIR || "./receipts";
@@ -145,6 +147,28 @@ async function publishOnce() {
     prevRecordHash: prevHash,
   });
   console.log(`[adapter] PUBLISH-V2 tx=${txHash} seq=${seq}`);
+
+  // Zero-infra hosting: if RECEIPT_BASE_URL points at Forum's host, upload the
+  // receipt JSON. The endpoint only stores it if its keccak hash matches the
+  // on-chain TrackRecordV2 record — so it's tokenless and tamper-proof.
+  if (/\/\/forum\.gudman\.xyz\//.test(RECEIPTS_BASE_URL)) {
+    try {
+      const up = await fetch(
+        `https://forum.gudman.xyz/api/receipts/${bridge.botId}/${seq}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: canonicalize(receipt),
+        },
+      );
+      console.log(`[adapter] receipt upload: HTTP ${up.status}`);
+    } catch (e) {
+      console.log(
+        `[adapter] receipt upload failed (non-fatal): ${(e as Error)?.message ?? e}`,
+      );
+    }
+  }
+
   prevHash = recordHash;
   seq += 1;
   periodStartTs = periodEndTs + 1;

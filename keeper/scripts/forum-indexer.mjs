@@ -31,6 +31,8 @@ import {
   http,
   parseAbi,
   parseAbiItem,
+  keccak256,
+  toHex,
 } from "viem";
 import { computeAgentScoreV1 as scoreFnV1 } from "../src/agent-score.ts";
 import {
@@ -38,10 +40,15 @@ import {
   recordTs as recordTsPure,
   longestStreak as longestStreakPure,
 } from "../src/indexer-pure.ts";
+import { canonicalize } from "../src/receipt.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..");
 process.chdir(REPO_ROOT);
+
+// Where operator-uploaded receipts are written (nginx serves them at /receipts/).
+const RECEIPTS_WEB_DIR =
+  process.env.RECEIPTS_WEB_DIR || join(REPO_ROOT, "web", "receipts");
 
 // ---- CONFIG ----------------------------------------------------------------
 
@@ -50,7 +57,7 @@ const STATE_PATH =
   process.env.FORUM_INDEXER_STATE || "/opt/forum/indexer-state.json";
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = "forum-indexer/0.13.0"; // + Phase 4 anti-gaming inputs (mandateDrifted + maxExposureChangeBps)
+const VERSION = "forum-indexer/0.14.0"; // + chain-validated operator receipt upload (POST /api/receipts/<botId>/<seq>)
 
 const ARC = defineChain({
   id: 5042002,
@@ -759,7 +766,7 @@ function jsonReply(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Cache-Control": "public, max-age=10",
     "X-Indexer-Version": VERSION,
   });
@@ -770,10 +777,109 @@ const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "*",
     });
     return res.end();
+  }
+  // Operator receipt hosting: POST /api/receipts/<botId>/<seq> with the receipt
+  // JSON. It is hosted ONLY if its canonical keccak hash matches the on-chain
+  // TrackRecordV2 evidenceHash for (botId, seq) — the chain is the auth, so this
+  // is tokenless, spam-proof, and content-pinned. Lets external operators host
+  // receipts on forum.gudman.xyz with zero infra of their own.
+  if (req.method === "POST") {
+    const purl = new URL(req.url, "http://localhost");
+    const m = purl.pathname.match(
+      /^\/api\/receipts\/(0x[0-9a-fA-F]{64})\/(\d{1,9})$/,
+    );
+    if (!m) {
+      return jsonReply(res, 404, {
+        error: "POST only to /api/receipts/<botId>/<seq>",
+      });
+    }
+    const botId = m[1].toLowerCase();
+    const seq = Number(m[2]);
+    let body = "";
+    let aborted = false;
+    req.on("data", (c) => {
+      body += c;
+      if (body.length > 65536) {
+        aborted = true;
+        jsonReply(res, 413, { error: "receipt too large" });
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (aborted) return;
+      (async () => {
+        let receipt;
+        try {
+          receipt = JSON.parse(body);
+        } catch {
+          return jsonReply(res, 400, { error: "invalid JSON" });
+        }
+        if (
+          String(receipt.botId).toLowerCase() !== botId ||
+          Number(receipt.seq) !== seq
+        ) {
+          return jsonReply(res, 400, {
+            error: "receipt botId/seq do not match the URL",
+          });
+        }
+        let computed;
+        try {
+          computed = keccak256(toHex(canonicalize(receipt)));
+        } catch {
+          return jsonReply(res, 400, {
+            error: "could not canonicalize receipt",
+          });
+        }
+        try {
+          const count = await pub.readContract({
+            address: TR_V2,
+            abi: RECORD_COUNT_ABI,
+            functionName: "recordCount",
+            args: [botId],
+          });
+          if (seq < 1 || BigInt(seq) > count) {
+            return jsonReply(res, 409, {
+              error: "no on-chain record for that botId/seq yet",
+            });
+          }
+          const rec = await pub.readContract({
+            address: TR_V2,
+            abi: RECORD_AT_V2_ABI,
+            functionName: "recordAt",
+            args: [botId, BigInt(seq - 1)],
+          });
+          if (
+            String(rec.evidenceHash).toLowerCase() !== computed.toLowerCase()
+          ) {
+            return jsonReply(res, 409, {
+              error: "hash does not match on-chain evidenceHash",
+              computed,
+              onChain: rec.evidenceHash,
+            });
+          }
+          const botShort = botId.slice(2, 14);
+          const dir = join(RECEIPTS_WEB_DIR, botShort);
+          mkdirSync(dir, { recursive: true });
+          const fname = String(seq).padStart(6, "0") + ".json";
+          writeFileSync(join(dir, fname), canonicalize(receipt) + "\n");
+          return jsonReply(res, 200, {
+            ok: true,
+            hash: computed,
+            uri: `https://forum.gudman.xyz/receipts/${botShort}/${fname}`,
+          });
+        } catch (e) {
+          return jsonReply(res, 502, {
+            error: "on-chain check failed",
+            detail: (e?.shortMessage || e?.message || String(e)).slice(0, 140),
+          });
+        }
+      })();
+    });
+    return;
   }
   if (req.method !== "GET") {
     return jsonReply(res, 405, { error: "method not allowed" });
