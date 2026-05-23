@@ -203,6 +203,38 @@
       "txHash": "0xb1e315611ba5f534056b09b68d2086aeae1d2c5aeb07efb0d2641cbc0c8687d7",
       "block": "43344767",
       "note": "Hardened risk engine: persistent monotonic drawdown peak (un-spammable, O(1)) + on-chain NAV circuit breaker (perSharePrice vs highWaterMark). Adds Verdict.PAUSE_NAV. Bind as a vault's riskKernel + bond attestor to enable enforce+slash."
+    },
+    "DemoLiveSlashBond": {
+      "address": "0x1a1fbac31b63d378a750518dbb2e3a44bd46b81b",
+      "txHash": "0x85e559eb1c18227ce946df0f3f43256bd5dbbcfdf9fa9abfdc4ba739d12a7c25",
+      "block": "43702749",
+      "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "attestor": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+      "recipient": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "botId": "0x826d03b1edbf2c7251b6ff4a521c01cda6c01c1bf84cff2e39fc85b4edd4f6cd",
+      "unbondDelaySeconds": 86400,
+      "note": "Demo live Covenant Account bond — attestor=RiskKernelV2 for autonomous slash."
+    },
+    "DemoLiveVault": {
+      "address": "0xf6Cc85fa088B35c4A28c822486E3aAb51Ffc3766",
+      "txHash": "0x911dc2a8a53a056f465278565d6917a599ef08ff6a3466008f9d35ea8e53ef81",
+      "block": "43702751",
+      "depositTxHash": "0x8192005ebe814dafa924e69351682e2c073a7f20c74755533de48001a197c877",
+      "bondTxHash": "0x63e01bb2cc76c7ad2f30f2be7abb541c2e5ac99bb71e2ee66bd48d931fd4e029",
+      "mandate": {
+        "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+        "botId": "0x826d03b1edbf2c7251b6ff4a521c01cda6c01c1bf84cff2e39fc85b4edd4f6cd",
+        "budgetUsdc": "50000000",
+        "maxDrawdownBps": 500,
+        "receiptFreshnessSec": 1800,
+        "expiry": "0",
+        "perfFeeBps": 2000,
+        "bondContract": "0x1a1fbac31b63d378a750518dbb2e3a44bd46b81b",
+        "riskKernel": "0x0af356f280af1d8b7a43f0746c581614feec4055",
+        "trackRecordV2": "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66"
+      },
+      "label": "demo-live-v1",
+      "note": "Demo live Covenant Account created via factory; keeper label \"demo-live-v1\"."
     }
   },
   "circle": {
