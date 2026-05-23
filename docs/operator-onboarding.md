@@ -35,7 +35,9 @@ enforceable mandate.
 
 ```bash
 git clone https://github.com/Ridwannurudeen/forum.git
-cd forum/keeper && npm install && cd ..
+cd forum
+npm install --prefix keeper
+npm install --prefix adapters
 # all subsequent commands run from the repo root: forum/
 ```
 
@@ -54,8 +56,8 @@ You don't need to derive the address manually — the adapter prints
 `signer=<address> botId=<0x...>` on its first run (Step 5), even before it
 publishes. **[HUMAN]** Fund that printed `signer` address from the faucet (a small
 amount of Arc testnet USDC, which is also gas), then re-run the adapter. An
-unfunded run fails at the publish tx (`publish reverted`) — that's expected until
-funded.
+unfunded run usually fails at the first registration tx (`registerBot`) with an
+insufficient-funds error — that's expected until funded.
 
 ## Step 3 — wire the bot into `runBot()`
 
@@ -90,8 +92,10 @@ PUBLISH_INTERVAL_MS=600000 \
 ./keeper/node_modules/.bin/tsx adapters/template/adapter.ts
 ```
 
-On first publish it logs `signer=<addr> botId=<0x...>` and `PUBLISH-V2 tx=...`.
-**Capture the `botId`** — it's needed for Step 7. (`botId = keccak256("<addr lowercased>:<label>")`.)
+On startup it logs `signer=<addr> botId=<0x...>`. **Capture both values**:
+the `signer` needs faucet funding, and the `botId` is needed for Step 7.
+After funding, a successful run logs `PUBLISH-V2 tx=...`.
+(`botId = keccak256("<addr lowercased>:<label>")`.)
 
 ## Step 6 — verify (machine-checkable success criteria)
 
@@ -128,7 +132,8 @@ will pause + slash autonomously on a breach.
 
 ## Troubleshooting
 
-- `publish reverted` / out of gas → wallet not funded (Step 2) or key malformed (must be raw `0x`-hex).
+- `ERR_MODULE_NOT_FOUND: Cannot find package 'viem'` → `adapters/` dependencies were not installed. Run `npm install --prefix adapters`.
+- `registerBot` / `publish reverted` / out of gas → wallet not funded (Step 2) or key malformed (must be raw `0x`-hex).
 - `verify-receipt` HTTP error → `RECEIPT_BASE_URL` isn't actually public (Step 4).
 - Bot not on `/api/agents` → wait ~30s; confirm the publish tx succeeded; the indexer ingests v1 + v2 since `forum-indexer/0.6.0`.
 - Python path instead of TS: `pip install forum-arc web3 eth-account`, set `FORUM_PRIVATE_KEY=0x...` (env, not a file), run `python3 adapters/template/adapter.py`.
