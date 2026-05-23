@@ -694,6 +694,10 @@
             if (route === "/console" && query.t && typeof window.activateAppTab === "function") {
               window.activateAppTab(query.t, { updateHash: false, scroll: false });
             }
+            // Deep link a specific vault: /#/console?t=vault&v=0x… loads its detail
+            if (route === "/console" && query.t === "vault" && query.v && typeof window.loadVaultDetail === "function") {
+              window.loadVaultDetail(query.v);
+            }
             // Scroll to top on route change (preserves anchor jumps within /)
             window.scrollTo({ top: 0, left: 0, behavior: "instant" });
           },
@@ -1606,6 +1610,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             <button data-app-tab="create"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Create</button>
             <button data-app-tab="bridge"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Fund</button>
             <button data-app-tab="manage"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Vault</button>
+            <button data-app-tab="vault"   class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Watch</button>
             <button data-app-tab="agents"  class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Agents</button>
             <button data-app-tab="verify" class="app-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-transparent text-forum-dim hover:text-forum-ink">Verify</button>
           </div>
@@ -1970,6 +1975,98 @@ node keeper/scripts/demo-violation.mjs</pre>
                 </button>
               </form>
               <div id="withdraw-status" class="mt-3 text-xs hidden"></div>
+            </div>
+          </div>
+
+          </div>
+          <div data-tab="vault" class="app-tab-panel hidden">
+          <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Watch your vault · live custody, risk & agent decisions</div>
+              <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">Paste any Covenant Account address, or open one from <a href="#/console?t=create" class="text-forum-accent hover:text-forum-ink">Create</a>. Everything below is read live from the indexer and Arc RPC.</p>
+            </div>
+            <span class="text-xs text-forum-dim">
+              <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5" aria-hidden="true"></span>
+              live · /api/covenant
+            </span>
+          </div>
+
+          <div class="rounded-lg ring-soft bg-forum-panel p-6 sm:p-8">
+            <div class="flex items-end gap-2 flex-wrap mb-6">
+              <label class="block grow min-w-[16rem]">
+                <span class="text-[11px] uppercase tracking-widest text-forum-dim2">Vault address</span>
+                <input id="vd-addr-input" type="text" placeholder="0x… Covenant Account"
+                  class="mono mt-2 w-full rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-xs text-forum-ink focus:outline-none focus:border-forum-accent" />
+              </label>
+              <button id="vd-load-btn" class="btn btn-primary">Watch</button>
+            </div>
+
+            <div id="vd-empty" class="text-sm text-forum-dim2 leading-relaxed">
+              Enter a vault address above and press Watch — or
+              <button id="vd-demo-btn" class="text-forum-accent hover:text-forum-ink underline underline-offset-2">watch a live agent ▶</button>
+              (a Covenant Account with a Claude agent publishing receipts right now).
+            </div>
+
+            <div id="vd-body" class="hidden">
+              <div class="flex items-baseline justify-between flex-wrap gap-3 mb-5">
+                <div class="min-w-0">
+                  <div class="text-[11px] uppercase tracking-widest text-forum-dim2">Covenant Account</div>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span id="vd-state-dot" class="inline-block w-2.5 h-2.5 rounded-full bg-forum-dim2"></span>
+                    <span id="vd-state-label" class="text-lg mono text-forum-ink">—</span>
+                    <a id="vd-explorer-link" target="_blank" rel="noopener" class="mono text-xs text-forum-dim hover:text-forum-accent truncate">—</a>
+                  </div>
+                </div>
+                <a id="vd-explorer-btn" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">explorer ↗</a>
+              </div>
+
+              <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-px rounded-md overflow-hidden bg-forum-line2 ring-soft">
+                <div class="bg-forum-panel2 p-4">
+                  <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Assets</div>
+                  <div id="vd-assets" class="mt-1 mono text-base text-forum-ink">—</div>
+                </div>
+                <div class="bg-forum-panel2 p-4">
+                  <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Idle</div>
+                  <div id="vd-idle" class="mt-1 mono text-base text-forum-ink">—</div>
+                </div>
+                <div class="bg-forum-panel2 p-4">
+                  <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Outstanding (credit drawn)</div>
+                  <div id="vd-outstanding" class="mt-1 mono text-base text-forum-ink">—</div>
+                </div>
+              </div>
+
+              <div class="mt-6 grid lg:grid-cols-2 gap-4">
+                <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
+                  <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">Mandate</div>
+                  <div class="space-y-1.5 text-xs">
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">operator</span><a id="vd-m-operator" target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent">—</a></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">budget</span><span id="vd-m-budget" class="mono text-forum-ink">—</span></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">perf fee</span><span id="vd-m-perffee" class="mono text-forum-ink">—</span></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">max drawdown</span><span id="vd-m-drawdown" class="mono text-forum-ink">—</span></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">receipt freshness</span><span id="vd-m-freshness" class="mono text-forum-ink">—</span></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">expiry</span><span id="vd-m-expiry" class="mono text-forum-ink">—</span></div>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
+                  <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">Risk & bond</div>
+                  <div class="space-y-1.5 text-xs">
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">live verdict</span><span id="vd-verdict" class="mono text-forum-dim">checking…</span></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">risk kernel</span><a id="vd-riskkernel" target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent">—</a></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">bond contract</span><a id="vd-bond" target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent">—</a></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">bond balance</span><span id="vd-bond-balance" class="mono text-forum-ink">—</span></div>
+                  </div>
+                  <button id="vd-enforce-btn" class="mt-4 w-full text-xs mono rounded border border-forum-accent/40 bg-forum-accent/10 text-forum-accent px-3 py-2 hover:bg-forum-accent/20">
+                    Enforce rules · RiskKernel.enforce(vault)
+                  </button>
+                  <div id="vd-enforce-status" class="mt-2 text-[11px] hidden"></div>
+                </div>
+              </div>
+
+              <div class="mt-6">
+                <div class="text-[11px] uppercase tracking-widest text-forum-dim2 mb-2">Bound agent · latest decision</div>
+                <div id="vd-bot-meta" class="text-[11px] text-forum-dim2 mb-2">—</div>
+                <div id="vd-reasoning" class="space-y-2 text-xs">—</div>
+              </div>
             </div>
           </div>
 
@@ -3123,6 +3220,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       ];
 
       const COVENANT_V12 = "0x80384963c0c93414ff16e018c6618a64bc94df6d";
+      const DEMO_LIVE_VAULT = "0xf6Cc85fa088B35c4A28c822486E3aAb51Ffc3766"; // live demo Covenant Account — Claude agent publishing receipts
       const COVENANT_V2 = "0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5";
       const IDLE_STRATEGY_ADAPTER = "0xa47f32dfdfc199a2df34d96029273ca0e2c7d343";
       const RISK_KERNEL_V3 = "0x554cdad3cac1f640b39816193310166afc2bde06";
@@ -4101,6 +4199,9 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             if (field && /^0x[0-9a-fA-F]{40}$/.test(vault)) field.value = vault;
           }
           loadRecentFactoryVaults(); // optimistic refresh
+          // Route to the live "Watch your vault" detail for the brand-new vault
+          // (the success/bond summary above stays in the Create tab).
+          if (/^0x[0-9a-fA-F]{40}$/.test(vault)) openVaultDetail(vault);
         } catch (e) {
           setStatus("Failed: " + escapedError(e), "err");
         } finally {
@@ -4146,14 +4247,20 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           el.innerHTML = list
             .slice(0, 5)
             .map((v) => `
-              <a href="${safeExplorerAddr(v.vault)}" target="_blank" rel="noopener"
-                 class="block rounded-lg border border-forum-line bg-forum-panel2 p-3 hover:border-forum-accent">
-                <div class="mono text-forum-ink">${safeShortAddr(v.vault)}</div>
+              <button type="button" data-vault="${escapeHtml(v.vault)}"
+                 class="rfv-item w-full text-left block rounded-lg border border-forum-line bg-forum-panel2 p-3 hover:border-forum-accent">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="mono text-forum-ink">${safeShortAddr(v.vault)}</span>
+                  <span class="text-[10px] text-forum-accent">watch →</span>
+                </div>
                 <div class="text-[10px] text-forum-dim2 mt-1">
                   by ${safeShortAddr(v.creator)} · ${(Number(v.budgetMicros) / 1e6).toFixed(0)} USDC budget
                 </div>
-              </a>`)
+              </button>`)
             .join("");
+          el.querySelectorAll(".rfv-item").forEach((b) => {
+            b.addEventListener("click", () => openVaultDetail(b.dataset.vault));
+          });
         } catch (e) {
           el.innerHTML = `<div class="text-forum-err text-xs">load error: ${escapedError(e)}</div>`;
         }
@@ -4616,6 +4723,235 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       document.getElementById("ins-close-btn").addEventListener("click", () => {
         document.getElementById("agent-inspector").classList.add("hidden");
       });
+
+      // ============================================================
+      // Watch your vault — per-vault detail view for ANY vault address.
+      // Reads custody/mandate/bond from /api/covenant/:addr (one call),
+      // the live risk verdict + bond balance from Arc RPC, and the bound
+      // bot's latest decision trace (same sidecar pattern as the inspector).
+      // Reached via #/console?t=vault&v=<address> (deep-linkable) — opened
+      // after Create and from each recent-factory-vaults item.
+      // ============================================================
+      let vdRiskKernel = RISK_KERNEL_V2; // the current vault's own kernel
+      let vdVault = null;
+      function vdSetEnforceStatus(html, kind = "info") {
+        const el = document.getElementById("vd-enforce-status");
+        const colour = kind === "ok" ? "text-forum-ok" : kind === "err" ? "text-forum-err" : "text-forum-dim";
+        el.className = "mt-2 text-[11px] " + colour;
+        el.innerHTML = html;
+      }
+
+      async function loadVaultDetail(addr) {
+        const vault = String(addr || "").trim();
+        const empty = document.getElementById("vd-empty");
+        const body = document.getElementById("vd-body");
+        if (!/^0x[0-9a-fA-F]{40}$/.test(vault)) {
+          body.classList.add("hidden");
+          empty.classList.remove("hidden");
+          empty.innerHTML = `<span class="text-forum-err">Enter a valid 0x vault address (40 hex chars).</span>`;
+          return;
+        }
+        vdVault = vault;
+        document.getElementById("vd-addr-input").value = vault;
+        empty.classList.add("hidden");
+        body.classList.remove("hidden");
+        document.getElementById("vd-enforce-status").className = "hidden";
+        // Reset to a loading baseline so a re-load never shows stale values.
+        document.getElementById("vd-state-label").textContent = "loading…";
+        document.getElementById("vd-verdict").textContent = "checking…";
+        document.getElementById("vd-bot-meta").textContent = "—";
+        document.getElementById("vd-reasoning").textContent = "—";
+        document.getElementById("vd-explorer-link").textContent = shortAddr(vault);
+        document.getElementById("vd-explorer-link").href = safeExplorerAddr(vault);
+        document.getElementById("vd-explorer-btn").href = safeExplorerAddr(vault);
+
+        let cov;
+        try {
+          cov = await fetch(`/api/covenant/${vault}`).then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+          });
+        } catch (e) {
+          document.getElementById("vd-state-label").innerHTML = `<span class="text-forum-err">unindexed</span>`;
+          document.getElementById("vd-bot-meta").innerHTML = `<span class="text-forum-dim2">indexer has no record for this vault yet (${escapedError(e)}). It appears within ~30s of creation.</span>`;
+          return;
+        }
+
+        // State + dot
+        const stateLabel = cov.state === "ACTIVE" || cov.state === "PAUSED" ? cov.state : String(cov.state ?? "—");
+        document.getElementById("vd-state-label").textContent = stateLabel;
+        const dot = document.getElementById("vd-state-dot");
+        dot.classList.remove("bg-forum-ok", "bg-forum-err", "bg-forum-dim2");
+        dot.classList.add(stateLabel === "ACTIVE" ? "bg-forum-ok" : stateLabel === "PAUSED" ? "bg-forum-err" : "bg-forum-dim2");
+
+        // Custody
+        document.getElementById("vd-assets").textContent = fmtUsdcMicros(cov.assetsMicros || 0);
+        document.getElementById("vd-idle").textContent = fmtUsdcMicros(cov.idleMicros || 0);
+        document.getElementById("vd-outstanding").textContent = fmtUsdcMicros(cov.outstandingMicros || 0);
+
+        // Mandate
+        const m = cov.mandate || {};
+        const opEl = document.getElementById("vd-m-operator");
+        opEl.textContent = m.operator ? shortAddr(m.operator) : "—";
+        opEl.href = safeExplorerAddr(m.operator || "");
+        document.getElementById("vd-m-budget").textContent = m.budgetMicros != null ? fmtUsdcMicros(m.budgetMicros) : "—";
+        document.getElementById("vd-m-perffee").textContent = m.perfFeeBps != null ? (Number(m.perfFeeBps) / 100).toFixed(2) + " %" : "—";
+        document.getElementById("vd-m-drawdown").textContent = m.maxDrawdownBps != null ? (Number(m.maxDrawdownBps) / 100).toFixed(2) + " %" : "—";
+        document.getElementById("vd-m-freshness").textContent = m.receiptFreshnessSec != null ? Number(m.receiptFreshnessSec).toLocaleString() + " s" : "—";
+        const expirySec = Number(m.expiry || 0);
+        document.getElementById("vd-m-expiry").textContent = expirySec === 0 ? "none (open-ended)" : new Date(expirySec * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+
+        // Bond + risk kernel links
+        const bondEl = document.getElementById("vd-bond");
+        bondEl.textContent = m.bondContract ? shortAddr(m.bondContract) : "—";
+        bondEl.href = safeExplorerAddr(m.bondContract || "");
+        vdRiskKernel = /^0x[0-9a-fA-F]{40}$/.test(String(m.riskKernel || "")) ? m.riskKernel : RISK_KERNEL_V2;
+        const rkEl = document.getElementById("vd-riskkernel");
+        rkEl.textContent = shortAddr(vdRiskKernel);
+        rkEl.href = safeExplorerAddr(vdRiskKernel);
+
+        // Live on-chain reads: risk verdict + bond balance. Independent so one
+        // failing never blanks the other.
+        client
+          .readContract({ address: vdRiskKernel, abi: RISK_EVALUATE_ABI, functionName: "evaluate", args: [vault] })
+          .then((verdict) => {
+            const label = RISK_V3_VERDICTS[Number(verdict)] || `V${Number(verdict)}`;
+            document.getElementById("vd-verdict").innerHTML =
+              `<span class="${label === "ALLOW" ? "text-forum-ok" : "text-forum-warn"}">${escapeHtml(label)}</span>`;
+          })
+          .catch((e) => {
+            document.getElementById("vd-verdict").innerHTML = `<span class="text-forum-err">read err</span>`;
+          });
+        if (/^0x[0-9a-fA-F]{40}$/.test(String(m.bondContract || ""))) {
+          client
+            .readContract({ address: m.bondContract, abi: BOND_BALANCE_ABI, functionName: "bondBalance" })
+            .then((bal) => {
+              document.getElementById("vd-bond-balance").textContent = fmtUsdcMicros(bal);
+            })
+            .catch(() => {
+              document.getElementById("vd-bond-balance").textContent = "—";
+            });
+        } else {
+          document.getElementById("vd-bond-balance").textContent = "—";
+        }
+
+        // Bound bot's latest decision
+        if (m.botId) {
+          fetch(`/api/agents/${m.botId}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((bot) => {
+              if (!bot || !bot.botId) {
+                document.getElementById("vd-bot-meta").innerHTML = `<span class="text-forum-dim2">bot ${safeShortHash(m.botId)} not indexed yet</span>`;
+                document.getElementById("vd-reasoning").innerHTML = `<div class="text-forum-dim2">no agent activity yet — run an agent on this vault to publish receipts.</div>`;
+                return;
+              }
+              const records = Number(bot.recordCount || 0);
+              document.getElementById("vd-bot-meta").innerHTML =
+                `<a target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent" href="${safeExplorerAddr(bot.signer)}">${safeShortHash(bot.botId)}</a> · ${escapeHtml(records)} receipt${records === 1 ? "" : "s"}${bot.lastReceiptAt ? " · " + escapeHtml(ago(bot.lastReceiptAt)) : ""}`;
+              renderVaultReasoning(m.botId, records);
+            })
+            .catch((e) => {
+              document.getElementById("vd-reasoning").innerHTML = `<div class="text-forum-dim2">agent lookup failed: ${escapedError(e)}</div>`;
+            });
+        } else {
+          document.getElementById("vd-reasoning").innerHTML = `<div class="text-forum-dim2">no agent activity yet — run an agent on this vault.</div>`;
+        }
+      }
+      window.loadVaultDetail = loadVaultDetail;
+
+      // Render the bound bot's newest decision trace. Trace URI is deterministic
+      // from botId + latest seq (= recordCount), same sidecar the inspector uses.
+      async function renderVaultReasoning(botId, recordCount) {
+        const el = document.getElementById("vd-reasoning");
+        if (!recordCount || recordCount < 1) {
+          el.innerHTML = `<div class="text-forum-dim2">no agent activity yet — run an agent on this vault to publish a decision.</div>`;
+          return;
+        }
+        const seqStr = String(recordCount).padStart(6, "0");
+        const traceUri = `/receipts/${botId.slice(2, 14)}/traces/${seqStr}.json`;
+        try {
+          const res = await fetch(traceUri);
+          if (!res.ok) {
+            el.innerHTML = `<div class="text-forum-dim2">receipts published, but no decision trace for seq #${escapeHtml(recordCount)} yet.</div>`;
+            return;
+          }
+          const trace = await res.json();
+          if (!Array.isArray(trace) || trace.length === 0) {
+            el.innerHTML = `<div class="text-forum-dim2">empty decision trace for seq #${escapeHtml(recordCount)}.</div>`;
+            return;
+          }
+          const byMarket = new Map();
+          for (const d of trace) byMarket.set(d.marketSlug, d);
+          const colour = (a) =>
+            a === "BUY" ? "text-forum-ok" : a === "SELL" ? "text-forum-err" : "text-forum-dim";
+          el.innerHTML =
+            `<div class="text-[10px] text-forum-dim2 mb-1">seq #${escapeHtml(recordCount)} · ${escapeHtml(byMarket.size)} market(s)</div>` +
+            [...byMarket.values()]
+              .map((d) => {
+                const conv = d.convictionPct != null ? ` · ${escapeHtml(d.convictionPct)}% conv` : "";
+                const reasoning =
+                  typeof d.reasoning === "string" && d.reasoning.length > 0
+                    ? d.reasoning.slice(0, 700)
+                    : "(no reasoning recorded for this trace)";
+                return `
+                  <div class="rounded-lg border border-forum-line bg-forum-panel2 p-3">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <span class="mono text-forum-ink truncate">${escapeHtml(d.marketSlug)}</span>
+                      <span class="mono ${colour(d.action)}">${escapeHtml(d.action)}${conv}</span>
+                    </div>
+                    <div class="text-[10px] text-forum-dim2 mb-1">model ${escapeHtml(d.model)} · risk ${escapeHtml(d.riskPosture || "—")}</div>
+                    <div class="text-forum-dim whitespace-pre-wrap leading-relaxed">${escapeHtml(reasoning)}</div>
+                  </div>`;
+              })
+              .join("");
+        } catch (e) {
+          el.innerHTML = `<div class="text-forum-dim2">trace unavailable: ${escapedError(e)}</div>`;
+        }
+      }
+
+      // Permissionless enforce on this vault's own risk kernel.
+      async function vaultEnforce() {
+        if (!vdVault) return;
+        if (!walletClient) {
+          vdSetEnforceStatus("Connect a wallet first (Create section).", "err");
+          return;
+        }
+        vdSetEnforceStatus(`Calling enforce(${safeShortAddr(vdVault)}) ...`, "info");
+        try {
+          const tx = await walletClient.sendTransaction({
+            account: connectedAddr, to: vdRiskKernel,
+            data: encodeFunctionData({ abi: KERNEL_ENFORCE_ABI, functionName: "enforce", args: [vdVault] }),
+          });
+          const rcpt = await client.waitForTransactionReceipt({ hash: tx });
+          if (rcpt.status !== "success") {
+            vdSetEnforceStatus(`enforce reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "err");
+            return;
+          }
+          vdSetEnforceStatus(`<strong class="text-forum-ok">enforce landed.</strong> ${rcpt.gasUsed} gas. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(tx)}">${safeShortTx(tx)}</a>`, "ok");
+          loadVaultDetail(vdVault); // refresh state/verdict after enforcement
+        } catch (e) {
+          vdSetEnforceStatus("Failed: " + escapedError(e), "err");
+        }
+      }
+
+      // Navigate to the watch view for a vault (deep-linkable; the router's
+      // apply() reads ?v= and calls loadVaultDetail).
+      function openVaultDetail(addr) {
+        window.__forumRouter.navigate("/console", { t: "vault", v: addr });
+      }
+      window.openVaultDetail = openVaultDetail;
+
+      document.getElementById("vd-load-btn").addEventListener("click", () => {
+        openVaultDetail(document.getElementById("vd-addr-input").value.trim());
+      });
+      document.getElementById("vd-demo-btn").addEventListener("click", () => openVaultDetail(DEMO_LIVE_VAULT));
+      document.getElementById("vd-addr-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          openVaultDetail(e.target.value.trim());
+        }
+      });
+      document.getElementById("vd-enforce-btn").addEventListener("click", vaultEnforce);
 
       // ============================================================
       // Phase 9 — SlashMarket: YES/NO staking + settle + claim
@@ -5317,7 +5653,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       // Tab-button clicks navigate through the router so the URL becomes
       // `#/console?t=<tab>`, which keeps deep-links, back/forward, and the
       // active-nav highlight in sync.
-      const APP_TABS = ["overview", "create", "bridge", "manage", "agents", "verify"];
+      const APP_TABS = ["overview", "create", "bridge", "manage", "vault", "agents", "verify"];
       function activateAppTab(name) {
         if (!APP_TABS.includes(name)) name = "overview";
         document.querySelectorAll(".app-tab-panel").forEach((p) => {
