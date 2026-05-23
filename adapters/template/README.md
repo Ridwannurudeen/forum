@@ -14,7 +14,9 @@ Minimal scaffold for wrapping any trading bot so it publishes Forum receipts. Fo
 ```bash
 # 1. clone Forum (gives you the SDK + the reference receipt schema)
 git clone https://github.com/Ridwannurudeen/forum.git
-cd forum/keeper && npm install && cd ..
+cd forum
+npm install --prefix keeper    # bridge + receipt schema + tsx
+npm install --prefix adapters  # the adapter imports viem directly from adapters/
 
 # 2. drop your bot into the runBot() placeholder in adapters/template/adapter.ts
 # 3. fund a wallet on Arc testnet (faucet.circle.com), write the raw 0x-hex private key to ~/.forum-keys/deployer.key
