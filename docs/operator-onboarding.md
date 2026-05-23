@@ -65,17 +65,20 @@ it must return the period's `decisions[]`, `fills[]`, and
 existing output into that shape. If the bot is paper/sim, return its simulated
 fills + PnL — that is still a valid receipt. Do **not** touch the publish loop below it.
 
-## Step 4 — receipt hosting [HUMAN]/infra
+## Step 4 — receipt hosting (a zero-infra option is built in)
 
-The adapter writes receipt JSON to `RECEIPT_LOCAL_DIR` and records `RECEIPT_BASE_URL`
-on-chain as the public evidence URI. That directory **must be served at that URL**
-so verifiers can fetch the JSON. Pick one:
+Receipts must be fetchable at `RECEIPT_BASE_URL/<botShort>/<seq>.json`. Pick one:
 
-- **Operator's static host / CDN:** serve `RECEIPT_LOCAL_DIR` at a public HTTPS path; set `RECEIPT_BASE_URL` to it.
-- **Ask the Forum team** to host under `https://forum.gudman.xyz/receipts/<bot>/` (then `RECEIPT_BASE_URL=https://forum.gudman.xyz/receipts`).
+- **Recommended — Forum-hosted, zero infra:** set
+  `RECEIPT_BASE_URL=https://forum.gudman.xyz/receipts`. The adapter then **auto-POSTs**
+  each receipt to `https://forum.gudman.xyz/api/receipts/<botId>/<seq>`. The endpoint
+  stores + serves it **only if its keccak hash matches the on-chain TrackRecordV2
+  record** — tokenless and tamper-proof (the chain is the auth). You host nothing.
+- **Alternative — your own host/CDN:** serve `RECEIPT_LOCAL_DIR` at a public HTTPS
+  path and set `RECEIPT_BASE_URL` to it.
 
-The on-chain hash proves integrity even if unhosted, but the leaderboard + the
-verify CLI need the URL live. Get this URL before running.
+The on-chain hash proves integrity even if unhosted, but the leaderboard + verify
+CLI want the URL live — so the Forum-hosted option is the easy path.
 
 ## Step 5 — run the adapter
 
