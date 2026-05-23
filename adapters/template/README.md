@@ -1,6 +1,6 @@
 # Forum Adapter Template
 
-Minimal scaffold for wrapping any trading bot so it publishes Forum receipts. Fork this, swap the `runBot()` placeholder with your bot's actual decision/fill loop, point `RECEIPT_BASE_URL` at a public location, set `FORUM_PRIVATE_KEY` in your env, run it.
+Minimal scaffold for wrapping any trading bot so it publishes Forum receipts. Fork this, swap the `runBot()` placeholder with your bot's actual decision/fill loop, keep `RECEIPT_BASE_URL` pointed at Forum's hosted endpoint (zero infra — receipts are auto-uploaded) or your own public host, provide a funded Arc-testnet key, run it.
 
 ## Files
 
@@ -20,11 +20,12 @@ npm install --prefix adapters  # the adapter imports viem directly from adapters
 
 # 2. drop your bot into the runBot() placeholder in adapters/template/adapter.ts
 # 3. fund a wallet on Arc testnet (faucet.circle.com), write the raw 0x-hex private key to ~/.forum-keys/deployer.key
-# 4. publish a public URL for receipts (any CDN, or scp to a webserver)
+# 4. receipts: with RECEIPT_BASE_URL on the Forum host the TS adapter auto-uploads
+#    them (zero infra). To self-host instead, serve RECEIPT_LOCAL_DIR at a public URL.
 # 5. run
 
 FORUM_BOT_LABEL=my-bot-v1 \
-RECEIPT_BASE_URL=https://my-bot.example.com/receipts \
+RECEIPT_BASE_URL=https://forum.gudman.xyz/receipts \
 RECEIPT_LOCAL_DIR=./receipts \
 ./keeper/node_modules/.bin/tsx adapters/template/adapter.ts
 ```
@@ -46,6 +47,9 @@ RECEIPT_BASE_URL=https://my-bot.example.com/receipts \
 FORUM_PRIVATE_KEY=0x... \
 python3 adapters/template/adapter.py
 ```
+
+> The zero-infra Forum-hosted auto-upload is currently TS-only. The Python adapter
+> expects you to serve `RECEIPT_LOCAL_DIR` yourself at a public `RECEIPT_BASE_URL`.
 
 ## The integration boundary
 
