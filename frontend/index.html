@@ -1980,10 +1980,13 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v1 - ranked by drawdown / slash / freshness</div>
               <p class="mt-2 text-sm text-forum-dim leading-relaxed">Click any row for the inspector + one-click enforce per linked vault.</p>
             </div>
-            <span class="text-xs text-forum-dim">
-              <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
-              live · /api/agents
-            </span>
+            <div class="flex items-center gap-2 text-xs text-forum-dim">
+              <span id="ext-op-chip" class="px-2 py-0.5 rounded-full border border-forum-ok/30 text-forum-ok mono text-[10px] hidden"></span>
+              <span>
+                <span class="inline-block w-2 h-2 rounded-full bg-forum-ok pulse mr-1.5"></span>
+                live · /api/agents
+              </span>
+            </div>
           </div>
           <div class="rounded-lg ring-soft bg-forum-panel overflow-hidden">
             <div class="overflow-x-auto scroll-shadow">
@@ -4325,6 +4328,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       // ============================================================
       // AgentScore leaderboard
       // ============================================================
+      const FORUM_DEPLOYER = "0x13585c6004fba9d7d49219a6435b68348fd30770"; // first-party wallet; bots with a different operator are external
       async function loadAgents() {
         const body = document.getElementById("agents-body");
         try {
@@ -4334,11 +4338,30 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             body.innerHTML = `<tr><td class="px-5 py-6 text-forum-dim" colspan="7">no agents indexed yet.</td></tr>`;
             return;
           }
+          const isExt = (a) => {
+            const op = (a.signer || a.operator || "").toLowerCase();
+            return op && op !== FORUM_DEPLOYER;
+          };
+          const extCount = new Set(
+            list.filter(isExt).map((a) => (a.signer || a.operator || "").toLowerCase()),
+          ).size;
+          const extChip = document.getElementById("ext-op-chip");
+          if (extChip) {
+            if (extCount > 0) {
+              extChip.textContent = `${extCount} external operator${extCount === 1 ? "" : "s"}`;
+              extChip.classList.remove("hidden");
+            } else {
+              extChip.classList.add("hidden");
+            }
+          }
           body.innerHTML = list.map((a) => {
             const score = a.scoreV1 ?? a.scoreV0 ?? 0;
             const scoreColour = score >= 80 ? "text-forum-ok" : score >= 50 ? "text-forum-warn" : "text-forum-err";
+            const extBadge = isExt(a)
+              ? ` <span class="ml-1 px-1.5 py-0.5 rounded-full text-[9px] border border-forum-ok/30 text-forum-ok mono uppercase tracking-wider align-middle" title="Operated by an external wallet (not the deployer)">external</span>`
+              : "";
             return `<tr class="border-b border-forum-line2 last:border-0 row-hover cursor-pointer" data-botid="${escapeHtml(a.botId)}">
-              <td class="px-5 py-3"><span title="${escapeHtml(a.botId)}" class="text-forum-ink">${safeShortHash(a.botId)}</span></td>
+              <td class="px-5 py-3"><span title="${escapeHtml(a.botId)}" class="text-forum-ink">${safeShortHash(a.botId)}</span>${extBadge}</td>
               <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${escapeHtml(a.kind)}</span></td>
               <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${escapeHtml(score)}</td>
               <td class="px-5 py-3 text-right tnum text-forum-ink">${escapeHtml(a.recordCount)}</td>
