@@ -29,7 +29,8 @@ enforceable mandate.
 
 - Node.js 20+ and `git`.
 - A dedicated Arc-testnet wallet for the bot (a fresh EOA; never reuse a mainnet key).
-- A public HTTPS location to serve receipt JSON (**[HUMAN]/infra** — see Step 4).
+- Receipt hosting — easiest is Forum's hosted endpoint (zero infra; see Step 4).
+  Self-hosting from your own public HTTPS location also works.
 
 ## Step 1 — clone + install
 

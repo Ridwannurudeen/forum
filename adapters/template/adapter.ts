@@ -2,12 +2,17 @@
 //
 // Run from the repo root with the keeper's tsx:
 //   FORUM_BOT_LABEL=my-bot-v1 \
-//   RECEIPT_BASE_URL=https://my-bot.example.com/receipts \
+//   RECEIPT_BASE_URL=https://forum.gudman.xyz/receipts \
 //   RECEIPT_LOCAL_DIR=./receipts \
 //   ./keeper/node_modules/.bin/tsx adapters/template/adapter.ts
 //
+// With RECEIPT_BASE_URL on the Forum host (the default), each receipt is
+// auto-uploaded to Forum's hash-gated endpoint — no receipt hosting of your
+// own. To self-host instead, set RECEIPT_BASE_URL to your own public HTTPS path.
+//
 // Requires:
 // - ~/.forum-keys/deployer.key with a raw 0x-hex private key
+//   (or set FORUM_KEY_PATH to point at a different key file)
 // - Arc testnet USDC for gas (faucet.circle.com)
 
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -28,7 +33,7 @@ const { buildReceipt, canonicalize } = await import(
 const BOT_LABEL = process.env.FORUM_BOT_LABEL || "template-bot-v1";
 const RECEIPTS_DIR = process.env.RECEIPT_LOCAL_DIR || "./receipts";
 const RECEIPTS_BASE_URL =
-  process.env.RECEIPT_BASE_URL || "https://example.com/receipts";
+  process.env.RECEIPT_BASE_URL || "https://forum.gudman.xyz/receipts";
 const PUBLISH_INTERVAL_MS = Number(process.env.PUBLISH_INTERVAL_MS || 600_000); // 10 min
 
 mkdirSync(RECEIPTS_DIR, { recursive: true });
