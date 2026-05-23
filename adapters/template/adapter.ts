@@ -80,6 +80,8 @@ const bridge = new ForumV2Bridge({
   botLabel: BOT_LABEL,
   receiptsDir: RECEIPTS_DIR,
   receiptsBaseUrl: RECEIPTS_BASE_URL,
+  // Optional: point at a non-default key file (defaults to ~/.forum-keys/deployer.key).
+  keyPath: process.env.FORUM_KEY_PATH || undefined,
 });
 console.log(`[adapter] signer=${bridge.account.address} botId=${bridge.botId}`);
 

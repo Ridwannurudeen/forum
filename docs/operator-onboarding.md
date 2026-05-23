@@ -52,6 +52,10 @@ node -e "require('fs').writeFileSync(require('os').homedir()+'/.forum-keys/deplo
 chmod 600 ~/.forum-keys/deployer.key
 ```
 
+> The adapter reads `~/.forum-keys/deployer.key` by default. To use a different
+> key file (e.g. running several operators on one machine), set
+> `FORUM_KEY_PATH=/path/to/key` in the environment for Step 5.
+
 You don't need to derive the address manually — the adapter prints
 `signer=<address> botId=<0x...>` on its first run (Step 5), even before it
 publishes. **[HUMAN]** Fund that printed `signer` address from the faucet (a small
