@@ -1914,8 +1914,8 @@ node keeper/scripts/demo-violation.mjs</pre>
             <div class="rounded-lg ring-soft bg-forum-panel p-6">
               <div class="text-[11px] uppercase tracking-widest text-forum-accent mb-3">Operator · post bond</div>
               <p class="text-xs text-forum-dim mb-4 leading-relaxed">
-                Fund the SlashBond so RiskKernelV2 has something to slash on a mandate breach.
-                <strong class="text-forum-ink">Only the registered operator</strong> can call <code class="mono">bond()</code>.
+                Fund <strong class="text-forum-ink">your account's bond</strong> so RiskKernelV2 has something to slash on a breach.
+                Each account you create gets its own bond that <strong class="text-forum-ink">you own</strong> — the address is filled in here after you create an account.
               </p>
               <form id="bond-form" class="space-y-3">
                 <label class="block">
@@ -1929,7 +1929,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                     class="mono mt-1 w-full rounded-lg border border-forum-line bg-forum-panel2 px-3 py-2 text-sm text-forum-ink focus:outline-none focus:border-forum-accent" />
                 </label>
                 <div class="text-[10px] text-forum-dim2">
-                  Current SlashBondV1.1 balance: <span id="bond-current-balance" class="mono text-forum-dim">—</span>
+                  Current bond balance: <span id="bond-current-balance" class="mono text-forum-dim">—</span>
                 </div>
                 <button type="submit" disabled id="bond-submit-btn" class="btn btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                   Approve + bond
@@ -2879,6 +2879,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         createPublicClient,
         createWalletClient,
         custom,
+        encodeDeployData,
         encodeFunctionData,
         http,
         defineChain,
@@ -3888,6 +3889,28 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         },
       ];
 
+      // SlashBond deploy (self-serve bonds): each created account gets its own
+      // SlashBond owned by the operator, so the operator can post a bond and be
+      // slashed. Compiled from the unchanged, audited src/SlashBond.sol. The
+      // global SLASH_BOND_V11 remains only as a reference bond in Architecture.
+      const SLASH_RECIPIENT = "0x13585c6004fbA9D7D49219a6435B68348fD30770"; // protocol penalty pool
+      const BOND_UNBOND_DELAY = 86400n; // 1 day
+      const SLASHBOND_DEPLOY_ABI = [
+        {
+          type: "constructor",
+          stateMutability: "nonpayable",
+          inputs: [
+            { name: "_usdc", type: "address" },
+            { name: "_operator", type: "address" },
+            { name: "_attestor", type: "address" },
+            { name: "_recipient", type: "address" },
+            { name: "_botId", type: "bytes32" },
+            { name: "_unbondDelaySeconds", type: "uint64" },
+          ],
+        },
+      ];
+      const SLASHBOND_BYTECODE = "0x610140604052348015610010575f5ffd5b50604051610c9d380380610c9d83398101604081905261002f9161007f565b6001600160a01b0395861660805293851660a05291841660c05290921660e052610100919091526001600160401b031661012052610103565b6001600160a01b038116811461007c575f5ffd5b50565b5f5f5f5f5f5f60c08789031215610094575f5ffd5b865161009f81610068565b60208801519096506100b081610068565b60408801519095506100c181610068565b60608801519094506100d281610068565b608088015160a089015191945092506001600160401b03811681146100f5575f5ffd5b809150509295509295509295565b60805160a05160c05160e0516101005161012051610b066101975f395f818161015201526104fb01525f61027101525f81816101d4015261035601525f818161024a01526102a601525f81816101ad01528181610492015281816105a7015281816106c9015281816107d7015261097301525f818161010e01528181610387015281816105d6015261086e0152610b065ff3fe608060405234801561000f575f5ffd5b50600436106100f0575f3560e01c806391f850f911610093578063b6033c4c11610063578063b6033c4c1461023c578063cada25c214610245578063cf6a426f1461026c578063fe40c4bf14610293575f5ffd5b806391f850f9146101f65780639940686e1461020c578063a201bbdd1461021f578063b48935ae14610228575f5ffd5b80635281f7d0116100ce5780635281f7d01461018d57806354f63b1414610195578063570ca735146101a857806366d003ac146101cf575f5ffd5b806313d9b3f6146100f45780633e413bee1461010957806351127fca1461014d575b5f5ffd5b610107610102366004610a13565b61029b565b005b6101307f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020015b60405180910390f35b6101747f000000000000000000000000000000000000000000000000000000000000000081565b60405167ffffffffffffffff9091168152602001610144565b610107610487565b6101076101a3366004610a33565b6106be565b6101307f000000000000000000000000000000000000000000000000000000000000000081565b6101307f000000000000000000000000000000000000000000000000000000000000000081565b6101fe5f5481565b604051908152602001610144565b61010761021a366004610a33565b6107cc565b6101fe60035481565b6002546101749067ffffffffffffffff1681565b6101fe60015481565b6101307f000000000000000000000000000000000000000000000000000000000000000081565b6101fe7f000000000000000000000000000000000000000000000000000000000000000081565b610107610968565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146102e457604051631bbc651f60e31b815260040160405180910390fd5b815f0361030457604051631f2a200560e01b815260040160405180910390fd5b5f54821115610312575f5491505b815f5f8282546103229190610a5e565b925050819055508160035f82825461033a9190610a77565b909155505060405163a9059cbb60e01b81526001600160a01b037f000000000000000000000000000000000000000000000000000000000000000081166004830152602482018490525f917f00000000000000000000000000000000000000000000000000000000000000009091169063a9059cbb906044016020604051808303815f875af11580156103cf573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906103f39190610a8a565b90508061043e5760405162461bcd60e51b81526020600482015260146024820152731d5cd918c81d1c985b9cd9995c8819985a5b195960621b60448201526064015b60405180910390fd5b817f47e99347fd28cb42e94fa97d71816cdfe8caf7ef7490028f2c8f631005bc0903845f5460405161047a929190918252602082015260400190565b60405180910390a2505050565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146104d057604051631f0853c160e21b815260040160405180910390fd5b6001545f036104f257604051637789c3d960e01b815260040160405180910390fd5b60025461052a907f00000000000000000000000000000000000000000000000000000000000000009067ffffffffffffffff16610ab0565b67ffffffffffffffff164210156105545760405163aa9a98df60e01b815260040160405180910390fd5b6001545f5481111561056457505f545b805f5f8282546105749190610a5e565b90915550505f60018190556002805467ffffffffffffffff1916905560405163a9059cbb60e01b81526001600160a01b037f000000000000000000000000000000000000000000000000000000000000000081166004830152602482018490527f0000000000000000000000000000000000000000000000000000000000000000169063a9059cbb906044016020604051808303815f875af115801561061c573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906106409190610a8a565b9050806106865760405162461bcd60e51b81526020600482015260146024820152731d5cd918c81d1c985b9cd9995c8819985a5b195960621b6044820152606401610435565b6040518281527f9cdea20d22445cfa10b495c6f2cc3d69f315cf308cbda14877291d0fff90f329906020015b60405180910390a15050565b336001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461070757604051631f0853c160e21b815260040160405180910390fd5b805f0361072757604051631f2a200560e01b815260040160405180910390fd5b5f548111156107495760405163e92c469f60e01b815260040160405180910390fd5b6001541561076a5760405163d1e850eb60e01b815260040160405180910390fd5b60018190556002805467ffffffffffffffff19164267ffffffffffffffff169081179091556040805183815260208101929092527f15c219f1886596699360cdfc1107ca604a47beb42f500cb405d38208ca63e043910160405180910390a150565b336001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461081557604051631f0853c160e21b815260040160405180910390fd5b805f0361083557604051631f2a200560e01b815260040160405180910390fd5b805f5f8282546108459190610a77565b90915550506040516323b872dd60e01b8152336004820152306024820152604481018290525f907f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906323b872dd906064016020604051808303815f875af11580156108bc573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906108e09190610a8a565b90508061092f5760405162461bcd60e51b815260206004820152601860248201527f75736463207472616e7366657246726f6d206661696c656400000000000000006044820152606401610435565b5f546040805184815260208101929092527fbe7f8c7784c3e75dcaa3137da865e21982f5ff9dca09c78511a29bc7d3560b8f91016106b2565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146109b157604051631f0853c160e21b815260040160405180910390fd5b6001545f036109d357604051637789c3d960e01b815260040160405180910390fd5b5f60018190556002805467ffffffffffffffff191690556040517f8fc28d3b74ae241386283f7d0408dd87e6939a78230b7de7169fc6834f38b3ea9190a1565b5f5f60408385031215610a24575f5ffd5b50508035926020909101359150565b5f60208284031215610a43575f5ffd5b5035919050565b634e487b7160e01b5f52601160045260245ffd5b81810381811115610a7157610a71610a4a565b92915050565b80820180821115610a7157610a71610a4a565b5f60208284031215610a9a575f5ffd5b81518015158114610aa9575f5ffd5b9392505050565b67ffffffffffffffff8181168382160190811115610a7157610a71610a4a56fea26469706673582212204d8d4d98f6fbee79db74c5155243de869734695f92d09bc7a0269a9bb9e8ad1364736f6c63430008230033";
+
       // Populate pinned address tiles
       document.getElementById("pin-kernel").textContent = shortAddr(RISK_KERNEL_V2);
       document.getElementById("pin-kernel").title = RISK_KERNEL_V2;
@@ -3996,6 +4019,30 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           if (budgetUsdcWhole < 1n) throw new Error("budget must be >= 1 USDC");
 
           const botId = keccak256(toHex(`${operator.toLowerCase()}:${botLabel}`));
+
+          // Step 1/2 — deploy a SlashBond owned by this operator, attested by
+          // RiskKernelV2, so the account is self-serve slashable. (The global
+          // bond is owned by the deployer, so users can't post to it.)
+          setStatus("1/2 deploying your slashable bond — confirm in wallet...", "info");
+          const bondDeployTx = await walletClient.sendTransaction({
+            account: connectedAddr,
+            data: encodeDeployData({
+              abi: SLASHBOND_DEPLOY_ABI,
+              bytecode: SLASHBOND_BYTECODE,
+              args: [USDC_ADDR, operator, RISK_KERNEL_V2, SLASH_RECIPIENT, botId, BOND_UNBOND_DELAY],
+            }),
+          });
+          setStatus(
+            `1/2 bond deploy submitted: <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondDeployTx)}">${safeShortTx(bondDeployTx)}</a>. Waiting for confirmation...`,
+            "info",
+          );
+          const bondRcpt = await client.waitForTransactionReceipt({ hash: bondDeployTx });
+          if (bondRcpt.status !== "success" || !bondRcpt.contractAddress) {
+            setStatus(`Bond deploy reverted. <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondDeployTx)}">${safeShortTx(bondDeployTx)}</a>`, "err");
+            return;
+          }
+          const bondContract = bondRcpt.contractAddress;
+
           const mandate = {
             operator,
             botId,
@@ -4004,12 +4051,13 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             receiptFreshnessSec,
             expiry,
             perfFeeBps,
-            bondContract: SLASH_BOND_V11,
+            bondContract, // operator-owned bond deployed above
             riskKernel: RISK_KERNEL_V2,
             trackRecordV2: TRACK_RECORD_V2,
           };
 
-          setStatus("Awaiting wallet signature...", "info");
+          // Step 2/2 — create the vault wired to the operator's own bond.
+          setStatus("2/2 creating your account — confirm in wallet...", "info");
           const txHash = await walletClient.sendTransaction({
             account: connectedAddr,
             to: FACTORY_ADDR,
@@ -4033,12 +4081,18 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             ? "0x" + rcpt.logs[0].topics[1].slice(26)
             : "(parse-fail — see explorer)";
           setStatus(
-            `<strong class="text-forum-ok">Vault created.</strong><br/>
-             Address: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(vault)}">${escapeHtml(vault)}</a><br/>
+            `<strong class="text-forum-ok">Account created.</strong><br/>
+             Vault: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(vault)}">${escapeHtml(vault)}</a><br/>
+             Your bond: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(bondContract)}">${escapeHtml(bondContract)}</a> (you own it — post to it and it's slashable)<br/>
              Tx: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerTx(txHash)}">${safeShortTx(txHash)}</a> (${rcpt.gasUsed} gas)<br/>
-             The indexer will pick it up within ~30s — refresh the "Recent factory vaults" panel to see it.`,
+             Next: open the <strong>Vault</strong> tab → <em>Post bond</em> (address pre-filled) to fund it. The indexer picks up the vault within ~30s.`,
             "ok",
           );
+          const bondField = document.getElementById("bond-addr");
+          if (bondField && /^0x[0-9a-fA-F]{40}$/.test(bondContract)) {
+            bondField.value = bondContract;
+            refreshBondBalance();
+          }
           for (const id of ["br-vault", "withdraw-vault"]) {
             const field = document.getElementById(id);
             if (field && /^0x[0-9a-fA-F]{40}$/.test(vault)) field.value = vault;
@@ -4136,8 +4190,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         inputs: [], outputs: [{ type: "uint256" }],
       }];
 
-      // Prefill bond address with the live SlashBondV1.1
-      document.getElementById("bond-addr").value = SLASH_BOND_V11;
+      // Bond address is filled in after you create an account (it's your own
+      // operator-owned SlashBond). Left blank so new users aren't pointed at the
+      // deployer-owned global bond, which they can't post to.
+      document.getElementById("bond-addr").placeholder =
+        "auto-filled after you create an account (your own bond)";
 
       // Enable manage buttons when wallet connects (piggyback the create wiring)
       const _origConnect = connectWallet;
@@ -4150,9 +4207,14 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       };
 
       async function refreshBondBalance() {
+        const addr = document.getElementById("bond-addr").value.trim();
+        if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+          document.getElementById("bond-current-balance").textContent = "—";
+          return;
+        }
         try {
           const bal = await client.readContract({
-            address: SLASH_BOND_V11, abi: BOND_BALANCE_ABI, functionName: "bondBalance",
+            address: addr, abi: BOND_BALANCE_ABI, functionName: "bondBalance",
           });
           document.getElementById("bond-current-balance").textContent =
             (Number(bal) / 1e6).toFixed(2) + " USDC";
@@ -4162,6 +4224,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       }
       refreshBondBalance();
       setInterval(refreshBondBalance, 30_000);
+      document.getElementById("bond-addr").addEventListener("input", refreshBondBalance);
 
       function setPanelStatus(id, html, kind = "info") {
         const el = document.getElementById(id);
@@ -4195,7 +4258,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           const rcpt = await client.waitForTransactionReceipt({ hash: bondTx });
           if (rcpt.status !== "success") {
-            setPanelStatus("bond-status", `bond tx reverted (likely NotOperator — only registered operator can bond). <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondTx)}">${safeShortTx(bondTx)}</a>`, "err");
+            setPanelStatus("bond-status", `bond tx reverted (NotOperator — this bond address must be one you created, i.e. you are its operator). <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondTx)}">${safeShortTx(bondTx)}</a>`, "err");
             return;
           }
           setPanelStatus("bond-status", `<strong class="text-forum-ok">Bonded ${escapeHtml(amountWhole)} USDC.</strong> tx <a class="text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerTx(bondTx)}">${safeShortTx(bondTx)}</a>`, "ok");
