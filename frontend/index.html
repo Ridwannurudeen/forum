@@ -3905,6 +3905,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         if (bondBtn) bondBtn.disabled = false;
         const withdrawBtn = document.getElementById("withdraw-submit-btn");
         if (withdrawBtn) withdrawBtn.disabled = false;
+        const depositBtn = document.getElementById("deposit-submit-btn");
+        if (depositBtn) depositBtn.disabled = false;
       }
 
       function setStatus(html, kind = "info") {
