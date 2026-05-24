@@ -113,13 +113,15 @@ Real Polymarket V2 fill (anchored on Arc):
 
 ## Traction During The Event
 
-- 8 indexed bot identities on Arc across `TrackRecord` v1 + v2 (live count at `/api/agents`).
+- 18 indexed bot identities on Arc across `TrackRecord` v1 + v2 (live count at `/api/agents`).
 - Continuous keeper activity during the event window.
 - 1 live AgoraMind bot publishing public `TrackRecordV2` receipts.
 - 1 live Covenant Account funded and bonded with USDC on Arc testnet.
 - 1 autonomous pause plus slash transaction completed on-chain.
+- 3 external (non-deployer) operator wallets onboarded and published chain-verified receipts — one (Rouma) on a genuinely separate third-party machine, two as local reproducibility runs.
+- Managed accounts: Forum can operate **and** auto-bond an agent on a user's behalf with no key handover (capped budget); proven end-to-end on-chain (auto-bonded → credit pulled under mandate).
 
-Honest note: these are self-operated demo users. External bot adapters and third-party user onboarding are not complete yet.
+Honest note: most activity is still self-operated demo capital, and the fork-this adapter template is shipped, but broad third-party adoption (independent operators + outside allocators) remains the binding constraint.
 
 ## What Is Novel?
 

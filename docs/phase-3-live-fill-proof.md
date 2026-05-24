@@ -155,9 +155,11 @@ were addressed in D80:
 
 What this DOESN'T fix (still on the user):
 
-- Zero external operators. Every signer on the leaderboard, every
-  CapitalRouter share, every SlashMarket stake, every Insurance
-  premium is the deployer wallet. Adoption gap is unchanged.
+- Broad third-party adoption is still the gap, though three external
+  (non-deployer) operator wallets have since onboarded and published
+  chain-verified receipts — one (Rouma) on a genuinely separate machine,
+  two as local reproducibility runs. CapitalRouter shares, SlashMarket
+  stakes, and Insurance premiums remain deployer-funded demo capital.
 - Builder fee rate is still 0 bps on Forum's taker flow. A maker rate (0.1%) is configured (effective 2026-05-24); a capturing taker rate is blocked by Polymarket's fee-update cooldown until 2026-05-27 (after the May 25 deadline). Polymarket Verified-tier email
   sent earlier; response pending.
 - "Real strategy with edge" is still not shipped — the arb
