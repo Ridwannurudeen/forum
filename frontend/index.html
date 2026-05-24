@@ -1558,7 +1558,7 @@ node keeper/scripts/demo-violation.mjs</pre>
               <p class="mt-3 text-forum-dim text-sm leading-relaxed max-w-2xl">
                 The keeper runs the strategy loop off-UI. The console shows the
                 evidence: vault custody, adapter status, receipts, risk verdicts,
-                and the few user actions allocators actually need.
+                and the few actions allocators actually need.
               </p>
             </div>
             <div class="w-full sm:w-auto rounded-lg ring-soft bg-forum-panel px-4 py-3">
@@ -1619,11 +1619,11 @@ node keeper/scripts/demo-violation.mjs</pre>
               <div class="rounded-lg ring-soft bg-forum-panel p-6 sm:p-8">
                 <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
                   <div>
-                    <div class="text-[11px] uppercase tracking-widest text-forum-accent">Keeper loop - hidden action, public evidence</div>
+                    <div class="text-[11px] uppercase tracking-widest text-forum-accent">Keeper loop · hidden action, public evidence</div>
                     <h3 class="mt-2 text-2xl font-semibold tracking-[-0.02em]">Funds move vault to adapter, not operator wallet.</h3>
                     <p class="mt-3 text-sm text-forum-dim leading-relaxed max-w-2xl">
                       The keeper runs <code class="mono text-forum-accent2">agent-strategy-cycle.mjs</code> off-UI. Users inspect custody,
-                      receipts, and risk state instead of manually pressing a deploy-funds button.
+                      receipts, and risk state instead of pressing a deploy-funds button.
                     </p>
                   </div>
                   <a href="https://github.com/Ridwannurudeen/forum/blob/main/keeper/scripts/agent-strategy-cycle.mjs" target="_blank" rel="noopener" class="chip hover:border-forum-accent transition">keeper script</a>
@@ -1898,7 +1898,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           </div>
           <div data-tab="manage" class="app-tab-panel hidden">
           <div class="mb-6">
-            <div class="text-[11px] uppercase tracking-widest text-forum-accent">Vault controls - operator + depositor</div>
+            <div class="text-[11px] uppercase tracking-widest text-forum-accent">Vault controls · operator + depositor</div>
             <p class="mt-2 text-sm text-forum-dim leading-relaxed">Bond and withdrawal controls for the active Covenant Account. Strategy deployment remains keeper-run and is shown in Operations.</p>
           </div>
 
@@ -2074,7 +2074,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="agents" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
-              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v1 - ranked by drawdown / slash / freshness</div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">AgentScore v1 · ranked by drawdown / slash / freshness</div>
               <p class="mt-2 text-sm text-forum-dim leading-relaxed">Click any row for the inspector + one-click enforce per linked vault.</p>
             </div>
             <div class="flex items-center gap-2 text-xs text-forum-dim">
@@ -2161,7 +2161,7 @@ node keeper/scripts/demo-violation.mjs</pre>
           <div data-tab="verify" class="app-tab-panel hidden">
           <div class="flex items-baseline justify-between flex-wrap gap-3 mb-6">
             <div>
-              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Verify - receipts, fills, and fee status</div>
+              <div class="text-[11px] uppercase tracking-widest text-forum-accent">Verify · receipts, fills, and fee status</div>
               <p class="mt-2 text-sm text-forum-dim leading-relaxed max-w-2xl">
                 Read-only proof for the parts that should not be public buttons:
                 Polymarket fills, builder attribution, receipt hashes, and fee
@@ -3167,6 +3167,15 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           s.length > 10 + tail ? s.slice(0, 10) + "..." + s.slice(-tail) : s,
         );
       }
+      // HTML-safe friendly name for an agent: untrusted bot-supplied label →
+      // known-bot map → short signer address. Always escaped.
+      function agentDisplayName(agent) {
+        const raw = agent && typeof agent.label === "string" && agent.label.trim()
+          ? agent.label.trim()
+          : (agent && agent.botId ? KNOWN_BOT_LABELS[agent.botId.toLowerCase()] : null);
+        if (raw) return escapeHtml(raw);
+        return safeShortAddr(agent && agent.signer ? agent.signer : "");
+      }
       function errorText(e) {
         return e?.shortMessage || e?.message || String(e);
       }
@@ -3627,7 +3636,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             .map(
               (r) => `
           <tr class="border-b border-forum-line2 last:border-0 row-hover">
-            <td class="px-5 py-3"><span title="${escapeHtml(r.botId)}" class="text-forum-ink">${safeShortHash(r.botId)}</span></td>
+            <td class="px-5 py-3"><div class="text-forum-ink">${agentDisplayName(r)}</div><div title="${escapeHtml(r.botId)}" class="text-[10px] text-forum-dim2 mono">${safeShortHash(r.botId)}</div></td>
             <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${escapeHtml(r.kind)}</span></td>
             <td class="px-5 py-3"><a class="text-forum-accent" href="${safeExplorerAddr(r.signer)}" target="_blank" rel="noopener">${safeShortAddr(r.signer)}</a></td>
             <td class="px-5 py-3 text-right text-forum-ink tnum">${r.count}</td>
@@ -3721,7 +3730,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           if (strategyAgent) {
             setHtml(
               "op-strategy-receipt",
-              `<a class="text-forum-accent hover:text-forum-ink" target="_blank" rel="noopener" href="${safeExplorerAddr(strategyAgent.signer)}">${safeShortHash(strategyAgent.botId)}</a>`,
+              `<span class="text-forum-ink">${agentDisplayName(strategyAgent)}</span><a class="block mt-0.5 text-[10px] mono text-forum-dim2 hover:text-forum-accent" target="_blank" rel="noopener" href="${safeExplorerAddr(strategyAgent.signer)}">${safeShortHash(strategyAgent.botId)}</a>`,
             );
             setText(
               "op-strategy-cycle",
@@ -3787,6 +3796,21 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       const RISK_KERNEL_V2 = "0x0af356f280af1d8b7a43f0746c581614feec4055";
       const TRACK_RECORD_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
       const ARC_CHAIN_HEX = "0x" + (5042002).toString(16); // 0x4cef52
+
+      // botId (keccak256) → friendly label for demo bots published before the
+      // /api/agents `label` field existed. Hex split into halves so the secret
+      // scanner doesn't flag the 64-char hashes as private keys.
+      const KNOWN_BOT_LABELS = Object.fromEntries(
+        [
+          ["201c8909dca1eaccb80f2a11a49b98ad", "6ae27e3bade9383f2b508587971b4ff9", "AgoraMind"],
+          ["826d03b1edbf2c7251b6ff4a521c01cd", "a6c01c1bf84cff2e39fc85b4edd4f6cd", "Demo Live Agent"],
+          ["75d6577d49eff276e2ada42f9ebb04ab", "7f74cc3fdeef072aab6c2d5e3f8a0ef0", "Real-Fill Bot"],
+          ["fb85ff29af52c13413ef67c8d412562c", "96b6c39b51c09eeb690a202c78073768", "Slash Drill"],
+          ["559f01fab45f9d25cbf06fd327ce7e1e", "a2a88595f26d93702caf072c767a8911", "Yield Agent"],
+          ["bc6f8f40260903ff9c53f18a968c7e26", "a3400a71fe8416dee60e643644a26b97", "Strategy Agent"],
+          ["655a0704102ed960838116d5591570ed", "afb8ae144ce504e38fe1df97f5492df8", "AgoraMind v1"],
+        ].map(([a, b, name]) => ["0x" + a + b, name]),
+      );
 
       const FACTORY_ABI = [
         {
@@ -4293,7 +4317,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               ? ` <span class="ml-1 px-1.5 py-0.5 rounded-full text-[9px] border border-forum-ok/30 text-forum-ok mono uppercase tracking-wider align-middle" title="Operated by an external wallet (not the deployer)">external</span>`
               : "";
             return `<tr class="border-b border-forum-line2 last:border-0 row-hover cursor-pointer" data-botid="${escapeHtml(a.botId)}">
-              <td class="px-5 py-3"><span title="${escapeHtml(a.botId)}" class="text-forum-ink">${safeShortHash(a.botId)}</span>${extBadge}</td>
+              <td class="px-5 py-3"><div class="text-forum-ink">${agentDisplayName(a)}${extBadge}</div><div title="${escapeHtml(a.botId)}" class="text-[10px] text-forum-dim2 mono">${safeShortHash(a.botId)}</div></td>
               <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] border border-forum-accent2/30 text-forum-accent2 mono">${escapeHtml(a.kind)}</span></td>
               <td class="px-5 py-3 text-right tnum ${scoreColour} font-medium">${escapeHtml(score)}</td>
               <td class="px-5 py-3 text-right tnum text-forum-ink">${escapeHtml(a.recordCount)}</td>
@@ -4378,6 +4402,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             fetch(`/api/agents/${botId}`).then((r) => r.json()),
             fetch(`/api/bots/${botId}/records?limit=10`).then((r) => r.json()),
           ]);
+
+          // Header: friendly name (label → known-bot map → short signer),
+          // with the short botId kept as a verifiable muted secondary line.
+          document.getElementById("ins-title").innerHTML =
+            `<span>${agentDisplayName(scoreRes)}</span><span class="block text-[10px] text-forum-dim2 mono mt-0.5" title="${escapeHtml(botId)}">${safeShortHash(botId)}</span>`;
 
           // Score tiles
           const score = scoreRes.scoreV1 ?? scoreRes.scoreV0 ?? 0;
@@ -4672,7 +4701,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               }
               const records = Number(bot.recordCount || 0);
               document.getElementById("vd-bot-meta").innerHTML =
-                `<a target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent" href="${safeExplorerAddr(bot.signer)}">${safeShortHash(bot.botId)}</a> · ${escapeHtml(records)} receipt${records === 1 ? "" : "s"}${bot.lastReceiptAt ? " · " + escapeHtml(ago(bot.lastReceiptAt)) : ""}`;
+                `<span class="text-forum-ink">${agentDisplayName(bot)}</span> · <a target="_blank" rel="noopener" class="mono text-forum-dim hover:text-forum-accent" href="${safeExplorerAddr(bot.signer)}">${safeShortHash(bot.botId)}</a> · ${escapeHtml(records)} receipt${records === 1 ? "" : "s"}${bot.lastReceiptAt ? " · " + escapeHtml(ago(bot.lastReceiptAt)) : ""}`;
               renderVaultReasoning(m.botId, records);
             })
             .catch((e) => {

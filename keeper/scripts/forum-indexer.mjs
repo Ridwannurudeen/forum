@@ -441,6 +441,13 @@ async function refreshBotStats() {
               const r = await fetch(url);
               if (r.ok) {
                 const json = await r.json();
+                if (typeof json.label === "string") {
+                  const lbl = json.label
+                    .trim()
+                    .replace(/[\x00-\x1f\x7f]/g, "")
+                    .slice(0, 64);
+                  if (lbl) state.bots[botId].label = lbl;
+                }
                 const liveFills = Array.isArray(json.fills)
                   ? json.fills.filter((f) => f && f.mode === "live").length
                   : 0;
@@ -1409,6 +1416,7 @@ const server = createServer((req, res) => {
       botId,
       kind: bot.kind,
       signer: bot.signer,
+      label: bot.label ?? null,
       version: bot.version || "v1",
       recordCount: records,
       lastPnlMicros: lastPnl,

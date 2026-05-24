@@ -111,6 +111,7 @@ def publish_once(
     receipt = {
         "schema": "forum.receipt.v1",
         "botId": bot_id,
+        "label": BOT_LABEL,
         "seq": seq,
         "periodStart": period_start,
         "periodEnd": period_end,

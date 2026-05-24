@@ -109,6 +109,7 @@ async function publishOnce() {
   // Build the canonical receipt
   const receipt = buildReceipt({
     botId: bridge.botId,
+    label: BOT_LABEL,
     seq,
     periodStart: periodStartTs,
     periodEnd: periodEndTs,
