@@ -157,7 +157,7 @@ contract CovenantVault {
         return budgetRemaining < idleCap ? budgetRemaining : idleCap;
     }
 
-    function pullCredit(uint256 amount) external onlyOperator onlyActive {
+    function pullCredit(uint256 amount) public virtual onlyOperator onlyActive {
         if (amount == 0) revert ZeroAmount();
         uint256 avail = availableCredit();
         if (amount > avail) revert BudgetExceeded();
