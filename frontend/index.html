@@ -1714,7 +1714,7 @@ node keeper/scripts/demo-violation.mjs</pre>
 
                 <label class="sm:col-span-2 flex items-start gap-2 text-sm text-forum-dim">
                   <input id="f-managed" type="checkbox" class="mt-1" />
-                  <span><strong class="text-forum-ink">Let Forum operate this agent (managed)</strong> - Forum runs the bot with its own key and funds the bond. You stay the depositor: withdraw anytime, and the bond + auto-slash protect you. You never share a key.</span>
+                  <span><strong class="text-forum-ink">Let Forum operate this agent (managed)</strong> - Forum runs the bot with its own key and funds the bond. You stay the depositor: withdraw anytime, and the bond + auto-slash protect you. You never share a key. Managed budget is capped at 1 USDC (the stake Forum posts) — for a larger account, leave this unchecked and operate it yourself.</span>
                 </label>
 
                 <label class="block sm:col-span-2">
@@ -3814,6 +3814,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       // ============================================================
       const FACTORY_ADDR = "0x4766e3c506a5ff543d12f672ed5f167fabe26fe0"; // CovenantVaultFactoryV2 — bond-gated (pullCredit requires bond >= budget)
       const FORUM_MANAGED_OPERATOR = "0x13585c6004fbA9D7D49219a6435B68348fD30770";
+      // Managed accounts are operated AND bonded by Forum, whose auto-bond is
+      // capped (keeper MAX_AUTO_BOND_USDC, default 1). Cap the managed budget to
+      // that stake so every managed account is guaranteed credit-eligible without
+      // Forum committing unbounded capital. Larger budgets must be self-operated.
+      const MANAGED_MAX_BUDGET_USDC = 1;
       const RISK_KERNEL_V2 = "0x0af356f280af1d8b7a43f0746c581614feec4055";
       const TRACK_RECORD_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
       const ARC_CHAIN_HEX = "0x" + (5042002).toString(16); // 0x4cef52
@@ -4049,6 +4054,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       const opInput = document.getElementById("f-operator");
       if (managedChk && opInput) {
         const labelInput = document.getElementById("f-botLabel");
+        const budgetInput = document.getElementById("f-budget");
+        let savedBudget = budgetInput ? budgetInput.value : "";
         managedChk.addEventListener("change", () => {
           if (managedChk.checked) {
             opInput.value = FORUM_MANAGED_OPERATOR;
@@ -4058,6 +4065,15 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             labelInput.readOnly = true;
             labelInput.classList.add("opacity-60");
             labelInput.placeholder = "Forum assigns the agent id for managed accounts";
+            // Managed accounts are bonded by Forum (capped) — pin the budget to
+            // that stake so the account is guaranteed credit-eligible.
+            if (budgetInput) {
+              savedBudget = budgetInput.value;
+              budgetInput.value = String(MANAGED_MAX_BUDGET_USDC);
+              budgetInput.max = String(MANAGED_MAX_BUDGET_USDC);
+              budgetInput.readOnly = true;
+              budgetInput.classList.add("opacity-60");
+            }
           } else {
             opInput.readOnly = false;
             opInput.classList.remove("opacity-60");
@@ -4065,6 +4081,12 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             labelInput.readOnly = false;
             labelInput.classList.remove("opacity-60");
             labelInput.value = "";
+            if (budgetInput) {
+              budgetInput.readOnly = false;
+              budgetInput.classList.remove("opacity-60");
+              budgetInput.removeAttribute("max");
+              budgetInput.value = savedBudget || "200";
+            }
           }
         });
       }
@@ -4089,6 +4111,15 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           if (!/^0x[0-9a-fA-F]{40}$/.test(operator)) throw new Error("operator must be 0x + 40 hex chars");
           if (!botLabel) throw new Error("bot label required");
           if (budgetUsdcWhole < 1n) throw new Error("budget must be >= 1 USDC");
+
+          // Managed accounts are bonded by Forum (capped), so cap the on-chain
+          // budget to that stake regardless of the form value — guarantees the
+          // account is credit-eligible and never gets stuck unbonded.
+          const isManaged = operator.toLowerCase() === FORUM_MANAGED_OPERATOR.toLowerCase();
+          const budgetUsdcEffective =
+            isManaged && budgetUsdcWhole > BigInt(MANAGED_MAX_BUDGET_USDC)
+              ? BigInt(MANAGED_MAX_BUDGET_USDC)
+              : budgetUsdcWhole;
 
           const botId = keccak256(toHex(`${operator.toLowerCase()}:${botLabel}`));
 
@@ -4118,7 +4149,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const mandate = {
             operator,
             botId,
-            budgetUsdc: budgetUsdcWhole * 1_000_000n, // whole USDC -> micros (6 decimals)
+            budgetUsdc: budgetUsdcEffective * 1_000_000n, // whole USDC -> micros (6 decimals)
             maxDrawdownBps,
             receiptFreshnessSec,
             expiry,
@@ -4152,7 +4183,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const vault = rcpt.logs?.[0]?.topics?.[1]
             ? "0x" + rcpt.logs[0].topics[1].slice(26)
             : "(parse-fail — see explorer)";
-          const isManaged = operator.toLowerCase() === FORUM_MANAGED_OPERATOR.toLowerCase();
           const bondLine = isManaged
             ? `Bond: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(bondContract)}">${escapeHtml(bondContract)}</a> (Forum funds this managed account's bond — you don't post it)`
             : `Your bond: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(bondContract)}">${escapeHtml(bondContract)}</a> (you own it — post to it and it's slashable)`;
