@@ -75,6 +75,13 @@ sequenceDiagram
     RK-->>SB: slash bond (same tx)
 ```
 
+### Self-operated or Forum-managed
+
+Both modes are key-safe — the agent never holds an unrestricted wallet either way:
+
+- **Self-operated** — you are the operator. You post your own `SlashBond`, your agent pulls bounded credit at any budget, and your bond is the skin-in-the-game slashed on a mandate breach.
+- **Forum-managed** — tick *Managed* at creation and you delegate only the *operator role* to a Forum address — **no private key ever changes hands**. Forum runs the keeper and auto-posts the bond for you; you stay the depositor and withdraw anytime. Because Forum stakes the bond, managed budgets are capped to that bounded stake — for a larger account, self-operate.
+
 ## Architecture
 
 ```mermaid
@@ -104,7 +111,7 @@ flowchart TB
     RK -->|slash, same tx| SB
 ```
 
-**Production hardening (V2/V3, live on Arc testnet).** `CovenantVaultV2` adds vault-custodied strategy deployment — the agent puts credit to work through governor-approved `StrategyAdapter`s and **never holds the funds itself** (vault→adapter), with realized yield recomputable on-chain from `RecalledFromStrategy` events ([`docs/yield-adapter.md`](docs/yield-adapter.md)). `RiskKernelV3` adds a persistent, un-spammable drawdown peak plus a receipt-independent on-chain NAV circuit breaker. Operator / governor / risk-attestor are distinct addresses ([`docs/security-roles.md`](docs/security-roles.md)).
+**Production hardening (V2/V3, live on Arc testnet).** `CovenantVaultV2` adds vault-custodied strategy deployment — the agent puts credit to work through governor-approved `StrategyAdapter`s and **never holds the funds itself** (vault→adapter), with realized yield recomputable on-chain from `RecalledFromStrategy` events ([`docs/yield-adapter.md`](docs/yield-adapter.md)). `RiskKernelV3` adds a persistent, un-spammable drawdown peak plus a receipt-independent on-chain NAV circuit breaker. Operator / governor / risk-attestor are distinct addresses ([`docs/security-roles.md`](docs/security-roles.md)). Credit is **bond-gated**: vaults deployed by `CovenantVaultFactoryV2` are `CovenantVaultV3`, which reverts `pullCredit` unless the operator's bond covers the budget — an account can't borrow more than it has staked.
 
 ## Live on Arc testnet
 
@@ -117,11 +124,11 @@ Chain: **Arc testnet `5042002`** · full metadata in [`deployments/arc-testnet.j
 | `RiskKernelV2` | `0x0af356f280af1d8b7a43f0746c581614feec4055` | Permissionless pause + slash enforcement |
 | `RiskKernelV3` | `0x554cdad3cac1f640b39816193310166afc2bde06` | Persistent drawdown peak + on-chain NAV circuit breaker |
 | `SlashBondV1.1` | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | USDC operator bond, attestor = `RiskKernelV2` |
-| `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | Self-serve creation — anyone can call `createVault(mandate)` |
+| `CovenantVaultFactoryV2` | `0x4766e3c506a5ff543d12f672ed5f167fabe26fe0` | **Live** self-serve factory — `createVault(mandate)` deploys bond-gated `CovenantVaultV3` (pullCredit requires bond ≥ budget) |
 | `CovenantVaultV2` | `0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5` | Vault-custodied strategy deployment (vault→adapter) |
 
 <details>
-<summary><b>Full deployment — all 18 contracts</b></summary>
+<summary><b>Full deployment — all contracts</b></summary>
 
 | Contract | Address | Role |
 |---|---|---|
@@ -135,7 +142,8 @@ Chain: **Arc testnet `5042002`** · full metadata in [`deployments/arc-testnet.j
 | `SlashBondV1.1` | `0xe6c8c31477a1d88fbdad6e7b4fc83ab8e6e34939` | USDC operator bond, attestor = `RiskKernelV2` |
 | `CovenantVaultV1.2` | `0x80384963c0c93414ff16e018c6618a64bc94df6d` | Live AgoraMind Covenant Account |
 | `CovenantInbox` | `0x670f68ff6b90c42f4b7be26a684812e1e5561b12` | CCTP V2 bridge-friendly deposit wrapper |
-| `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | Self-serve `createVault(mandate)` |
+| `CovenantVaultFactory` | `0xc9bbafd02d22dd75a9f043f50f126ac2fe22ca26` | v1 self-serve `createVault(mandate)` (superseded by V2) |
+| `CovenantVaultFactoryV2` | `0x4766e3c506a5ff543d12f672ed5f167fabe26fe0` | Live bond-gated factory — deploys `CovenantVaultV3` (pullCredit requires bond ≥ budget) |
 | `CapitalRouter` | `0x13617989cd443147b6f14ff98e492c6175bb0afc` | Pools USDC, routes across strategist-whitelisted vaults, permissionless `rebalance()` |
 | `SlashMarket` | `0xcc2d9101fc5851b6fab9b739a177f2a642a5ef76` | Binary YES/NO risk market per `SlashBond`; oracle-free settle via `totalSlashed` delta |
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Continuous-premium insurance pool for `SlashBondV1.1` |
@@ -161,7 +169,7 @@ cd keeper
 npx tsx scripts/verify-receipt.mjs https://forum.gudman.xyz/receipts/201c8909dca1/000014.json
 ```
 
-The receipt schema ([`keeper/src/receipt.ts`](keeper/src/receipt.ts)) is `forum.receipt.v1`: botId, seq, period, markets, book snapshots, fills, inventory, PnL inputs, strategy/configHash, decision trace, and a `sourceData { booksHash, fillsHash }` integrity block. An optional `sourceChain { domain, messageHash, txHash }` field carries CCTP V2 bridging coordinates — the verifier rejects partial/malformed claims.
+The receipt schema ([`keeper/src/receipt.ts`](keeper/src/receipt.ts)) is `forum.receipt.v1`: botId, seq, period, markets, book snapshots, fills, inventory, PnL inputs, strategy/configHash, decision trace, and a `sourceData { booksHash, fillsHash }` integrity block. An optional `sourceChain { domain, messageHash, txHash }` field carries CCTP V2 bridging coordinates — the verifier rejects partial/malformed claims. Beyond the hash chain, `verifyReceipt` recomputes realized/unrealized PnL from fills + inventory + book snapshots and rejects any fill priced outside the committed order-book envelope.
 
 **Real Polymarket V2 fill** — a $2 atomic FOK buy was executed on Polymarket V2 mainnet, settled on Polygon, and anchored to `TrackRecordV2` on Arc. See the **Verify** tab on the live site, [`GET /api/proof`](https://forum.gudman.xyz/api/proof), and [`docs/phase-3-live-fill-proof.md`](docs/phase-3-live-fill-proof.md).
 
