@@ -639,7 +639,7 @@
           "/": [
             "hero", "thesis", "for", "how",
             "slash-proof", "phase3-proof", "receipts",
-            "security", "cta-prefooter",
+            "self-test", "cta-prefooter",
           ],
           "/console":      ["live-mandate", "app"],
           "/proof":        ["slash-proof", "phase3-proof", "receipts"],
@@ -803,7 +803,7 @@
             <a href="#/developers" data-nav-route="/developers" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Developers
             </a>
-            <a href="#security" data-nav-anchor="security" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
+            <a href="#/security" data-nav-route="/security" class="hidden md:inline text-forum-dim hover:text-forum-ink transition">
               Security
             </a>
             <a
@@ -833,7 +833,7 @@
         <a href="#/console" data-nav-route="/console">App</a>
         <a href="#/console?t=bridge">Fund</a>
         <a href="#slash-proof" data-nav-anchor="slash-proof">Proof</a>
-        <a href="#security" data-nav-anchor="security">Risk</a>
+        <a href="#self-test" data-nav-anchor="self-test">Risk</a>
       </div>
 
       <main class="mx-auto max-w-8xl px-5 sm:px-6">
@@ -2609,7 +2609,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               </div>
             </div>
           </div>
+        </section>
 
+        <!-- SELF-TEST — honesty beat kept on the home scroll (grid moved to /security) -->
+        <section id="self-test" data-route="/" data-reveal class="pb-24 lg:pb-32">
           <!-- Self-test honesty block -->
           <div class="rounded-lg border border-forum-warn/20 bg-forum-warn/[0.03] p-8 sm:p-10">
             <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
