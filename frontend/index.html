@@ -3973,15 +3973,23 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       const managedChk = document.getElementById("f-managed");
       const opInput = document.getElementById("f-operator");
       if (managedChk && opInput) {
+        const labelInput = document.getElementById("f-botLabel");
         managedChk.addEventListener("change", () => {
           if (managedChk.checked) {
             opInput.value = FORUM_MANAGED_OPERATOR;
             opInput.readOnly = true;
             opInput.classList.add("opacity-60");
+            labelInput.value = "managed-" + (connectedAddr || "").toLowerCase();
+            labelInput.readOnly = true;
+            labelInput.classList.add("opacity-60");
+            labelInput.placeholder = "Forum assigns the agent id for managed accounts";
           } else {
             opInput.readOnly = false;
             opInput.classList.remove("opacity-60");
             opInput.value = connectedAddr || "";
+            labelInput.readOnly = false;
+            labelInput.classList.remove("opacity-60");
+            labelInput.value = "";
           }
         });
       }
