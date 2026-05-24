@@ -93,6 +93,10 @@ const CAPITAL_ROUTER_DEPLOY_BLOCK = deployment.contracts.CapitalRouter?.block
 const FACTORY_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactory?.block
   ? BigInt(deployment.contracts.CovenantVaultFactory.block)
   : null;
+const FACTORY_V2 = deployment.contracts.CovenantVaultFactoryV2?.address;
+const FACTORY_V2_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactoryV2?.block
+  ? BigInt(deployment.contracts.CovenantVaultFactoryV2.block)
+  : null;
 const DEPLOY_BLOCK = BigInt(deployment.contracts.BuilderCodeRegistry.block);
 const TR_V2_DEPLOY_BLOCK = deployment.contracts.TrackRecordV2?.block
   ? BigInt(deployment.contracts.TrackRecordV2.block)
@@ -510,34 +514,41 @@ async function refreshBotStats() {
 }
 
 async function indexFactoryVaults(fromBlock, toBlock) {
-  if (!FACTORY || !FACTORY_DEPLOY_BLOCK) return;
-  const start =
-    fromBlock > FACTORY_DEPLOY_BLOCK ? fromBlock : FACTORY_DEPLOY_BLOCK;
-  if (toBlock < start) return;
-  const logs = await getLogsChunked({
-    address: FACTORY,
-    event: VAULT_CREATED_EVENT,
-    fromBlock: start,
-    toBlock,
-  });
   const knownVaults = new Set(
     state.factoryVaults.map((v) => v.vault.toLowerCase()),
   );
-  for (const log of logs) {
-    const addr = log.args.vault;
-    if (knownVaults.has(addr.toLowerCase())) continue;
-    state.factoryVaults.unshift({
-      vault: addr,
-      creator: log.args.creator,
-      operator: log.args.operator,
-      botId: log.args.botId,
-      budgetMicros: log.args.budgetUsdc.toString(),
-      createdAt: Number(log.args.createdAt),
-      blockNumber: log.blockNumber.toString(),
-      txHash: log.transactionHash,
+  // Watch both the original factory and the bond-gated V2 factory. Same
+  // VaultCreated event shape; dedup by vault address; sort newest-first.
+  for (const [factoryAddr, deployBlock] of [
+    [FACTORY, FACTORY_DEPLOY_BLOCK],
+    [FACTORY_V2, FACTORY_V2_DEPLOY_BLOCK],
+  ]) {
+    if (!factoryAddr || !deployBlock) continue;
+    const start = fromBlock > deployBlock ? fromBlock : deployBlock;
+    if (toBlock < start) continue;
+    const logs = await getLogsChunked({
+      address: factoryAddr,
+      event: VAULT_CREATED_EVENT,
+      fromBlock: start,
+      toBlock,
     });
-    knownVaults.add(addr.toLowerCase());
+    for (const log of logs) {
+      const addr = log.args.vault;
+      if (knownVaults.has(addr.toLowerCase())) continue;
+      state.factoryVaults.unshift({
+        vault: addr,
+        creator: log.args.creator,
+        operator: log.args.operator,
+        botId: log.args.botId,
+        budgetMicros: log.args.budgetUsdc.toString(),
+        createdAt: Number(log.args.createdAt),
+        blockNumber: log.blockNumber.toString(),
+        txHash: log.transactionHash,
+      });
+      knownVaults.add(addr.toLowerCase());
+    }
   }
+  state.factoryVaults.sort((a, b) => b.createdAt - a.createdAt);
   state.factoryVaults = state.factoryVaults.slice(0, 500);
 }
 
