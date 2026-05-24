@@ -177,7 +177,15 @@ async function main() {
         abi: MANDATE_ABI,
         functionName: "mandate",
       });
-      riskKernelAddr = m.riskKernel;
+      // viem returns this multi-output struct getter as an ARRAY (riskKernel is
+      // index 8); tolerate an object form too. Only override when it's a valid
+      // address so a bad read never clobbers the global fallback with undefined.
+      const rk = Array.isArray(m) ? m[8] : m.riskKernel;
+      if (/^0x[0-9a-fA-F]{40}$/.test(rk || "")) {
+        riskKernelAddr = rk;
+      } else {
+        console.warn("mandate.riskKernel unreadable; keeping global risk kernel");
+      }
     } catch (e) {
       console.warn(
         "mandate read failed, falling back to global risk kernel:",
