@@ -48,6 +48,8 @@ export interface Receipt {
   schema: "forum.receipt.v1";
   /** Bot id (bytes32 hex) — same as on-chain. */
   botId: Hex;
+  /** Optional human-readable agent name. Display-only; ignored by verifyReceipt. */
+  label?: string;
   /** Sequence — must match the TrackRecordV2 record's seq. */
   seq: number;
   /** Reporting window [periodStart, periodEnd] in unix seconds. */
@@ -174,6 +176,7 @@ export function receiptSha256(r: Receipt): string {
 /** Inputs builder — pass in everything the keeper accumulated this tick window. */
 export interface BuildReceiptInput {
   botId: Hex;
+  label?: string;
   seq: number;
   periodStart: number;
   periodEnd: number;
@@ -213,6 +216,7 @@ export function buildReceipt(input: BuildReceiptInput): Receipt {
   return {
     schema: "forum.receipt.v1",
     botId: input.botId,
+    ...(input.label ? { label: input.label } : {}),
     seq: input.seq,
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,

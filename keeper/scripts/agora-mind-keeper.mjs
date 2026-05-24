@@ -471,6 +471,7 @@ async function main() {
 
         const receipt = buildReceipt({
           botId: bridge.botId,
+          label: args.label,
           seq,
           periodStart: periodStartTs,
           periodEnd: periodEndTs,
