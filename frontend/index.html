@@ -4174,6 +4174,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         type: "function", name: "bondBalance", stateMutability: "view",
         inputs: [], outputs: [{ type: "uint256" }],
       }];
+      const BOND_OPERATOR_ABI = [{
+        type: "function", name: "operator", stateMutability: "view",
+        inputs: [], outputs: [{ type: "address" }],
+      }];
       const VAULT_WITHDRAW_ABI = [{
         type: "function", name: "withdraw", stateMutability: "nonpayable",
         inputs: [{ name: "shares", type: "uint256" }],
@@ -4217,6 +4221,25 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           });
           document.getElementById("bond-current-balance").textContent =
             (Number(bal) / 1e6).toFixed(2) + " USDC";
+          // Check the bond's operator: posting to a bond you don't own reverts
+          // NotOperator. Managed accounts are bonded by Forum, not the user.
+          const bondBtn = document.getElementById("bond-submit-btn");
+          try {
+            const op = await client.readContract({
+              address: addr, abi: BOND_OPERATOR_ABI, functionName: "operator",
+            });
+            if (op.toLowerCase() === FORUM_MANAGED_OPERATOR.toLowerCase()) {
+              if (bondBtn) bondBtn.disabled = true;
+              setPanelStatus("bond-status", "Managed account — Forum funds this bond. You don't post it.", "info");
+            } else if (connectedAddr && op.toLowerCase() !== connectedAddr.toLowerCase()) {
+              if (bondBtn) bondBtn.disabled = true;
+              setPanelStatus("bond-status", `This bond is operated by ${safeShortAddr(op)} — connect that wallet to post it.`, "err");
+            } else if (walletClient) {
+              if (bondBtn) bondBtn.disabled = false;
+              const st = document.getElementById("bond-status");
+              if (st) st.className = "mt-3 text-xs hidden";
+            }
+          } catch (e2) { /* operator read failed — leave button as-is */ }
         } catch (e) {
           document.getElementById("bond-current-balance").textContent = "—";
         }
