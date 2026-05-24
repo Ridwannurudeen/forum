@@ -1712,6 +1712,11 @@ node keeper/scripts/demo-violation.mjs</pre>
                   <span class="text-[10px] text-forum-dim2">botId = keccak256(operator || ':' || label)</span>
                 </label>
 
+                <label class="sm:col-span-2 flex items-start gap-2 text-sm text-forum-dim">
+                  <input id="f-managed" type="checkbox" class="mt-1" />
+                  <span><strong class="text-forum-ink">Let Forum operate this agent (managed)</strong> - Forum runs the bot with its own key and funds the bond. You stay the depositor: withdraw anytime, and the bond + auto-slash protect you. You never share a key.</span>
+                </label>
+
                 <label class="block sm:col-span-2">
                   <span class="text-[11px] uppercase tracking-widest text-forum-dim2">Operator address</span>
                   <input id="f-operator" type="text" required placeholder="0x… (defaults to connected wallet)"
@@ -2062,7 +2067,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                 <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
                   <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">Mandate</div>
                   <div class="space-y-1.5 text-xs">
-                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">operator</span><a id="vd-m-operator" target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent">—</a></div>
+                    <div class="flex justify-between gap-2"><span class="text-forum-dim2">operator</span><span class="flex items-center gap-2"><span id="vd-m-managed-badge" class="hidden rounded px-1.5 py-0.5 text-[10px] font-medium text-forum-accent3 ring-1 ring-forum-accent3/40">managed by Forum</span><a id="vd-m-operator" target="_blank" rel="noopener" class="mono text-forum-ink hover:text-forum-accent">—</a></span></div>
                     <div class="flex justify-between gap-2"><span class="text-forum-dim2">budget</span><span id="vd-m-budget" class="mono text-forum-ink">—</span></div>
                     <div class="flex justify-between gap-2"><span class="text-forum-dim2">perf fee</span><span id="vd-m-perffee" class="mono text-forum-ink">—</span></div>
                     <div class="flex justify-between gap-2"><span class="text-forum-dim2">max drawdown</span><span id="vd-m-drawdown" class="mono text-forum-ink">—</span></div>
@@ -3808,6 +3813,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       // Self-serve Covenant Account creation (Phase 1 ship)
       // ============================================================
       const FACTORY_ADDR = "0x4766e3c506a5ff543d12f672ed5f167fabe26fe0"; // CovenantVaultFactoryV2 — bond-gated (pullCredit requires bond >= budget)
+      const FORUM_MANAGED_OPERATOR = "0x13585c6004fbA9D7D49219a6435B68348fD30770";
       const RISK_KERNEL_V2 = "0x0af356f280af1d8b7a43f0746c581614feec4055";
       const TRACK_RECORD_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
       const ARC_CHAIN_HEX = "0x" + (5042002).toString(16); // 0x4cef52
@@ -3963,6 +3969,22 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
       document.getElementById("app-connect-btn").addEventListener("click", connectWallet);
       document.getElementById("create-connect-btn").addEventListener("click", connectWallet);
+
+      const managedChk = document.getElementById("f-managed");
+      const opInput = document.getElementById("f-operator");
+      if (managedChk && opInput) {
+        managedChk.addEventListener("change", () => {
+          if (managedChk.checked) {
+            opInput.value = FORUM_MANAGED_OPERATOR;
+            opInput.readOnly = true;
+            opInput.classList.add("opacity-60");
+          } else {
+            opInput.readOnly = false;
+            opInput.classList.remove("opacity-60");
+            opInput.value = connectedAddr || "";
+          }
+        });
+      }
 
       document.getElementById("create-form").addEventListener("submit", async (ev) => {
         ev.preventDefault();
@@ -4720,6 +4742,11 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         const opEl = document.getElementById("vd-m-operator");
         opEl.textContent = m.operator ? shortAddr(m.operator) : "—";
         opEl.href = safeExplorerAddr(m.operator || "");
+        const managedBadge = document.getElementById("vd-m-managed-badge");
+        if (managedBadge) {
+          const isManaged = String(m.operator || "").toLowerCase() === FORUM_MANAGED_OPERATOR.toLowerCase();
+          managedBadge.classList.toggle("hidden", !isManaged);
+        }
         document.getElementById("vd-m-budget").textContent = m.budgetMicros != null ? fmtUsdcMicros(m.budgetMicros) : "—";
         document.getElementById("vd-m-perffee").textContent = m.perfFeeBps != null ? (Number(m.perfFeeBps) / 100).toFixed(2) + " %" : "—";
         document.getElementById("vd-m-drawdown").textContent = m.maxDrawdownBps != null ? (Number(m.maxDrawdownBps) / 100).toFixed(2) + " %" : "—";
