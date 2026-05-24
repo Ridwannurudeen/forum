@@ -8,22 +8,41 @@
 // cycle, runs the existing agora-mind-keeper with --max-ticks 1 --publish-every 1
 // so each managed vault publishes exactly one receipt then the child exits.
 //
-// It SUPERVISES bounded runs — it does not keep long-lived children, and it does
-// NOT fund bonds or touch operator capital. The keeper signs with the Forum key
-// the service env provides, so for a managed vault the keeper's derived botId
-// (keccak(FORUM_OP : managed-<creator>)) matches the vault's mandate.botId. The
-// botId-match guard below refuses to run a keeper whose botId won't match.
+// It SUPERVISES bounded runs — it does not keep long-lived children. It DOES
+// post bonds, but only CAPPED auto-bonds: per managed bond-gated vault whose
+// botId matches, it tops the SlashBond up to the mandate budget so the vault
+// becomes credit-eligible. Forum's USDC spend is HARD-CAPPED two ways — a
+// per-vault cap (MAX_AUTO_BOND_USDC) and a cumulative process-lifetime cap
+// (MAX_AUTO_BOND_TOTAL_USDC) — and never bonds a vault Forum doesn't operate.
+// The keeper signs with the Forum key the service env provides, so for a
+// managed vault the keeper's derived botId (keccak(FORUM_OP : managed-<creator>))
+// matches the vault's mandate.botId. The botId-match guard below refuses to run
+// a keeper whose botId won't match.
 //
 // Flags:
-//   --dry    list which vaults+labels it WOULD service and matched/mismatched
-//            botIds; does NOT spawn keepers or sleep-loop (single pass, exit).
-//   --once   one real cycle (spawns keepers) then exit.
-//   (default) loop forever, one cycle every CYCLE_SEC.
+//   --dry          list which vaults+labels it WOULD service, matched/mismatched
+//                  botIds, and the WOULD-BOND/skip decision per matched vault;
+//                  does NOT spawn keepers, send tx, load the key, or sleep-loop
+//                  (single pass, exit).
+//   --no-auto-bond disable the capped auto-bond step (also via AUTO_BOND=0).
+//   --once         one real cycle (spawns keepers + auto-bonds) then exit.
+//   (default)      loop forever, one cycle every CYCLE_SEC.
 
-import { resolve, dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import { spawn } from "node:child_process";
-import { keccak256, toHex } from "viem";
+import {
+  keccak256,
+  toHex,
+  createPublicClient,
+  createWalletClient,
+  defineChain,
+  http,
+  parseAbi,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -53,6 +72,65 @@ const FLAGS = process.argv.slice(2);
 const DRY = FLAGS.includes("--dry");
 const ONCE = FLAGS.includes("--once");
 
+// Capped auto-bond: top managed bond-gated vaults up to budget so they become
+// credit-eligible. Disabled by --no-auto-bond or AUTO_BOND=0. Spend is hard-
+// capped per-vault (MAX_AUTO_BOND_USDC) and cumulatively across the process
+// lifetime (MAX_AUTO_BOND_TOTAL_USDC, tracked in autoBondedTotalUsdc).
+const AUTO_BOND =
+  process.env.AUTO_BOND !== "0" && !FLAGS.includes("--no-auto-bond");
+const MAX_AUTO_BOND_USDC = Number(process.env.MAX_AUTO_BOND_USDC || 1);
+const MAX_AUTO_BOND_TOTAL_USDC = Number(
+  process.env.MAX_AUTO_BOND_TOTAL_USDC || 3,
+);
+let autoBondedTotalUsdc = 0;
+
+const ARC = defineChain({
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
+});
+const USDC = JSON.parse(
+  readFileSync(
+    resolve(KEEPER_ROOT, "..", "deployments", "arc-testnet.json"),
+    "utf8",
+  ),
+).usdc;
+const usdcAbi = parseAbi([
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+]);
+const bondAbi = parseAbi([
+  "function bond(uint256 amount)",
+  "function bondBalance() view returns (uint256)",
+  "function operator() view returns (address)",
+]);
+
+const pub = createPublicClient({ chain: ARC, transport: http() });
+
+// Lazy wallet: only built when a real (non-dry) bond send is needed, so --dry
+// never loads the deployer key. Returns the cached wallet+account, or null if
+// the loaded account is not the Forum managed operator.
+let walletState; // undefined = not loaded, null = wrong-account, object = ready
+function getWallet() {
+  if (walletState !== undefined) return walletState;
+  const pk = readFileSync(
+    join(homedir(), ".forum-keys", "deployer.key"),
+    "utf8",
+  ).trim();
+  const account = privateKeyToAccount(pk.startsWith("0x") ? pk : "0x" + pk);
+  if (account.address.toLowerCase() !== FORUM_MANAGED_OPERATOR) {
+    console.error(
+      `auto-bond: loaded key ${account.address} != Forum operator ${FORUM_MANAGED_OPERATOR} — bonding disabled`,
+    );
+    walletState = null;
+    return null;
+  }
+  const wal = createWalletClient({ chain: ARC, transport: http(), account });
+  walletState = { account, wal };
+  return walletState;
+}
+
 // botId the keeper will derive (and the vault mandate was created with) for a
 // managed vault. Mirrors ForumV2Bridge: keccak256(toHex(`${op}:${label}`)).
 function expectedBotId(label) {
@@ -63,6 +141,96 @@ async function fetchJson(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url} -> ${r.status}`);
   return r.json();
+}
+
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+
+// Capped auto-bond for a single managed vault whose botId already matched.
+// Tops the mandate's SlashBond up to budget so the vault is credit-eligible,
+// honoring per-vault and process-lifetime USDC caps. Returns a short status
+// string; never throws (a failure must not kill the cycle loop). `cov` is the
+// covenant JSON already fetched in the cycle loop — not re-fetched here.
+async function autoBondIfNeeded(vault, cov) {
+  if (!AUTO_BOND) return "auto-bond disabled";
+
+  const bondContract = cov?.mandate?.bondContract;
+  const budgetMicros = cov?.mandate?.budgetMicros;
+  if (!bondContract || bondContract.toLowerCase() === ZERO_ADDR)
+    return "no bond contract";
+
+  const budgetUsdc = Number(budgetMicros) / 1e6;
+  if (budgetUsdc > MAX_AUTO_BOND_USDC)
+    return `budget ${budgetUsdc} > cap ${MAX_AUTO_BOND_USDC}; skip`;
+
+  let bondOperator;
+  try {
+    bondOperator = await pub.readContract({
+      address: bondContract,
+      abi: bondAbi,
+      functionName: "operator",
+    });
+  } catch (e) {
+    return `bond operator read failed: ${e.message}`;
+  }
+  if (bondOperator.toLowerCase() !== FORUM_MANAGED_OPERATOR)
+    return "bond not Forum-operated; skip";
+
+  let bonded;
+  try {
+    bonded = await pub.readContract({
+      address: bondContract,
+      abi: bondAbi,
+      functionName: "bondBalance",
+    });
+  } catch (e) {
+    return `bondBalance read failed: ${e.message}`;
+  }
+  const deficit = BigInt(budgetMicros) - bonded;
+  if (deficit <= 0n) return "already bonded";
+
+  const deficitUsdc = Number(deficit) / 1e6;
+  if (autoBondedTotalUsdc + deficitUsdc > MAX_AUTO_BOND_TOTAL_USDC)
+    return "session cap reached; skip";
+
+  const wallet = DRY ? null : getWallet();
+  if (!DRY && !wallet) return "no Forum wallet; skip";
+
+  const owner = DRY ? FORUM_MANAGED_OPERATOR : wallet.account.address;
+  let balance;
+  try {
+    balance = await pub.readContract({
+      address: USDC,
+      abi: usdcAbi,
+      functionName: "balanceOf",
+      args: [owner],
+    });
+  } catch (e) {
+    return `USDC balance read failed: ${e.message}`;
+  }
+  if (balance < deficit) return "insufficient Forum USDC; skip";
+
+  if (DRY) return `WOULD-BOND ${deficitUsdc} USDC to ${bondContract}`;
+
+  try {
+    const approveHash = await wallet.wal.writeContract({
+      address: USDC,
+      abi: usdcAbi,
+      functionName: "approve",
+      args: [bondContract, deficit],
+    });
+    await pub.waitForTransactionReceipt({ hash: approveHash });
+    const bondHash = await wallet.wal.writeContract({
+      address: bondContract,
+      abi: bondAbi,
+      functionName: "bond",
+      args: [deficit],
+    });
+    await pub.waitForTransactionReceipt({ hash: bondHash });
+    autoBondedTotalUsdc += deficitUsdc;
+    return `bonded ${deficitUsdc} USDC -> ${bondContract}`;
+  } catch (e) {
+    return `bond failed: ${e.message}`;
+  }
 }
 
 // Discover managed vaults: operator == Forum address, newest-first, capped.
@@ -187,9 +355,10 @@ async function cycle() {
 
       // botId-match guard: read the live mandate and refuse to run a keeper
       // whose derived botId won't match the vault's on-chain mandate.botId.
+      let cov;
       let onchainBotId;
       try {
-        const cov = await fetchJson(`${API}/api/covenant/${vault}`);
+        cov = await fetchJson(`${API}/api/covenant/${vault}`);
         onchainBotId = cov?.mandate?.botId;
       } catch (e) {
         console.warn(`skip ${vault}: covenant read failed: ${e.message}`);
@@ -211,11 +380,13 @@ async function cycle() {
         console.log(
           `WOULD-SERVICE ${vault} label=${label} botId=${expected} match=ok`,
         );
+        console.log(`  auto-bond: ${await autoBondIfNeeded(vault, cov)}`);
         serviced += 1;
         continue;
       }
 
       console.log(`servicing ${vault} label=${label}`);
+      console.log(`  auto-bond: ${await autoBondIfNeeded(vault, cov)}`);
       await runKeeper(vault, label);
       serviced += 1;
     } catch (e) {
@@ -235,6 +406,9 @@ async function main() {
   console.log("  api:         ", API);
   console.log("  keeper:      ", KEEPER_SCRIPT);
   console.log("  tsx:         ", TSX_BIN);
+  console.log("  autoBond:    ", AUTO_BOND);
+  console.log("  maxBondUsdc: ", MAX_AUTO_BOND_USDC);
+  console.log("  maxBondTotal:", MAX_AUTO_BOND_TOTAL_USDC);
   console.log("  mode:        ", DRY ? "dry" : ONCE ? "once" : "loop");
 
   if (DRY) {
