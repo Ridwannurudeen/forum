@@ -1583,26 +1583,21 @@ node keeper/scripts/demo-violation.mjs</pre>
               </div>
             </div>
           </div>
-          <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+          <div class="grid md:grid-cols-3 gap-3 mb-6">
             <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
               <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Live Claude trace</div>
-              <div id="ev-claude" class="mt-2 mono text-sm text-forum-ink">checking...</div>
+              <div id="ev-claude" class="mt-2 mono text-sm text-forum-ink"><span class="skeleton" style="width:10ch;height:0.9em" aria-label="loading"></span></div>
               <p class="mt-2 text-[11px] leading-relaxed text-forum-dim2">Latest AgoraMind decision trace, not the old mock policy.</p>
             </div>
             <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
               <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Real-fill Covenant Account</div>
-              <div id="ev-real-fill-vault" class="mt-2 mono text-sm text-forum-ink">checking...</div>
+              <div id="ev-real-fill-vault" class="mt-2 mono text-sm text-forum-ink"><span class="skeleton" style="width:10ch;height:0.9em" aria-label="loading"></span></div>
               <p class="mt-2 text-[11px] leading-relaxed text-forum-dim2">Polymarket receipt bot bound to a funded, slashable Arc vault.</p>
             </div>
             <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
               <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Router allocation</div>
-              <div id="ev-router" class="mt-2 mono text-sm text-forum-ink">checking...</div>
+              <div id="ev-router" class="mt-2 mono text-sm text-forum-ink"><span class="skeleton" style="width:10ch;height:0.9em" aria-label="loading"></span></div>
               <p class="mt-2 text-[11px] leading-relaxed text-forum-dim2">Allocator pool targets multiple Covenant Accounts.</p>
-            </div>
-            <div class="rounded-lg border border-forum-warn/40 bg-forum-panel2 p-4">
-              <div class="text-[10px] uppercase tracking-widest text-forum-warn">Honest limit</div>
-              <div id="ev-limit" class="mt-2 mono text-sm text-forum-warn">operator-gated</div>
-              <p class="mt-2 text-[11px] leading-relaxed text-forum-dim2">Vault-USDC to Polymarket pUSD automation and fee revenue are not complete.</p>
             </div>
           </div>
           <div id="app-tabs" class="flex flex-wrap gap-1 mb-6 border-b border-forum-line" role="tablist">
@@ -1632,7 +1627,7 @@ node keeper/scripts/demo-violation.mjs</pre>
                 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-px rounded-md overflow-hidden bg-forum-line2 ring-soft">
                   <div class="bg-forum-panel2 p-4">
                     <div class="text-[10px] uppercase tracking-widest text-forum-dim2">Keeper</div>
-                    <div id="op-keeper-status" class="mt-1 mono text-base text-forum-ink">checking...</div>
+                    <div id="op-keeper-status" class="mt-1 mono text-base text-forum-ink"><span class="skeleton" style="width:8ch;height:0.9em" aria-label="loading"></span></div>
                     <div id="op-keeper-block" class="mt-1 text-[10px] text-forum-dim2">block -</div>
                   </div>
                   <div class="bg-forum-panel2 p-4">
@@ -1655,12 +1650,12 @@ node keeper/scripts/demo-violation.mjs</pre>
                 <div class="mt-6 grid lg:grid-cols-2 gap-4">
                   <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
                     <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">Latest strategy receipt</div>
-                    <div id="op-strategy-receipt" class="mono text-sm text-forum-ink">checking...</div>
+                    <div id="op-strategy-receipt" class="mono text-sm text-forum-ink"><span class="skeleton" style="width:10ch;height:0.9em" aria-label="loading"></span></div>
                     <div id="op-strategy-cycle" class="mt-2 text-xs text-forum-dim leading-relaxed">Waiting for indexed strategy bot.</div>
                   </div>
                   <div class="rounded-lg border border-forum-line bg-forum-panel2 p-4">
                     <div class="text-[10px] uppercase tracking-widest text-forum-dim2 mb-3">External user proof</div>
-                    <div id="op-user-vault" class="mono text-sm text-forum-ink">checking...</div>
+                    <div id="op-user-vault" class="mono text-sm text-forum-ink"><span class="skeleton" style="width:10ch;height:0.9em" aria-label="loading"></span></div>
                     <div class="mt-2 text-xs text-forum-dim leading-relaxed">
                       Shows the user-created funded vault separately from the deployer-operated AgoraMind vault.
                     </div>
@@ -2412,11 +2407,7 @@ node keeper/scripts/demo-violation.mjs</pre>
             </div>
           </div>
 
-          <details class="rounded-lg ring-soft bg-forum-panel p-5">
-            <summary class="flex items-center justify-between gap-3 cursor-pointer">
-              <span class="text-sm text-forum-ink">Show SDK and verifier snippets</span>
-              <span class="text-xs mono text-forum-accent">advanced</span>
-            </summary>
+          <div class="rounded-lg ring-soft bg-forum-panel p-5">
 
           <div id="dev-tabs" class="flex flex-wrap gap-1 mt-5 mb-4 border-b border-forum-line" role="tablist">
             <button data-dev-tab="ts" class="dev-tab-btn px-4 py-2 text-xs uppercase tracking-wider mono border-b-2 border-forum-accent text-forum-accent">TypeScript</button>
@@ -2546,7 +2537,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
   <span class="text-forum-ok">RECEIPT VERIFIED</span></pre>
           </div>
-          </details>
+          </div>
         </section>
 
         <!-- SECURITY · honest about where we are -->
@@ -2585,7 +2576,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 <li class="flex gap-2"><span class="text-forum-warn">!</span> No third-party audit yet — testnet / demo capital only.</li>
                 <li class="flex gap-2"><span class="text-forum-warn">!</span> No on-chain venue allow-list yet — operator can route pulled USDC to any wired venue.</li>
                 <li class="flex gap-2"><span class="text-forum-warn">!</span> Receipt PnL recomputation is per-fill where data exists; full unrealised PnL is in progress.</li>
-                <li class="flex gap-2"><span class="text-forum-warn">!</span> Live AgoraMind keeper runs paper-mode by default. Real Polymarket fee capture is on the roadmap.</li>
+                <li class="flex gap-2"><span class="text-forum-warn">!</span> Live AgoraMind keeper runs paper-mode by default. Vault-USDC→Polymarket pUSD automation and real fee capture are on the roadmap.</li>
                 <li class="flex gap-2"><span class="text-forum-warn">!</span> Bug bounty intake via GitHub Issues. Formal program will open after audit.</li>
               </ul>
             </div>
@@ -3248,17 +3239,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             "ev-router",
             `${escapeHtml(router?.targetVaultCount ?? 0)} targets<span class="block mt-1 text-[11px] text-forum-dim2">${escapeHtml(fmtUsdcMicros(router?.tvlMicros || 0))} TVL · strategy v${escapeHtml(router?.strategyVersion ?? "—")}</span>`,
           );
-
-          const v12 = vaults.find((v) => v.label === "v1_2");
-          setEvidenceHtml(
-            "ev-limit",
-            `${escapeHtml(v12?.state || "operator-gated")}<span class="block mt-1 text-[11px] text-forum-dim2">0 bps fee rate · vault-to-pUSD pending</span>`,
-          );
         } catch (e) {
           setEvidenceHtml("ev-claude", `<span class="text-forum-err">unavailable</span>`);
           setEvidenceHtml("ev-real-fill-vault", `<span class="text-forum-err">unavailable</span>`);
           setEvidenceHtml("ev-router", `<span class="text-forum-err">unavailable</span>`);
-          setEvidenceHtml("ev-limit", `<span class="text-forum-warn">operator-gated</span>`);
         }
       }
       loadEvidenceSnapshot();
