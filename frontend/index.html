@@ -4103,7 +4103,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           }
           if (manageLink) manageLink.href = safeExplorerAddr(selected.vault);
           if (own) {
-            for (const id of ["br-vault", "withdraw-vault"]) {
+            for (const id of ["br-vault", "withdraw-vault", "deposit-vault"]) {
               const field = document.getElementById(id);
               if (field && (!field.value || field.value === COVENANT_V12)) field.value = own.vault;
             }
