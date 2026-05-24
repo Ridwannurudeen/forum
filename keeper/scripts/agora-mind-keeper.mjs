@@ -145,9 +145,54 @@ async function main() {
   if (/^0x[0-9a-fA-F]{40}$/.test(vaultOverride)) {
     console.log("  vault override:  ", covenantAddr);
   }
-  const riskKernelAddr = (
+  let riskKernelAddr = (
     deployment.contracts?.RiskKernelV2 ?? deployment.contracts?.RiskKernel
   )?.address;
+  const MANDATE_ABI = [
+    {
+      type: "function",
+      name: "mandate",
+      stateMutability: "view",
+      inputs: [],
+      outputs: [
+        { name: "operator", type: "address" },
+        { name: "botId", type: "bytes32" },
+        { name: "budgetUsdc", type: "uint128" },
+        { name: "maxDrawdownBps", type: "uint16" },
+        { name: "receiptFreshnessSec", type: "uint32" },
+        { name: "expiry", type: "uint64" },
+        { name: "perfFeeBps", type: "uint16" },
+        { name: "bondContract", type: "address" },
+        { name: "riskKernel", type: "address" },
+        { name: "trackRecordV2", type: "address" },
+      ],
+    },
+  ];
+  // When operating an overridden vault, the enforce() target must be that
+  // vault's OWN configured risk kernel, not the global deployment kernel.
+  if (/^0x[0-9a-fA-F]{40}$/.test(vaultOverride) && covenantAddr) {
+    try {
+      const m = await bridge.publicClient.readContract({
+        address: covenantAddr,
+        abi: MANDATE_ABI,
+        functionName: "mandate",
+      });
+      // viem returns this multi-output struct getter as an ARRAY (riskKernel is
+      // index 8); tolerate an object form too. Only override when it's a valid
+      // address so a bad read never clobbers the global fallback with undefined.
+      const rk = Array.isArray(m) ? m[8] : m.riskKernel;
+      if (/^0x[0-9a-fA-F]{40}$/.test(rk || "")) {
+        riskKernelAddr = rk;
+      } else {
+        console.warn("mandate.riskKernel unreadable; keeping global risk kernel");
+      }
+    } catch (e) {
+      console.warn(
+        "mandate read failed, falling back to global risk kernel:",
+        e.message,
+      );
+    }
+  }
   const STATE_ABI = [
     {
       type: "function",

@@ -293,6 +293,46 @@ function fillMarketId(r: Receipt, fill: ReceiptFill): string | null {
   return null;
 }
 
+/** Plausibility check: each fill's price must sit within the order-book price
+ *  envelope spanned by the committed start+end snapshots, allowing for
+ *  intra-window movement and slippage. Without this, a receipt could claim an
+ *  impossible fill price and the PnL recompute would trust it. The envelope
+ *  runs from the lowest best-bid to the highest best-ask seen across both
+ *  snapshots; a fill is allowed to drift TOL beyond either edge.
+ *
+ *  Returns null if every fill is plausible (vacuously null when there are no
+ *  fills), or a string describing the first implausible fill. */
+export function verifyFillsAgainstBook(r: Receipt): string | null {
+  for (const fill of r.fills) {
+    const marketId = fillMarketId(r, fill);
+    if (!marketId) return "fill marketId required for multi-market receipt";
+    const book = r.bookSnapshots.find((b) => b.marketId === marketId);
+    if (!book) return `bookSnapshot missing for fill market ${marketId}`;
+
+    const bids = [book.start.bids[0]?.price, book.end.bids[0]?.price].filter(
+      (p): p is number => typeof p === "number" && Number.isFinite(p),
+    );
+    const asks = [book.start.asks[0]?.price, book.end.asks[0]?.price].filter(
+      (p): p is number => typeof p === "number" && Number.isFinite(p),
+    );
+    if (bids.length === 0 && asks.length === 0) continue;
+
+    const loBid = bids.length > 0 ? Math.min(...bids) : undefined;
+    const hiAsk = asks.length > 0 ? Math.max(...asks) : undefined;
+    const lower = loBid ?? hiAsk!;
+    const upper = hiAsk ?? loBid!;
+    const TOL = Math.max(0.02, 0.05 * upper);
+
+    if (fill.price > upper + TOL) {
+      return `fill price ${fill.price} above book ask envelope ${upper} (+tol) for ${marketId}`;
+    }
+    if (fill.price < lower - TOL) {
+      return `fill price ${fill.price} below book bid envelope ${lower} (-tol) for ${marketId}`;
+    }
+  }
+  return null;
+}
+
 /** Verify a previously-built receipt matches its claimed pnlMicros — i.e.,
  *  recompute realized + unrealized + rebates from fills + inventory + book
  *  snapshots and confirm the sum lines up with totalUsdcMicros.
@@ -405,5 +445,12 @@ export function verifyReceipt(r: Receipt): string | null {
   if (expectedMicros !== r.pnl.totalUsdcMicros) {
     return `pnl mismatch: expected ${expectedMicros} got ${r.pnl.totalUsdcMicros}`;
   }
+
+  // Fill plausibility: ensure each claimed fill price was achievable against
+  // the committed book snapshots. Runs last so PnL discrepancies (which are
+  // independent of book-envelope checks) surface first.
+  const fillCheck = verifyFillsAgainstBook(r);
+  if (fillCheck) return fillCheck;
+
   return null;
 }

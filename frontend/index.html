@@ -3922,6 +3922,64 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         el.innerHTML = html;
       }
 
+      // Add + switch a newly connected wallet to Arc Testnet. Robust against the
+      // various shapes wallets use to report an unknown chain, never throws, and
+      // returns whether the wallet ended up on Arc.
+      async function ensureArcNetwork() {
+        const ADD_PARAMS = {
+          chainId: ARC_CHAIN_HEX,
+          chainName: "Arc Testnet",
+          nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+          rpcUrls: ["https://rpc.testnet.arc.network"],
+          blockExplorerUrls: ["https://testnet.arcscan.app"],
+        };
+        const isUnknownChain = (e) => {
+          const text = String(e?.message || "") + String(e?.data?.message || "");
+          return (
+            e?.code === 4902 ||
+            e?.data?.originalError?.code === 4902 ||
+            /unrecogni|unknown|not been added|add.*chain|missing/i.test(text)
+          );
+        };
+        try {
+          if ((await window.ethereum.request({ method: "eth_chainId" })).toLowerCase() === ARC_CHAIN_HEX) {
+            return true;
+          }
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: ARC_CHAIN_HEX }],
+            });
+          } catch (e) {
+            if (e?.code === 4001) {
+              setStatus("Approve the Arc Testnet network switch in your wallet to continue.", "err");
+              return false;
+            }
+            if (!isUnknownChain(e)) throw e;
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [ADD_PARAMS],
+            });
+            try {
+              await window.ethereum.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: ARC_CHAIN_HEX }],
+              });
+            } catch (e2) {
+              if (e2?.code === 4001) {
+                setStatus("Approve the Arc Testnet network switch in your wallet to continue.", "err");
+                return false;
+              }
+              throw e2;
+            }
+          }
+          return (await window.ethereum.request({ method: "eth_chainId" })).toLowerCase() === ARC_CHAIN_HEX;
+        } catch (e) {
+          console.error("ensureArcNetwork failed", e);
+          return false;
+        }
+      }
+
       async function connectWallet() {
         if (!window.ethereum) {
           setStatus(
@@ -3933,31 +3991,15 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         try {
           const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
           connectedAddr = accounts[0];
-          // Try switching to Arc; if unknown, request add.
-          try {
-            await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: ARC_CHAIN_HEX }],
-            });
-          } catch (e) {
-            if (e?.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [{
-                  chainId: ARC_CHAIN_HEX,
-                  chainName: "Arc Testnet",
-                  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-                  rpcUrls: ["https://rpc.testnet.arc.network"],
-                  blockExplorerUrls: ["https://testnet.arcscan.app"],
-                }],
-              });
-            }
-          }
+          const onArc = await ensureArcNetwork();
           walletClient = createWalletClient({
             chain: ARC_TESTNET,
             transport: custom(window.ethereum),
           });
           setConnectedWalletUi(connectedAddr);
+          if (!onArc) {
+            setStatus("Connected. Approve the Arc Testnet network in your wallet to create or manage accounts.", "err");
+          }
           // Default operator field to the connected wallet if empty
           const opField = document.getElementById("f-operator");
           if (!opField.value) opField.value = connectedAddr;
@@ -3969,6 +4011,39 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
 
       document.getElementById("app-connect-btn").addEventListener("click", connectWallet);
       document.getElementById("create-connect-btn").addEventListener("click", connectWallet);
+
+      // Detect a newly connected wallet/account and put it on Arc immediately.
+      // Attach-once so reloads of this block (or HMR) don't double-register.
+      let walletListenersAttached = false;
+      if (window.ethereum && window.ethereum.on && !walletListenersAttached) {
+        walletListenersAttached = true;
+        window.ethereum.on("accountsChanged", async (accs) => {
+          if (!Array.isArray(accs) || accs.length === 0) {
+            connectedAddr = null;
+            for (const id of ["app-wallet-status", "create-wallet-status"]) {
+              const el = document.getElementById(id);
+              if (!el) continue;
+              el.textContent = "Wallet disconnected";
+              el.classList.add("text-forum-dim");
+              el.classList.remove("text-forum-ink");
+            }
+            return;
+          }
+          if (accs[0] !== connectedAddr) {
+            connectedAddr = accs[0];
+            setConnectedWalletUi(connectedAddr);
+            await ensureArcNetwork();
+            const opField = document.getElementById("f-operator");
+            if (opField && !opField.value) opField.value = connectedAddr;
+            loadRecentFactoryVaults();
+          }
+        });
+        window.ethereum.on("chainChanged", async () => {
+          if (!connectedAddr) return;
+          const cur = (await window.ethereum.request({ method: "eth_chainId" })).toLowerCase();
+          if (cur !== ARC_CHAIN_HEX) await ensureArcNetwork();
+        });
+      }
 
       const managedChk = document.getElementById("f-managed");
       const opInput = document.getElementById("f-operator");
