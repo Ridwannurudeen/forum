@@ -4152,12 +4152,19 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           const vault = rcpt.logs?.[0]?.topics?.[1]
             ? "0x" + rcpt.logs[0].topics[1].slice(26)
             : "(parse-fail — see explorer)";
+          const isManaged = operator.toLowerCase() === FORUM_MANAGED_OPERATOR.toLowerCase();
+          const bondLine = isManaged
+            ? `Bond: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(bondContract)}">${escapeHtml(bondContract)}</a> (Forum funds this managed account's bond — you don't post it)`
+            : `Your bond: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(bondContract)}">${escapeHtml(bondContract)}</a> (you own it — post to it and it's slashable)`;
+          const nextLine = isManaged
+            ? `Forum operates this managed account and posts its bond — nothing more for you to do. You stay the depositor (withdraw anytime). It appears on the leaderboard within ~30s.`
+            : `Next: open the <strong>Vault</strong> tab → <em>Post bond</em> (address pre-filled) to fund it, then your agent can pull credit. The indexer picks up the vault within ~30s.`;
           setStatus(
             `<strong class="text-forum-ok">Account created.</strong><br/>
              Vault: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(vault)}">${escapeHtml(vault)}</a><br/>
-             Your bond: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerAddr(bondContract)}">${escapeHtml(bondContract)}</a> (you own it — post to it and it's slashable)<br/>
+             ${bondLine}<br/>
              Tx: <a class="text-forum-accent mono" target="_blank" rel="noopener" href="${safeExplorerTx(txHash)}">${safeShortTx(txHash)}</a> (${rcpt.gasUsed} gas)<br/>
-             Next: open the <strong>Vault</strong> tab → <em>Post bond</em> (address pre-filled) to fund it. The indexer picks up the vault within ~30s.`,
+             ${nextLine}`,
             "ok",
           );
           const bondField = document.getElementById("bond-addr");
