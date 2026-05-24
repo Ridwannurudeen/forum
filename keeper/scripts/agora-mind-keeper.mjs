@@ -131,10 +131,20 @@ async function main() {
   const deployment = JSON.parse(
     readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, "utf8"),
   );
-  const covenantAddr = (
-    deployment.contracts?.CovenantVaultV1_2 ??
-    deployment.contracts?.CovenantVault
-  )?.address;
+  const vaultOverride = (() => {
+    const a = process.argv.slice(2);
+    const i = a.indexOf("--vault");
+    return i >= 0 && a[i + 1] ? a[i + 1] : "";
+  })();
+  const covenantAddr = /^0x[0-9a-fA-F]{40}$/.test(vaultOverride)
+    ? vaultOverride
+    : (
+        deployment.contracts?.CovenantVaultV1_2 ??
+        deployment.contracts?.CovenantVault
+      )?.address;
+  if (/^0x[0-9a-fA-F]{40}$/.test(vaultOverride)) {
+    console.log("  vault override:  ", covenantAddr);
+  }
   const riskKernelAddr = (
     deployment.contracts?.RiskKernelV2 ?? deployment.contracts?.RiskKernel
   )?.address;
