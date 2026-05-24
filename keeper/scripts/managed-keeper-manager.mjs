@@ -350,8 +350,8 @@ async function cycle() {
         console.warn(`skip ${vault}: bad creator address ${creator}`);
         continue;
       }
-      const label = `managed-${creator.toLowerCase()}`;
-      const expected = expectedBotId(label);
+      let label = `managed-${creator.toLowerCase()}`;
+      let expected = expectedBotId(label);
 
       // botId-match guard: read the live mandate and refuse to run a keeper
       // whose derived botId won't match the vault's on-chain mandate.botId.
@@ -368,7 +368,18 @@ async function cycle() {
         console.warn(`skip ${vault}: mandate.botId missing`);
         continue;
       }
-      const match = onchainBotId.toLowerCase() === expected.toLowerCase();
+      let match = onchainBotId.toLowerCase() === expected.toLowerCase();
+      if (!match) {
+        // Legacy: vaults created before the submit-time label fix embedded an
+        // empty creator, so their botId == keccak(FORUM:"managed-"). Service
+        // those too, with the label that actually matches the on-chain botId.
+        const legacy = expectedBotId("managed-");
+        if (onchainBotId.toLowerCase() === legacy.toLowerCase()) {
+          label = "managed-";
+          expected = legacy;
+          match = true;
+        }
+      }
       if (!match) {
         console.warn(
           `skip ${vault}: botId mismatch label=${label} expected=${expected} mandate=${onchainBotId}`,
