@@ -235,6 +235,12 @@
       },
       "label": "demo-live-v1",
       "note": "Demo live Covenant Account created via factory; keeper label \"demo-live-v1\"."
+    },
+    "CovenantVaultFactoryV2": {
+      "address": "0x4766e3c506a5ff543d12f672ed5f167fabe26fe0",
+      "txHash": "0x7ad2c5765c12067b1c0fa409d51c945a3e8f3b049e637c55dbeffadd841435b7",
+      "block": "43824308",
+      "note": "Bond-gated factory: deploys CovenantVaultV3 which refuses to lend unless operator bond >= budget. Same createVault ABI + VaultCreated event as CovenantVaultFactory."
     }
   },
   "circle": {
