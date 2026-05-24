@@ -4102,7 +4102,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         submitBtn.textContent = "Submitting...";
         try {
           const operator = document.getElementById("f-operator").value.trim();
-          const botLabel = document.getElementById("f-botLabel").value.trim();
+          let botLabel = document.getElementById("f-botLabel").value.trim();
           const budgetUsdcWhole = BigInt(document.getElementById("f-budget").value);
           const perfFeeBps = Number(document.getElementById("f-perfFee").value);
           const maxDrawdownBps = Number(document.getElementById("f-drawdown").value);
@@ -4120,6 +4120,17 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
             isManaged && budgetUsdcWhole > BigInt(MANAGED_MAX_BUDGET_USDC)
               ? BigInt(MANAGED_MAX_BUDGET_USDC)
               : budgetUsdcWhole;
+
+          // Managed label must be deterministic AND embed the creator address so the
+          // off-chain manager can reconstruct this exact botId and service the vault.
+          // Recompute it at submit from the connected wallet — the checkbox handler
+          // builds it at tick time, when the wallet may not be connected yet (which
+          // would yield "managed-" with no address; the manager would never match it).
+          if (isManaged) {
+            if (!/^0x[0-9a-fA-F]{40}$/.test(connectedAddr || ""))
+              throw new Error("connect your wallet before creating a managed account");
+            botLabel = "managed-" + connectedAddr.toLowerCase();
+          }
 
           const botId = keccak256(toHex(`${operator.toLowerCase()}:${botLabel}`));
 
