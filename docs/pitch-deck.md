@@ -100,7 +100,7 @@ The broader market is any agent that touches capital and needs enforceable limit
 
 Honest current gaps:
 
-- no external operator using Forum yet; reference adapter is runnable + verified, third-party usage is still the binding constraint;
+- three external (non-deployer) operators have onboarded (one on a genuinely separate machine); the reference adapter is runnable + verified; broad third-party usage is still the binding constraint;
 - reference trading remains paper-mode; the wiring spec for real Polymarket V2 fills is committed at `docs/phase-2-real-fill-spec.md` and gated on builder-fee account setup, not engineering;
 - CCTP bridging helper + cross-chain receipt linkage (`sourceChain` field on the v1 receipt schema) shipped; App Kit and Gateway full integrations still roadmap;
 - contracts are unaudited.
