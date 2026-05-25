@@ -21,7 +21,15 @@ contract MockUsdc is IERC20 {
 
 /// Minimal SlashBond stand-in exposing a settable `bondBalance()`.
 contract MockBond {
+    address public operator;
+    address public attestor;
+    bytes32 public botId;
     uint256 public bondBalance;
+    constructor(address _operator, address _attestor, bytes32 _botId) {
+        operator = _operator;
+        attestor = _attestor;
+        botId = _botId;
+    }
     function setBondBalance(uint256 b) external { bondBalance = b; }
 }
 
@@ -33,15 +41,16 @@ contract CovenantVaultV3Test is Test {
     address alice = address(0xA11CE);
     address bob = address(0xB0B);
     address riskKernel = address(0xCAFE);
+    bytes32 botId = keccak256("agent-3");
 
     uint128 constant BUDGET = 100e6;
 
     function setUp() public {
         usdc = new MockUsdc();
-        bond = new MockBond();
+        bond = new MockBond(operator, riskKernel, botId);
         CovenantVault.Mandate memory m = CovenantVault.Mandate({
             operator: operator,
-            botId: keccak256("agent-3"),
+            botId: botId,
             budgetUsdc: BUDGET,
             maxDrawdownBps: 500,        // 5%
             receiptFreshnessSec: 600,   // 10 min
@@ -61,6 +70,21 @@ contract CovenantVaultV3Test is Test {
         vm.prank(u); return vault.deposit(a);
     }
 
+    function _mandate(address bondContract) internal view returns (CovenantVault.Mandate memory) {
+        return CovenantVault.Mandate({
+            operator: operator,
+            botId: botId,
+            budgetUsdc: BUDGET,
+            maxDrawdownBps: 500,
+            receiptFreshnessSec: 600,
+            expiry: 0,
+            perfFeeBps: 2_000,
+            bondContract: bondContract,
+            riskKernel: riskKernel,
+            trackRecordV2: address(0x7AC2)
+        });
+    }
+
     function test_pullCredit_reverts_when_bond_below_budget() public {
         _deposit(alice, 1_000e6); // idle > budget
         bond.setBondBalance(BUDGET - 1); // collateral just under budget
@@ -75,6 +99,42 @@ contract CovenantVaultV3Test is Test {
         vm.prank(operator);
         vm.expectRevert(CovenantVaultV3.UnderBonded.selector);
         vault.pullCredit(50e6);
+    }
+
+    function test_pullCredit_reverts_when_bond_operator_mismatches() public {
+        MockBond otherBond = new MockBond(bob, riskKernel, botId);
+        otherBond.setBondBalance(BUDGET);
+        CovenantVaultV3 mismatched = new CovenantVaultV3(IERC20(address(usdc)), _mandate(address(otherBond)));
+        vm.prank(alice); usdc.approve(address(mismatched), 1_000e6);
+        vm.prank(alice); mismatched.deposit(1_000e6);
+
+        vm.prank(operator);
+        vm.expectRevert(CovenantVaultV3.BondMismatch.selector);
+        mismatched.pullCredit(50e6);
+    }
+
+    function test_pullCredit_reverts_when_bond_attestor_mismatches() public {
+        MockBond otherBond = new MockBond(operator, bob, botId);
+        otherBond.setBondBalance(BUDGET);
+        CovenantVaultV3 mismatched = new CovenantVaultV3(IERC20(address(usdc)), _mandate(address(otherBond)));
+        vm.prank(alice); usdc.approve(address(mismatched), 1_000e6);
+        vm.prank(alice); mismatched.deposit(1_000e6);
+
+        vm.prank(operator);
+        vm.expectRevert(CovenantVaultV3.BondMismatch.selector);
+        mismatched.pullCredit(50e6);
+    }
+
+    function test_pullCredit_reverts_when_bond_bot_mismatches() public {
+        MockBond otherBond = new MockBond(operator, riskKernel, keccak256("other-agent"));
+        otherBond.setBondBalance(BUDGET);
+        CovenantVaultV3 mismatched = new CovenantVaultV3(IERC20(address(usdc)), _mandate(address(otherBond)));
+        vm.prank(alice); usdc.approve(address(mismatched), 1_000e6);
+        vm.prank(alice); mismatched.deposit(1_000e6);
+
+        vm.prank(operator);
+        vm.expectRevert(CovenantVaultV3.BondMismatch.selector);
+        mismatched.pullCredit(50e6);
     }
 
     function test_pullCredit_succeeds_when_bond_ge_budget() public {
