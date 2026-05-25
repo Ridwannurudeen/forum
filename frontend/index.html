@@ -5361,13 +5361,28 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         a.textContent = label;
         a.classList.remove("hidden");
       }
-      async function brWaitTx(txHash, label) {
-        // Poll the currently-selected chain for a mined receipt, with live
-        // progress so the step never looks frozen while a tx confirms.
+      async function brWaitTx(txHash, label, rpcUrl) {
+        // Confirm via the source chain's own public RPC first (reliable and
+        // independent of the wallet's configured RPC). A dead/flaky wallet RPC
+        // used to hang this step forever — eth_getTransactionReceipt returned
+        // null even after the tx had mined — so fall back to the wallet only
+        // when the public read is unavailable.
         for (let i = 0; i < 100; i++) {
-          const r = await window.ethereum.request({
-            method: "eth_getTransactionReceipt", params: [txHash],
-          });
+          let r = null;
+          if (rpcUrl) {
+            try {
+              const resp = await fetch(rpcUrl, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [txHash] }),
+              });
+              if (resp.ok) { const j = await resp.json(); r = j && j.result ? j.result : null; }
+            } catch (e) { /* public RPC blip — try the wallet, keep polling */ }
+          }
+          if (!r) {
+            try {
+              r = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [txHash] });
+            } catch (e) { /* wallet RPC may be down — rely on the public RPC */ }
+          }
           if (r && r.blockNumber) return r;
           if (label) brSetStatus(`${label} <span class="text-forum-dim2">(confirming… ${i * 3}s)</span>`, "info");
           await new Promise((res) => setTimeout(res, 3000));
@@ -5489,7 +5504,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 method: "eth_sendTransaction",
                 params: [{ from: brAccount, to: src.usdc, data: approveData }],
               });
-              await brWaitTx(approveTx, `Approving USDC on ${src.label}…`);
+              await brWaitTx(approveTx, `Approving USDC on ${src.label}…`, src.rpc);
 
               const maxFee = await brFastMaxFee(src.domain, amount);
               brSetStatus(`Burning ${amtWhole} USDC on ${src.label} (fast depositForBurn → Arc)…`, "info");
@@ -5505,7 +5520,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
                 method: "eth_sendTransaction",
                 params: [{ from: brAccount, to: CCTP.tokenMessengerV2, data: burnData }],
               });
-              await brWaitTx(burnTx, `Burning on ${src.label}…`);
+              await brWaitTx(burnTx, `Burning on ${src.label}…`, src.rpc);
               brFlow.burnTx = burnTx;
               brFlow.sourceDomain = src.domain;
               brStep("burn", "is-done");
