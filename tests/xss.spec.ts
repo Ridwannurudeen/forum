@@ -1,11 +1,13 @@
 import { test, expect, Route } from "@playwright/test";
 
+const { startStaticServer } = require("./static-server.cjs");
+
 // XSS regression suite for frontend/index.html.
 //
-// Codex's audit pass escaped every innerHTML sink that touches API or
-// user-controlled data via escapeHtml / safeShortAddr / safeExplorerAddr.
-// These tests prove that even when the indexer API returns hostile payloads,
-// the page renders them as literal text and no script executes.
+// Every innerHTML sink that touches API or user-controlled data must route
+// through escapeHtml / safeShortAddr / safeExplorerAddr. These tests prove that
+// even when the indexer API returns hostile payloads, the page renders them as
+// literal text and no script executes.
 //
 // All tests stub /api/* with page.route(); the page still loads viem from
 // esm.sh and may attempt the Arc testnet RPC, but those are non-load-bearing
@@ -90,9 +92,66 @@ function maliciousFeeStatementPayload() {
   };
 }
 
+function maliciousProofPayload() {
+  return {
+    fills: [{ builderCodeAttached: true }],
+    forum: {
+      verifiedFillCount: 1,
+      verifierResult: MALICIOUS_IMG,
+      receiptUri: "javascript:window.__xss_link=true",
+      arcscan: "data:text/html,<script>window.__xss_link=true</script>",
+    },
+    fees: { builderFeeStatus: MALICIOUS_SCRIPT_BREAKOUT },
+  };
+}
+
 async function installApiMocks(page) {
-  // Catch-all: every /api/* hit gets a deterministic hostile payload so we
-  // exercise every render path that reads from the indexer.
+  await page.route("https://fonts.googleapis.com/**", (route: Route) =>
+    route.fulfill({ status: 200, contentType: "text/css", body: "" }),
+  );
+  await page.route("https://fonts.gstatic.com/**", (route: Route) =>
+    route.abort(),
+  );
+  await page.route("https://esm.sh/viem@2.50.4", (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/javascript",
+      body: `
+        const ZERO32 = "0x" + "00".repeat(32);
+        export function defineChain(chain) { return chain; }
+        export function http() { return {}; }
+        export function custom(provider) { return provider; }
+        export function encodeDeployData() { return "0x"; }
+        export function encodeFunctionData() { return "0x"; }
+        export function parseAbiItem(item) { return item; }
+        export function toHex(value) {
+          const text = typeof value === "string" ? value : JSON.stringify(value);
+          return "0x" + Array.from(new TextEncoder().encode(text)).map((b) => b.toString(16).padStart(2, "0")).join("");
+        }
+        export function keccak256() { return ZERO32; }
+        export function createWalletClient() {
+          return { sendTransaction: async () => ZERO32, writeContract: async () => ZERO32 };
+        }
+        export function createPublicClient() {
+          return {
+            chain: { id: 5042002 },
+            getBlockNumber: async () => 1n,
+            getLogs: async () => [],
+            waitForTransactionReceipt: async () => ({ status: "success", gasUsed: 0n }),
+            readContract: async ({ functionName }) => {
+              if (functionName === "state" || functionName === "evaluate") return 0;
+              if (functionName === "perSharePrice") return 1000000000000000000n;
+              if (functionName === "recordCount") return 0n;
+              if (functionName === "recordAt") return { seq: 1, evidenceHash: ZERO32 };
+              return 0n;
+            },
+          };
+        }
+      `,
+    }),
+  );
+  // Each /api path touched by these tests gets a deterministic hostile payload
+  // so we exercise every render path that reads from the indexer.
   await page.route("**/api/agents", (route: Route) =>
     route.fulfill({
       status: 200,
@@ -128,6 +187,13 @@ async function installApiMocks(page) {
       body: JSON.stringify(maliciousFeeStatementPayload()),
     }),
   );
+  await page.route("**/api/proof", (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(maliciousProofPayload()),
+    }),
+  );
   // Receipt JSON fetched by verifyAnyReceipt() — covered in its own test.
   // /api/bots/:botId/records is only triggered by openAgentInspector clicks,
   // which we exercise in test (c).
@@ -143,7 +209,23 @@ async function readXssFlags(page) {
   }));
 }
 
-test.describe("XSS regression — Codex audit follow-up", () => {
+test.describe("XSS regression", () => {
+  let staticServer: { close: (callback: (err?: Error) => void) => void };
+
+  test.beforeAll(async () => {
+    const started = await startStaticServer();
+    staticServer = started.server;
+  });
+
+  test.afterAll(async () => {
+    await new Promise<void>((resolve, reject) => {
+      staticServer.close((err?: Error) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  });
+
   test("a) /api/agents with <img onerror> renders as literal text", async ({
     page,
   }) => {
@@ -159,7 +241,7 @@ test.describe("XSS regression — Codex audit follow-up", () => {
     // we need — the XSS question is about DOM contents, not paint state.
     await page.waitForSelector("[data-botid]", {
       state: "attached",
-      timeout: 15_000,
+      timeout: 30_000,
     });
 
     // 1. No real <img> element with the attacker's src was injected anywhere.
@@ -185,14 +267,10 @@ test.describe("XSS regression — Codex audit follow-up", () => {
     await page.goto("/index.html#/console", { waitUntil: "domcontentloaded" });
 
     // The recent factory vaults panel renders into #recent-factory-vaults.
-    // Wait for the malicious creator address to land in the DOM.
-    await page.waitForFunction(
-      () => {
-        const el = document.getElementById("recent-factory-vaults");
-        return el && el.querySelectorAll("a").length > 0;
-      },
-      { timeout: 10_000 },
-    );
+    await page.waitForSelector("#recent-factory-vaults [data-vault]", {
+      state: "attached",
+      timeout: 30_000,
+    });
 
     // No injected <script> tag with attacker-controlled body should exist.
     const injectedScripts = await page.evaluate(() => {
@@ -206,19 +284,22 @@ test.describe("XSS regression — Codex audit follow-up", () => {
     expect(flags.__xss).toBeUndefined();
   });
 
-  test("c) malicious receipt JSON (botId with svg-onload) does not execute via verifyAnyReceipt", async ({
+  test("c) malicious receipt JSON schema does not execute via verifyAnyReceipt", async ({
     page,
   }) => {
     await installApiMocks(page);
-    // Intercept the user-supplied https:// receipt URL.
-    const RECEIPT_URL = "https://example.com/malicious-receipt.json";
+    // Intercept the user-supplied https:// receipt URL. The host must be in
+    // frontend/index.html's connect-src CSP or the browser blocks fetch before
+    // Playwright can fulfill the route.
+    const RECEIPT_URL =
+      "https://forum.gudman.xyz/receipts/test/malicious-receipt.json";
     await page.route(RECEIPT_URL, (route: Route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          schema: "forum.receipt.v1",
-          botId: MALICIOUS_SVG,
+          schema: MALICIOUS_SVG,
+          botId: `0x${"cd".repeat(32)}`,
           seq: 1,
           fills: [],
         }),
@@ -228,17 +309,12 @@ test.describe("XSS regression — Codex audit follow-up", () => {
     // #vr-url + #vr-verify-btn live in the /proof route's #receipts section.
     await page.goto("/index.html#/proof", { waitUntil: "domcontentloaded" });
 
-    // verifyAnyReceipt reads from #vr-url and writes the botId into the
-    // #vr-botid <span> via textContent (line 2617) and into #vr-status via
-    // innerHTML (the success/fail span). On the unhappy path (chain read
-    // fails because the botId isn't 0x-hex) the error message is also fed
-    // through escapedError → escapeHtml.
+    // verifyAnyReceipt rejects non-v1 schemas via textContent.
     await page.fill("#vr-url", RECEIPT_URL);
     await page.click("#vr-verify-btn");
 
-    // Give the verify flow a moment to fail (chain read against the malicious
-    // botId will throw); we only care that no script executes.
-    await page.waitForTimeout(2000);
+    // We only care that no script executes.
+    await expect(page.locator("#vr-status")).toContainText('"><svg');
 
     // Confirm no SVG element with onload was injected anywhere in the DOM.
     const dangerousSvg = await page.locator("svg[onload]").count();
@@ -251,6 +327,32 @@ test.describe("XSS regression — Codex audit follow-up", () => {
 
     const flags = await readXssFlags(page);
     expect(flags.__xss_svg).toBeUndefined();
+    expect(flags.__xss).toBeUndefined();
+  });
+
+  test("d) /api/proof cannot inject script links into console verify", async ({
+    page,
+  }) => {
+    await installApiMocks(page);
+    await page.goto("/index.html#/console?t=verify", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await page.waitForSelector("#verify-proof-links a", {
+      state: "attached",
+      timeout: 10_000,
+    });
+
+    const linkHrefs = await page
+      .locator("#verify-proof-links a")
+      .evaluateAll((links) => links.map((a) => (a as HTMLAnchorElement).href));
+    expect(linkHrefs[0]).not.toContain("javascript:");
+    expect(linkHrefs[1]).not.toContain("data:");
+
+    const imgs = await page.locator("img[src='x']").count();
+    expect(imgs).toBe(0);
+    const flags = await readXssFlags(page);
+    expect(flags.__xss_img).toBeUndefined();
     expect(flags.__xss).toBeUndefined();
   });
 });

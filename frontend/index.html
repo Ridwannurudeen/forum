@@ -3291,6 +3291,14 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           return null;
         }
       }
+      function safeHttpsUrl(value, fallback = "#") {
+        try {
+          const u = new URL(String(value ?? ""));
+          return u.protocol === "https:" ? u.href : fallback;
+        } catch {
+          return fallback;
+        }
+      }
       function canonicalize(value) {
         if (value === null || typeof value !== "object")
           return JSON.stringify(value);
@@ -3787,8 +3795,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           );
           setHtml(
             "verify-proof-links",
-            `<a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="${escapeHtml(pmUrl(proof.forum?.receiptUri || "#"))}">receipt JSON</a>
-             <a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="${escapeHtml(pmUrl(proof.forum?.arcscan || "#"))}">Arc publish tx</a>
+            `<a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="${escapeHtml(safeHttpsUrl(proof.forum?.receiptUri))}">receipt JSON</a>
+             <a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="${escapeHtml(safeHttpsUrl(proof.forum?.arcscan))}">Arc publish tx</a>
              <a class="chip hover:border-forum-accent transition" target="_blank" rel="noopener" href="/api/proof">/api/proof</a>`,
           );
           setText("verify-builder-status", proof.fees?.builderFeeStatus || "Builder status unavailable.");

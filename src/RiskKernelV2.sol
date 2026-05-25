@@ -35,6 +35,9 @@ interface ITrackRecordV2 {
 
 interface ISlashBond {
     function bondBalance() external view returns (uint256);
+    function operator() external view returns (address);
+    function attestor() external view returns (address);
+    function botId() external view returns (bytes32);
     function slash(uint256 amount, bytes32 reason) external;
 }
 
@@ -140,9 +143,24 @@ contract RiskKernelV2 {
     }
 
     function _trySlash(address vaultAddr, bytes32 reason) private returns (uint256) {
-        (, , , , , , , address bondAddr, , ) = CovenantVault(vaultAddr).mandate();
+        (address operator, bytes32 botId, , , , , , address bondAddr, , ) = CovenantVault(vaultAddr).mandate();
         if (bondAddr == address(0)) return 0;
         ISlashBond bond = ISlashBond(bondAddr);
+        try bond.operator() returns (address bondOperator) {
+            if (bondOperator != operator) return 0;
+        } catch {
+            return 0;
+        }
+        try bond.attestor() returns (address bondAttestor) {
+            if (bondAttestor != address(this)) return 0;
+        } catch {
+            return 0;
+        }
+        try bond.botId() returns (bytes32 bondBotId) {
+            if (bondBotId != botId) return 0;
+        } catch {
+            return 0;
+        }
         uint256 bal = bond.bondBalance();
         if (bal == 0) return 0;
         uint256 amount = (bal * SLASH_BPS_PER_VIOLATION) / 10_000;

@@ -66,6 +66,7 @@ contract RiskKernelV3Test is Test {
     CovenantVault vault;
     bytes32 constant BOT = keccak256("v3-bot");
     address operator = address(0x0BEC);
+    address victim = address(0x51C7);
     address recipient = address(0xBEEF);
     address alice = address(0xA11CE);
 
@@ -82,6 +83,7 @@ contract RiskKernelV3Test is Test {
         vault = new CovenantVault(IERC20(address(usdc)), m);
         usdc.mint(alice, 10_000e6);
         usdc.mint(operator, 10_000e6);
+        usdc.mint(victim, 10_000e6);
         vm.prank(alice); usdc.approve(address(vault), 1_000e6);
         vm.prank(alice); vault.deposit(1_000e6);
         vm.prank(operator); usdc.approve(address(bond), 100e6);
@@ -99,6 +101,29 @@ contract RiskKernelV3Test is Test {
         kernel.enforce(address(vault));
         assertEq(uint8(vault.state()), uint8(CovenantVault.State.PAUSED));
         assertEq(bond.totalSlashed(), 25e6);
+    }
+
+    function test_enforce_does_not_slash_unrelated_bond() public {
+        SlashBond victimBond = new SlashBond(
+            IERC20SB(address(usdc)), victim, address(kernel), recipient, BOT, 86400
+        );
+        vm.prank(victim); usdc.approve(address(victimBond), 100e6);
+        vm.prank(victim); victimBond.bond(100e6);
+
+        CovenantVault.Mandate memory m = CovenantVault.Mandate({
+            operator: operator, botId: BOT, budgetUsdc: 500e6, maxDrawdownBps: 500,
+            receiptFreshnessSec: 600, expiry: 0, perfFeeBps: 2_000,
+            bondContract: address(victimBond), riskKernel: address(kernel), trackRecordV2: address(tr)
+        });
+        CovenantVault attackerVault = new CovenantVault(IERC20(address(usdc)), m);
+
+        tr.pushRecord(BOT, 1_000_000, uint64(block.timestamp));
+        vm.warp(block.timestamp + 700);
+        kernel.enforce(address(attackerVault));
+
+        assertEq(uint8(attackerVault.state()), uint8(CovenantVault.State.PAUSED));
+        assertEq(victimBond.bondBalance(), 100e6);
+        assertEq(victimBond.totalSlashed(), 0);
     }
 
     function test_persistent_peak_resists_receipt_spam() public {

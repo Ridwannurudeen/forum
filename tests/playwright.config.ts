@@ -14,14 +14,5 @@ export default defineConfig({
     headless: true,
     trace: "off",
   },
-  webServer: {
-    // npx is on PATH on Windows + POSIX; http-server@14 is small and works
-    // without extra config.
-    command:
-      "npx --yes http-server@14 ../frontend -p 4173 -a 127.0.0.1 -c-1 --silent",
-    url: "http://127.0.0.1:4173/index.html",
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

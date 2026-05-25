@@ -3,8 +3,11 @@ pragma solidity ^0.8.30;
 
 import {CovenantVault, IERC20} from "./CovenantVault.sol";
 
-interface IBondBalance {
+interface IBondIdentity {
     function bondBalance() external view returns (uint256);
+    function operator() external view returns (address);
+    function attestor() external view returns (address);
+    function botId() external view returns (bytes32);
 }
 
 /// @title CovenantVaultV3
@@ -14,12 +17,22 @@ interface IBondBalance {
 ///         reverts UnderBonded() unless bondBalance >= budgetUsdc.
 contract CovenantVaultV3 is CovenantVault {
     error UnderBonded();
+    error BondMismatch();
 
     constructor(IERC20 _usdc, Mandate memory _m) CovenantVault(_usdc, _m) {}
 
     function pullCredit(uint256 amount) public override onlyOperator onlyActive {
         address b = mandate.bondContract;
-        if (b == address(0) || IBondBalance(b).bondBalance() < mandate.budgetUsdc) {
+        if (b == address(0)) revert UnderBonded();
+        IBondIdentity bond = IBondIdentity(b);
+        if (
+            bond.operator() != mandate.operator ||
+            bond.attestor() != mandate.riskKernel ||
+            bond.botId() != mandate.botId
+        ) {
+            revert BondMismatch();
+        }
+        if (bond.bondBalance() < mandate.budgetUsdc) {
             revert UnderBonded();
         }
         super.pullCredit(amount);
