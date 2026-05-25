@@ -26,14 +26,17 @@ import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import {
+  createWalletClient,
   createPublicClient,
   defineChain,
+  encodeFunctionData,
   http,
   parseAbi,
   parseAbiItem,
   keccak256,
   toHex,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { computeAgentScoreV1 as scoreFnV1 } from "../src/agent-score.ts";
 import {
   clampedLimit,
@@ -57,7 +60,7 @@ const STATE_PATH =
   process.env.FORUM_INDEXER_STATE || "/opt/forum/indexer-state.json";
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = "forum-indexer/0.15.0"; // + CCTP attestation proxy (GET /api/cctp/attestation)
+const VERSION = "forum-indexer/0.16.0"; // + CCTP Arc redeem relay (POST /api/cctp/redeem)
 
 const ARC = defineChain({
   id: 5042002,
@@ -75,6 +78,7 @@ const ARC = defineChain({
 const deployment = JSON.parse(
   readFileSync("deployments/arc-testnet.json", "utf8"),
 );
+const CCTP = deployment.circle?.cctp || {};
 const TR_V1 = deployment.contracts.TrackRecord.address;
 const TR_V2 = deployment.contracts.TrackRecordV2.address;
 const KERNEL_V2 = deployment.contracts.RiskKernelV2.address;
@@ -101,11 +105,21 @@ const DEPLOY_BLOCK = BigInt(deployment.contracts.BuilderCodeRegistry.block);
 const TR_V2_DEPLOY_BLOCK = deployment.contracts.TrackRecordV2?.block
   ? BigInt(deployment.contracts.TrackRecordV2.block)
   : DEPLOY_BLOCK;
+const CCTP_MESSAGE_TRANSMITTER = CCTP.messageTransmitterV2;
+const CCTP_ARC_DOMAIN = Number(CCTP.arcTestnetDomain || 26);
+const CCTP_SOURCE_DOMAINS = new Set(
+  Object.values(CCTP.sourceDomains || {}).map((v) => Number(v)),
+);
+const CCTP_RELAYER_KEY_FILE =
+  process.env.FORUM_CCTP_RELAYER_KEY_FILE || "/root/.forum-keys/deployer.key";
 
 // ---- ABIs ------------------------------------------------------------------
 
 const RECORD_COUNT_ABI = parseAbi([
   "function recordCount(bytes32) view returns (uint256)",
+]);
+const CCTP_RECEIVE_ABI = parseAbi([
+  "function receiveMessage(bytes message, bytes attestation) returns (bool)",
 ]);
 // viem human-readable parseAbi rejects inline tuple(...) for outputs; use JSON ABI.
 const RECORD_AT_V1_ABI = [
@@ -311,6 +325,46 @@ function persist() {
 // ---- POLLER ----------------------------------------------------------------
 
 const pub = createPublicClient({ chain: ARC, transport: http() });
+let cctpRelayer = null;
+const cctpRedeemInflight = new Set();
+
+function readUint32(hex, byteOffset) {
+  return Number.parseInt(hex.slice(2 + byteOffset * 2, 2 + byteOffset * 2 + 8), 16);
+}
+
+function cctpRelayerClient() {
+  if (cctpRelayer) return cctpRelayer;
+  const raw =
+    process.env.FORUM_CCTP_RELAYER_PRIVATE_KEY ||
+    (existsSync(CCTP_RELAYER_KEY_FILE)
+      ? readFileSync(CCTP_RELAYER_KEY_FILE, "utf8").trim()
+      : "");
+  if (!raw) throw new Error("CCTP relayer key not configured");
+  const account = privateKeyToAccount(raw.startsWith("0x") ? raw : "0x" + raw);
+  cctpRelayer = {
+    account,
+    wallet: createWalletClient({ chain: ARC, transport: http(), account }),
+  };
+  return cctpRelayer;
+}
+
+function validateCctpRedeem(message, attestation) {
+  if (!/^0x[0-9a-fA-F]{296,20000}$/.test(message || "")) {
+    throw new Error("invalid CCTP message");
+  }
+  if (!/^0x[0-9a-fA-F]{130,20000}$/.test(attestation || "")) {
+    throw new Error("invalid CCTP attestation");
+  }
+  const sourceDomain = readUint32(message, 4);
+  const destinationDomain = readUint32(message, 8);
+  if (!CCTP_SOURCE_DOMAINS.has(sourceDomain)) {
+    throw new Error("unsupported CCTP source domain");
+  }
+  if (destinationDomain !== CCTP_ARC_DOMAIN) {
+    throw new Error("CCTP message is not destined for Arc");
+  }
+  return { sourceDomain, destinationDomain };
+}
 
 async function getLogsChunked({ address, event, fromBlock, toBlock }) {
   const logs = [];
@@ -807,6 +861,72 @@ const server = createServer((req, res) => {
   // receipts on forum.gudman.xyz with zero infra of their own.
   if (req.method === "POST") {
     const purl = new URL(req.url, "http://localhost");
+    if (purl.pathname === "/api/cctp/redeem") {
+      let body = "";
+      let aborted = false;
+      req.on("data", (c) => {
+        body += c;
+        if (body.length > 65536) {
+          aborted = true;
+          jsonReply(res, 413, { error: "payload too large" });
+          req.destroy();
+        }
+      });
+      req.on("end", () => {
+        if (aborted) return;
+        (async () => {
+          let payload;
+          try {
+            payload = JSON.parse(body);
+          } catch {
+            return jsonReply(res, 400, { error: "invalid JSON" });
+          }
+          const message = String(payload?.message || "");
+          const attestation = String(payload?.attestation || "");
+          let domains;
+          try {
+            domains = validateCctpRedeem(message, attestation);
+          } catch (e) {
+            return jsonReply(res, 400, { error: e.message });
+          }
+          const key = keccak256(message);
+          if (cctpRedeemInflight.has(key)) {
+            return jsonReply(res, 409, { error: "redeem already in flight" });
+          }
+          cctpRedeemInflight.add(key);
+          try {
+            const { account, wallet } = cctpRelayerClient();
+            const txHash = await wallet.sendTransaction({
+              account,
+              chain: ARC,
+              to: CCTP_MESSAGE_TRANSMITTER,
+              data: encodeFunctionData({
+                abi: CCTP_RECEIVE_ABI,
+                functionName: "receiveMessage",
+                args: [message, attestation],
+              }),
+            });
+            return jsonReply(res, 200, {
+              ok: true,
+              txHash,
+              status: "submitted",
+              relayer: account.address,
+              sourceDomain: domains.sourceDomain,
+              destinationDomain: domains.destinationDomain,
+            });
+          } catch (e) {
+            const detail = e?.shortMessage || e?.message || String(e);
+            return jsonReply(res, 502, {
+              error: "Arc relay failed",
+              detail: detail.slice(0, 180),
+            });
+          } finally {
+            cctpRedeemInflight.delete(key);
+          }
+        })();
+      });
+      return;
+    }
     const m = purl.pathname.match(
       /^\/api\/receipts\/(0x[0-9a-fA-F]{64})\/(\d{1,9})$/,
     );

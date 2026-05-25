@@ -5465,6 +5465,19 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         throw new Error("attestation not ready after 5 min — re-click to resume");
       }
 
+      async function brRelayRedeem(message, attestation) {
+        const r = await fetch("/api/cctp/redeem", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, attestation }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j || !j.txHash) {
+          throw new Error(j?.detail || j?.error || `relay HTTP ${r.status}`);
+        }
+        return j;
+      }
+
       function brConnect() {
         if (!window.ethereum) {
           brSetStatus("No browser wallet detected. Install MetaMask, Rabby, or similar.", "err");
@@ -5497,6 +5510,8 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         if (!(amtWhole > 0)) { brSetStatus("Amount must be greater than 0.", "err"); return; }
         const amount = BigInt(Math.round(amtWhole * 1e6)); // USDC has 6 decimals on every CCTP chain
         btn.disabled = true;
+        let arcWalletReady = false;
+        let depositSkipped = false;
 
         try {
           // ── Steps 1–2: burn on source + attestation (skip if resuming) ──
@@ -5552,17 +5567,27 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           // ── Step 3: redeem on Arc (mint native USDC to the user) ──
           if (!brFlow.redeemed) {
             brStep("redeem", "is-active");
-            brSetStatus("Switching wallet to Arc and minting USDC…", "info");
-            await brSwitchChain(ARC_CHAIN_HEX, ARC_CHAIN_PARAMS);
-            const redeemData = encodeFunctionData({
-              abi: MT_RECEIVE_ABI, functionName: "receiveMessage",
-              args: [brFlow.message, brFlow.attestation],
-            });
-            const redeemTx = await window.ethereum.request({
-              method: "eth_sendTransaction",
-              params: [{ from: brAccount, to: CCTP.messageTransmitterV2, data: redeemData }],
-            });
-            await client.waitForTransactionReceipt({ hash: redeemTx });
+            brSetStatus("Minting on Arc through Forum's CCTP relayer...", "info");
+            let redeemTx;
+            try {
+              const relay = await brRelayRedeem(brFlow.message, brFlow.attestation);
+              redeemTx = relay.txHash;
+              const relayReceipt = await client.waitForTransactionReceipt({ hash: redeemTx });
+              if (relayReceipt.status !== "success") throw new Error("relayed Arc mint reverted");
+            } catch (relayErr) {
+              brSetStatus("Forum relayer unavailable; switching wallet to Arc for manual mint...", "info");
+              await brSwitchChain(ARC_CHAIN_HEX, ARC_CHAIN_PARAMS);
+              arcWalletReady = true;
+              const redeemData = encodeFunctionData({
+                abi: MT_RECEIVE_ABI, functionName: "receiveMessage",
+                args: [brFlow.message, brFlow.attestation],
+              });
+              redeemTx = await window.ethereum.request({
+                method: "eth_sendTransaction",
+                params: [{ from: brAccount, to: CCTP.messageTransmitterV2, data: redeemData }],
+              });
+              await client.waitForTransactionReceipt({ hash: redeemTx });
+            }
             brFlow.redeemed = true;
             brStep("redeem", "is-done");
             brTxLink("redeem-tx", explorerTx(redeemTx), "Arc tx ↗");
@@ -5572,8 +5597,22 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           // ── Step 4: optional deposit into a Covenant Account ──
           if (vault) {
             if (!/^0x[0-9a-fA-F]{40}$/.test(vault)) {
+              depositSkipped = true;
               brSetStatus(`<span class="text-forum-ok">Bridged ${amtWhole} USDC to Arc.</span> Vault field isn't a valid address — skipped deposit.`, "ok");
             } else {
+              if (!arcWalletReady) {
+                try {
+                  await brSwitchChain(ARC_CHAIN_HEX, ARC_CHAIN_PARAMS);
+                  arcWalletReady = true;
+                } catch (e) {
+                  depositSkipped = true;
+                  brSetStatus(
+                    `<span class="text-forum-ok">Bridged ${amtWhole} USDC to Arc.</span> Deposit skipped because the wallet still could not switch to Arc: ${bridgeErrorHtml(e)}`,
+                    "ok",
+                  );
+                }
+              }
+              if (!depositSkipped) {
               brStep("deposit", "is-active");
               brSetStatus("Approving + depositing into the vault…", "info");
               const apData = encodeFunctionData({
@@ -5594,9 +5633,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               brTxLink("deposit-tx", explorerTx(depTx), "deposit tx ↗");
             }
           }
+          }
 
           brSetStatus(
-            `<span class="text-forum-ok">Done.</span> ${amtWhole} USDC bridged from ${src.label} to Arc via CCTP V2${vault ? " and deposited into the vault" : ""}.`,
+            `<span class="text-forum-ok">Done.</span> ${amtWhole} USDC bridged from ${src.label} to Arc via CCTP V2${vault && !depositSkipped ? " and deposited into the vault" : depositSkipped ? ". Vault deposit was skipped; use the Vault tab after your Arc wallet connection is fixed" : ""}.`,
             "ok",
           );
           btn.textContent = "Bridge again";

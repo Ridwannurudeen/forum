@@ -356,10 +356,21 @@ test.describe("XSS regression", () => {
     expect(flags.__xss).toBeUndefined();
   });
 
-  test("e) bridge shows Rabby stale Arc-network guidance on invalid chain ID", async ({
+  test("e) bridge relays Arc redeem when Rabby cannot switch to Arc", async ({
     page,
   }) => {
     await installApiMocks(page);
+    await page.route("**/api/cctp/redeem", (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          txHash: "0x" + "34".repeat(32),
+          status: "success",
+        }),
+      }),
+    );
     const wallet = "0x" + "12".repeat(20);
     await page.addInitScript(
       ({ wallet }) => {
@@ -411,9 +422,8 @@ test.describe("XSS regression", () => {
     await page.click("#br-action-btn");
 
     await expect(page.locator("#br-status")).toContainText(
-      "Rabby is using a stale Arc network entry",
+      "Vault deposit was skipped",
     );
-    await expect(page.locator("#br-status")).toContainText("5042002");
-    await expect(page.locator("#br-status")).toContainText("0x4cef52");
+    await expect(page.locator("#br-redeem-tx")).toContainText("Arc tx");
   });
 });
