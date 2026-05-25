@@ -3962,6 +3962,14 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         el.innerHTML = html;
       }
 
+      function isBridgeTabActive() {
+        const activePanel = document.querySelector(".app-tab-panel:not(.hidden)");
+        if (activePanel?.dataset?.tab) return activePanel.dataset.tab === "bridge";
+        const raw = (location.hash || "").replace(/^#/, "");
+        const qs = raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : "";
+        return new URLSearchParams(qs).get("t") === "bridge";
+      }
+
       // Add + switch a newly connected wallet to Arc Testnet. Robust against the
       // various shapes wallets use to report an unknown chain, never throws, and
       // returns whether the wallet ended up on Arc.
@@ -4027,7 +4035,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         try {
           const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
           connectedAddr = accounts[0];
-          const onArc = await ensureArcNetwork();
+          const onArc = isBridgeTabActive() || (await ensureArcNetwork());
           walletClient = createWalletClient({
             chain: ARC_TESTNET,
             transport: custom(window.ethereum),
@@ -4077,7 +4085,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         window.ethereum.on("chainChanged", async () => {
           if (!connectedAddr) return;
           const cur = (await window.ethereum.request({ method: "eth_chainId" })).toLowerCase();
-          if (cur !== ARC_CHAIN_HEX) await ensureArcNetwork();
+          if (cur !== ARC_CHAIN_HEX && !isBridgeTabActive()) await ensureArcNetwork();
         });
       }
 

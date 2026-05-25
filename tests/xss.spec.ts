@@ -426,4 +426,70 @@ test.describe("XSS regression", () => {
     );
     await expect(page.locator("#br-redeem-tx")).toContainText("Arc tx");
   });
+
+  test("f) bridge tab does not auto-switch the wallet back to Arc", async ({
+    page,
+  }) => {
+    await installApiMocks(page);
+    const wallet = "0x" + "12".repeat(20);
+    await page.addInitScript(
+      ({ wallet }) => {
+        type WalletRequest = {
+          method: string;
+          params?: Array<{ chainId?: string }>;
+        };
+        type TestWindow = Window & {
+          __chainId: string;
+          __chainHandlers: Array<() => Promise<void> | void>;
+          __switches: string[];
+        };
+        const testWindow = window as TestWindow;
+        testWindow.__chainId = "0x14a34";
+        testWindow.__chainHandlers = [];
+        testWindow.__switches = [];
+        Object.defineProperty(window, "ethereum", {
+          configurable: true,
+          value: {
+            request: async ({ method, params }: WalletRequest) => {
+              if (method === "eth_requestAccounts") return [wallet];
+              if (method === "eth_chainId") return testWindow.__chainId;
+              if (method === "wallet_addEthereumChain") return null;
+              if (method === "wallet_switchEthereumChain") {
+                const chainId = params?.[0]?.chainId || "";
+                testWindow.__switches.push(chainId);
+                testWindow.__chainId = chainId;
+                return null;
+              }
+              throw new Error(`unexpected wallet method ${method}`);
+            },
+            on: (event: string, handler: () => Promise<void> | void) => {
+              if (event === "chainChanged")
+                testWindow.__chainHandlers.push(handler);
+            },
+          },
+        });
+      },
+      { wallet },
+    );
+
+    await page.goto("/index.html#/console?t=bridge", {
+      waitUntil: "domcontentloaded",
+    });
+    await page.click("#br-connect-btn");
+    await page.evaluate(async () => {
+      type TestWindow = Window & {
+        __chainId: string;
+        __chainHandlers: Array<() => Promise<void> | void>;
+      };
+      const testWindow = window as TestWindow;
+      testWindow.__chainId = "0x14a34";
+      await Promise.all(testWindow.__chainHandlers.map((handler) => handler()));
+    });
+
+    const switches = await page.evaluate(() => {
+      type TestWindow = Window & { __switches: string[] };
+      return (window as TestWindow).__switches;
+    });
+    expect(switches).not.toContain("0x4cef52");
+  });
 });
