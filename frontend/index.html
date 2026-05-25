@@ -5431,11 +5431,25 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         }
       }
       async function brPollAttestation(sourceDomain, burnTx) {
-        const url = `${CCTP.irisBase}/v2/messages/${sourceDomain}?transactionHash=${burnTx}`;
+        // Poll Forum's own indexer proxy first (same-origin, so it works even
+        // when the browser/network can't reach Circle's Iris API directly —
+        // that silently stalls the bridge at this step), then fall back to a
+        // direct Circle fetch.
+        const proxyUrl = `/api/cctp/attestation?domain=${sourceDomain}&tx=${burnTx}`;
+        const directUrl = `${CCTP.irisBase}/v2/messages/${sourceDomain}?transactionHash=${burnTx}`;
         for (let i = 0; i < 60; i++) {
+          try {
+            const r = await fetch(proxyUrl);
+            if (r.ok) {
+              const j = await r.json();
+              if (j && j.status === "complete" && j.attestation && j.message) {
+                return { message: j.message, attestation: j.attestation };
+              }
+            }
+          } catch (e) { /* proxy blip — try Circle directly */ }
           let j;
           try {
-            const r = await fetch(url);
+            const r = await fetch(directUrl);
             if (r.ok) j = await r.json();
           } catch (e) { /* transient — keep polling */ }
           const m = j && Array.isArray(j.messages) ? j.messages[0] : null;
