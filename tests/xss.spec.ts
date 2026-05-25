@@ -495,24 +495,81 @@ test.describe("XSS regression", () => {
 
   test("g) watch tab opens an indexed vault by default", async ({ page }) => {
     await installApiMocks(page);
-    const vault = "0x" + "11".repeat(20);
-    const botId = "0x" + "aa".repeat(32);
+    const emptyVault = "0x" + "11".repeat(20);
+    const liveVault = "0x" + "66".repeat(20);
+    const emptyBotId = "0x" + "bb".repeat(32);
+    const liveBotId = "0x" + "aa".repeat(32);
+    await page.route("**/api/state", (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          bots: {
+            [liveBotId]: {
+              botId: liveBotId,
+              recordCount: 12,
+              lastReceiptAt: 1,
+            },
+          },
+          factoryVaults: [
+            {
+              vault: emptyVault,
+              creator: "0x" + "22".repeat(20),
+              operator: "0x" + "22".repeat(20),
+              botId: emptyBotId,
+              budgetMicros: "11000000",
+              createdAt: 2,
+            },
+            {
+              vault: liveVault,
+              creator: "0x" + "33".repeat(20),
+              operator: "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+              botId: liveBotId,
+              budgetMicros: "1000000",
+              createdAt: 1,
+            },
+          ],
+          vaults: {
+            [emptyVault]: {
+              state: "ACTIVE",
+              assetsMicros: "0",
+              idleMicros: "0",
+              outstandingMicros: "0",
+              mandate: {
+                operator: "0x" + "22".repeat(20),
+                botId: emptyBotId,
+              },
+            },
+            [liveVault]: {
+              state: "ACTIVE",
+              assetsMicros: "1000000",
+              idleMicros: "1000000",
+              outstandingMicros: "0",
+              mandate: {
+                operator: "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+                botId: liveBotId,
+              },
+            },
+          },
+        }),
+      }),
+    );
     await page.route("**/api/factory-vaults**", (route: Route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify([
           {
-            vault,
+            vault: emptyVault,
             creator: "0x" + "22".repeat(20),
-            operator: "0x13585c6004fbA9D7D49219a6435B68348fD30770",
-            botId,
-            budgetMicros: "1000000",
+            operator: "0x" + "22".repeat(20),
+            botId: emptyBotId,
+            budgetMicros: "11000000",
           },
         ]),
       }),
     );
-    await page.route(`**/api/covenant/${vault}`, (route: Route) =>
+    await page.route(`**/api/covenant/${liveVault}`, (route: Route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -523,7 +580,7 @@ test.describe("XSS regression", () => {
           outstandingMicros: "0",
           mandate: {
             operator: "0x13585c6004fbA9D7D49219a6435B68348fD30770",
-            botId,
+            botId: liveBotId,
             budgetMicros: "1000000",
             maxDrawdownBps: 500,
             receiptFreshnessSec: 1800,
@@ -536,7 +593,7 @@ test.describe("XSS regression", () => {
         }),
       }),
     );
-    await page.route(`**/api/agents/${botId}`, (route: Route) =>
+    await page.route(`**/api/agents/${liveBotId}`, (route: Route) =>
       route.fulfill({
         status: 404,
         contentType: "application/json",
@@ -547,7 +604,7 @@ test.describe("XSS regression", () => {
     await page.goto("/index.html#/console", { waitUntil: "domcontentloaded" });
     await page.click("[data-app-tab='vault']");
 
-    await expect(page).toHaveURL(new RegExp(`v=${vault}`));
+    await expect(page).toHaveURL(new RegExp(`v=${liveVault}`));
     await expect(page.locator("#vd-state-label")).toContainText("ACTIVE");
     await expect(page.locator("#vd-assets")).toContainText("1 USDC");
   });

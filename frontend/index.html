@@ -5091,28 +5091,61 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       window.openVaultDetail = openVaultDetail;
 
       async function loadDefaultWatchVault() {
-        const input = document.getElementById("vd-addr-input");
-        const current = (input?.value || "").trim();
-        if (/^0x[0-9a-fA-F]{40}$/.test(current)) {
-          loadVaultDetail(current);
-          return;
-        }
         document.getElementById("vd-empty").innerHTML =
-          `<span class="text-forum-dim2">Loading latest indexed vault...</span>`;
+          `<span class="text-forum-dim2">Loading live managed vault...</span>`;
         let selected = null;
         try {
-          const res = await fetch("/api/factory-vaults?limit=20");
-          const list = await res.json();
-          if (Array.isArray(list) && list.length > 0) {
+          const stateRes = await fetch("/api/state");
+          const state = await stateRes.json();
+          const bots = state?.bots && typeof state.bots === "object" ? state.bots : {};
+          const byVault = new Map();
+          if (Array.isArray(state?.factoryVaults)) {
+            for (const v of state.factoryVaults) {
+              if (/^0x[0-9a-fA-F]{40}$/.test(String(v.vault || ""))) {
+                byVault.set(v.vault.toLowerCase(), { ...v });
+              }
+            }
+          }
+          if (state?.vaults && typeof state.vaults === "object") {
+            for (const [addr, v] of Object.entries(state.vaults)) {
+              if (/^0x[0-9a-fA-F]{40}$/.test(String(addr))) {
+                byVault.set(addr.toLowerCase(), { ...(byVault.get(addr.toLowerCase()) || {}), ...v, vault: addr });
+              }
+            }
+          }
+          const list = [...byVault.values()];
+          if (list.length > 0) {
+            const score = (v) => {
+              const op = String(v.operator || v.mandate?.operator || "").toLowerCase();
+              const creator = String(v.creator || "").toLowerCase();
+              const botId = String(v.botId || v.mandate?.botId || "");
+              const bot = bots[botId] || bots[botId.toLowerCase()] || {};
+              const assets = Number(v.assetsMicros || 0) / 1e6;
+              const records = Number(bot.recordCount || 0);
+              let s = 0;
+              if (connectedAddr && (creator === connectedAddr.toLowerCase() || op === connectedAddr.toLowerCase())) s += 100_000;
+              if (op === FORUM_MANAGED_OPERATOR.toLowerCase()) s += 20_000;
+              if (records > 0) s += 10_000 + Math.min(records, 1_000);
+              if (assets > 0) s += 5_000 + Math.min(assets, 1_000);
+              if (v.state === "ACTIVE") s += 1_000;
+              s += Number(v.createdAt || 0) / 1_000_000_000_000;
+              return s;
+            };
             selected = connectedAddr
               ? list.find((v) =>
                   String(v.creator || "").toLowerCase() === connectedAddr.toLowerCase() ||
-                  String(v.operator || "").toLowerCase() === connectedAddr.toLowerCase())
+                  String(v.operator || v.mandate?.operator || "").toLowerCase() === connectedAddr.toLowerCase())
               : null;
-            selected = selected || list[0];
+            selected = selected || list.sort((a, b) => score(b) - score(a))[0];
           }
         } catch (e) {
-          selected = null;
+          try {
+            const res = await fetch("/api/factory-vaults?limit=20");
+            const list = await res.json();
+            if (Array.isArray(list) && list.length > 0) selected = list[0];
+          } catch (e2) {
+            selected = null;
+          }
         }
         openVaultDetail(selected?.vault || DEMO_LIVE_VAULT);
       }
