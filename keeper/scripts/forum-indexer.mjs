@@ -57,7 +57,7 @@ const STATE_PATH =
   process.env.FORUM_INDEXER_STATE || "/opt/forum/indexer-state.json";
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
 const LOG_CHUNK = 9500n;
-const VERSION = "forum-indexer/0.14.0"; // + chain-validated operator receipt upload (POST /api/receipts/<botId>/<seq>)
+const VERSION = "forum-indexer/0.15.0"; // + CCTP attestation proxy (GET /api/cctp/attestation)
 
 const ARC = defineChain({
   id: 5042002,
@@ -909,6 +909,44 @@ const server = createServer((req, res) => {
     state.lastPollAt > 0
       ? Math.floor(Date.now() / 1000) - state.lastPollAt
       : null;
+
+  // CCTP attestation proxy: relay Circle's Iris API server-side so the browser
+  // polls same-origin. Some client networks/extensions can't reach
+  // iris-api-sandbox.circle.com directly, which silently stalls the bridge at
+  // the attestation step even though the burn is already attested.
+  if (path === "/cctp/attestation") {
+    const domain = url.searchParams.get("domain") || "";
+    const tx = url.searchParams.get("tx") || "";
+    if (!/^\d{1,3}$/.test(domain) || !/^0x[0-9a-fA-F]{64}$/.test(tx)) {
+      return jsonReply(res, 400, { error: "need ?domain=<n>&tx=0x<64hex>" });
+    }
+    (async () => {
+      try {
+        const r = await fetch(
+          `https://iris-api-sandbox.circle.com/v2/messages/${domain}?transactionHash=${tx}`,
+        );
+        const body = r.ok ? await r.json().catch(() => null) : null;
+        const m =
+          body && Array.isArray(body.messages) ? body.messages[0] : null;
+        if (
+          m &&
+          m.status === "complete" &&
+          m.attestation &&
+          m.attestation !== "PENDING"
+        ) {
+          return jsonReply(res, 200, {
+            status: "complete",
+            message: m.message,
+            attestation: m.attestation,
+          });
+        }
+        return jsonReply(res, 200, { status: (m && m.status) || "pending" });
+      } catch {
+        return jsonReply(res, 200, { status: "pending" });
+      }
+    })();
+    return;
+  }
 
   if (path === "/health" || path === "/health/") {
     return jsonReply(res, 200, {

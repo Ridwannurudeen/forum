@@ -355,4 +355,65 @@ test.describe("XSS regression", () => {
     expect(flags.__xss_img).toBeUndefined();
     expect(flags.__xss).toBeUndefined();
   });
+
+  test("e) bridge shows Rabby stale Arc-network guidance on invalid chain ID", async ({
+    page,
+  }) => {
+    await installApiMocks(page);
+    const wallet = "0x" + "12".repeat(20);
+    await page.addInitScript(
+      ({ wallet }) => {
+        localStorage.setItem(
+          "forum.bridge.flow.v1",
+          JSON.stringify({
+            burnTx: "0x" + "ab".repeat(32),
+            sourceDomain: 6,
+            message: "0x1234",
+            attestation: "0xabcd",
+            redeemed: false,
+            amount: "1",
+            recipient: wallet,
+            vault: "",
+          }),
+        );
+        type WalletRequest = {
+          method: string;
+          params?: Array<{ chainId?: string }>;
+        };
+        Object.defineProperty(window, "ethereum", {
+          configurable: true,
+          value: {
+            request: async ({ method, params }: WalletRequest) => {
+              if (method === "eth_requestAccounts") return [wallet];
+              if (method === "eth_chainId") return "0x14a34";
+              if (method === "wallet_addEthereumChain") return null;
+              if (method === "wallet_switchEthereumChain") {
+                const chainId = params?.[0]?.chainId;
+                if (chainId === "0x4cef52") {
+                  throw new Error(
+                    "[From https://rpc.testnet.arc.network] invalid chain ID",
+                  );
+                }
+                return null;
+              }
+              throw new Error(`unexpected wallet method ${method}`);
+            },
+          },
+        });
+      },
+      { wallet },
+    );
+
+    await page.goto("/index.html#/console?t=bridge", {
+      waitUntil: "domcontentloaded",
+    });
+    await page.click("#br-connect-btn");
+    await page.click("#br-action-btn");
+
+    await expect(page.locator("#br-status")).toContainText(
+      "Rabby is using a stale Arc network entry",
+    );
+    await expect(page.locator("#br-status")).toContainText("5042002");
+    await expect(page.locator("#br-status")).toContainText("0x4cef52");
+  });
 });
