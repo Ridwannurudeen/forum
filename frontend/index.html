@@ -2840,11 +2840,27 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         toHex,
       } from "https://esm.sh/viem@2.50.4";
 
+      const ARC_CHAIN_ID = 5042002;
+      const ARC_CHAIN_HEX = "0x" + ARC_CHAIN_ID.toString(16); // 0x4cef52
+      const ARC_RPC_URL = "https://rpc.testnet.arc.network";
+      const ARC_WALLET_RPC_URLS = [
+        "https://rpc.quicknode.testnet.arc.network",
+        ARC_RPC_URL,
+        "https://rpc.blockdaemon.testnet.arc.network",
+      ];
+      const ARC_CHAIN_PARAMS = {
+        chainId: ARC_CHAIN_HEX,
+        chainName: "Arc Testnet",
+        nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+        rpcUrls: ARC_WALLET_RPC_URLS,
+        blockExplorerUrls: ["https://testnet.arcscan.app"],
+      };
+
       const ARC_TESTNET = defineChain({
-        id: 5042002,
+        id: ARC_CHAIN_ID,
         name: "Arc Testnet",
         nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-        rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
+        rpcUrls: { default: { http: [ARC_RPC_URL] } },
       });
 
       const GROUPS = [
@@ -3208,6 +3224,18 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       }
       function escapedError(e) {
         return escapeHtml(errorText(e));
+      }
+      function isInvalidChainIdError(e) {
+        const text = String(errorText(e) || "") + " " + String(e?.data?.message || "");
+        return /invalid\s+chain\s*id|chain\s*id.*mismatch|mismatch.*chain\s*id/i.test(text);
+      }
+      function arcInvalidChainIdHelpHtml() {
+        return `Rabby is using a stale Arc network entry. Arc Testnet is chain <code class="mono">5042002</code> (<code class="mono">${ARC_CHAIN_HEX}</code>), and the live RPC reports that exact ID. In Rabby, remove the old Arc custom network, then reconnect so Forum can add it again. Preferred RPC: <code class="mono">${ARC_WALLET_RPC_URLS[0]}</code>.`;
+      }
+      function bridgeErrorHtml(e) {
+        const base = escapedError(e);
+        if (!isInvalidChainIdError(e)) return base;
+        return `${base}<br/><span class="text-forum-dim2">${arcInvalidChainIdHelpHtml()}</span>`;
       }
       function setEvidenceHtml(id, html) {
         const el = document.getElementById(id);
@@ -3829,7 +3857,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       const MANAGED_MAX_BUDGET_USDC = 1;
       const RISK_KERNEL_V2 = "0x0af356f280af1d8b7a43f0746c581614feec4055";
       const TRACK_RECORD_V2 = "0x8f1c8fbf569146f32ddfb5b817bf2bd213840a66";
-      const ARC_CHAIN_HEX = "0x" + (5042002).toString(16); // 0x4cef52
 
       // botId (keccak256) → friendly label for demo bots published before the
       // /api/agents `label` field existed. Hex split into halves so the secret
@@ -3939,13 +3966,6 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
       // various shapes wallets use to report an unknown chain, never throws, and
       // returns whether the wallet ended up on Arc.
       async function ensureArcNetwork() {
-        const ADD_PARAMS = {
-          chainId: ARC_CHAIN_HEX,
-          chainName: "Arc Testnet",
-          nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-          rpcUrls: ["https://rpc.testnet.arc.network"],
-          blockExplorerUrls: ["https://testnet.arcscan.app"],
-        };
         const isUnknownChain = (e) => {
           const text = String(e?.message || "") + String(e?.data?.message || "");
           return (
@@ -3968,10 +3988,10 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
               setStatus("Approve the Arc Testnet network switch in your wallet to continue.", "err");
               return false;
             }
-            if (!isUnknownChain(e)) throw e;
+            if (!isUnknownChain(e) && !isInvalidChainIdError(e)) throw e;
             await window.ethereum.request({
               method: "wallet_addEthereumChain",
-              params: [ADD_PARAMS],
+              params: [ARC_CHAIN_PARAMS],
             });
             try {
               await window.ethereum.request({
@@ -3989,6 +4009,9 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           return (await window.ethereum.request({ method: "eth_chainId" })).toLowerCase() === ARC_CHAIN_HEX;
         } catch (e) {
           console.error("ensureArcNetwork failed", e);
+          if (isInvalidChainIdError(e)) {
+            setStatus(arcInvalidChainIdHelpHtml(), "err");
+          }
           return false;
         }
       }
@@ -5370,20 +5393,26 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         return fee > 0n ? fee : 1n;
       }
       async function brSwitchChain(chainIdHex, addParams) {
+        const target = chainIdHex.toLowerCase();
+        const isArcTarget = target === ARC_CHAIN_HEX;
         const isUnknownChain = (e) => {
           const msg = String(e?.message || e || "").toLowerCase();
           return e?.code === 4902 || msg.includes("unrecognized chain") || msg.includes("unknown chain");
         };
+        const switchChain = () => window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: target }],
+        });
         try {
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }],
-          });
+          await switchChain();
         } catch (e) {
-          if (!isUnknownChain(e) || !addParams) throw e;
+          if ((!isUnknownChain(e) && !(isArcTarget && isInvalidChainIdError(e))) || !addParams) throw e;
           await window.ethereum.request({ method: "wallet_addEthereumChain", params: [addParams] });
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }],
-          });
+          await switchChain();
+        }
+        const current = String(await window.ethereum.request({ method: "eth_chainId" })).toLowerCase();
+        if (current !== target) {
+          throw new Error(`wallet stayed on chain ${current}; expected ${target}`);
         }
       }
       async function brPollAttestation(sourceDomain, burnTx) {
@@ -5495,12 +5524,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           if (!brFlow.redeemed) {
             brStep("redeem", "is-active");
             brSetStatus("Switching wallet to Arc and minting USDC…", "info");
-            await brSwitchChain(ARC_CHAIN_HEX, {
-              chainId: ARC_CHAIN_HEX, chainName: "Arc Testnet",
-              nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-              rpcUrls: ["https://rpc.testnet.arc.network"],
-              blockExplorerUrls: ["https://testnet.arcscan.app"],
-            });
+            await brSwitchChain(ARC_CHAIN_HEX, ARC_CHAIN_PARAMS);
             const redeemData = encodeFunctionData({
               abi: MT_RECEIVE_ABI, functionName: "receiveMessage",
               args: [brFlow.message, brFlow.attestation],
@@ -5554,7 +5578,7 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
           btn.disabled = false;
         } catch (e) {
           brSetStatus(
-            "Failed: " + escapedError(e) +
+            "Failed: " + bridgeErrorHtml(e) +
             (brFlow.burnTx ? '<br/><span class="text-forum-dim2">Burn already landed — click again to resume from attestation/mint.</span>' : ""),
             "err",
           );
