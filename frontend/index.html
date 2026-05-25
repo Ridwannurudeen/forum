@@ -698,6 +698,9 @@
             if (route === "/console" && query.t === "vault" && query.v && typeof window.loadVaultDetail === "function") {
               window.loadVaultDetail(query.v);
             }
+            if (route === "/console" && query.t === "vault" && !query.v && typeof window.loadDefaultWatchVault === "function") {
+              window.loadDefaultWatchVault();
+            }
             // Scroll to top on route change (preserves anchor jumps within /)
             window.scrollTo({ top: 0, left: 0, behavior: "instant" });
           },
@@ -5086,6 +5089,34 @@ $ node keeper/scripts/verify-receipt.mjs 000071.json
         window.__forumRouter.navigate("/console", { t: "vault", v: addr });
       }
       window.openVaultDetail = openVaultDetail;
+
+      async function loadDefaultWatchVault() {
+        const input = document.getElementById("vd-addr-input");
+        const current = (input?.value || "").trim();
+        if (/^0x[0-9a-fA-F]{40}$/.test(current)) {
+          loadVaultDetail(current);
+          return;
+        }
+        document.getElementById("vd-empty").innerHTML =
+          `<span class="text-forum-dim2">Loading latest indexed vault...</span>`;
+        let selected = null;
+        try {
+          const res = await fetch("/api/factory-vaults?limit=20");
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            selected = connectedAddr
+              ? list.find((v) =>
+                  String(v.creator || "").toLowerCase() === connectedAddr.toLowerCase() ||
+                  String(v.operator || "").toLowerCase() === connectedAddr.toLowerCase())
+              : null;
+            selected = selected || list[0];
+          }
+        } catch (e) {
+          selected = null;
+        }
+        openVaultDetail(selected?.vault || DEMO_LIVE_VAULT);
+      }
+      window.loadDefaultWatchVault = loadDefaultWatchVault;
 
       document.getElementById("vd-load-btn").addEventListener("click", () => {
         openVaultDetail(document.getElementById("vd-addr-input").value.trim());

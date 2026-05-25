@@ -492,4 +492,63 @@ test.describe("XSS regression", () => {
     });
     expect(switches).not.toContain("0x4cef52");
   });
+
+  test("g) watch tab opens an indexed vault by default", async ({ page }) => {
+    await installApiMocks(page);
+    const vault = "0x" + "11".repeat(20);
+    const botId = "0x" + "aa".repeat(32);
+    await page.route("**/api/factory-vaults**", (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            vault,
+            creator: "0x" + "22".repeat(20),
+            operator: "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+            botId,
+            budgetMicros: "1000000",
+          },
+        ]),
+      }),
+    );
+    await page.route(`**/api/covenant/${vault}`, (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          state: "ACTIVE",
+          assetsMicros: "1000000",
+          idleMicros: "1000000",
+          outstandingMicros: "0",
+          mandate: {
+            operator: "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+            botId,
+            budgetMicros: "1000000",
+            maxDrawdownBps: 500,
+            receiptFreshnessSec: 1800,
+            expiry: "0",
+            perfFeeBps: 2000,
+            bondContract: "0x" + "33".repeat(20),
+            riskKernel: "0x" + "44".repeat(20),
+            trackRecordV2: "0x" + "55".repeat(20),
+          },
+        }),
+      }),
+    );
+    await page.route(`**/api/agents/${botId}`, (route: Route) =>
+      route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: "{}",
+      }),
+    );
+
+    await page.goto("/index.html#/console", { waitUntil: "domcontentloaded" });
+    await page.click("[data-app-tab='vault']");
+
+    await expect(page).toHaveURL(new RegExp(`v=${vault}`));
+    await expect(page.locator("#vd-state-label")).toContainText("ACTIVE");
+    await expect(page.locator("#vd-assets")).toContainText("1 USDC");
+  });
 });
