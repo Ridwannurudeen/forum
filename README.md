@@ -241,6 +241,13 @@ Forum uses Arc as the USDC-native control plane: all mandate state lives on Arc,
 
 **Circle stack used directly:** Arc, USDC, and **CCTP V2**. CCTP is integrated two ways — an in-browser bridge at [`/#/console?t=bridge`](https://forum.gudman.xyz/#/console?t=bridge) (burn native USDC on a source testnet → Circle Iris attestation → mint on Arc Domain 26 → optional vault deposit) and a CLI helper (`keeper/scripts/cctp-bridge-and-deposit.mjs`, with `--simulate` / `--build-source` / `--redeem`). Source-domain addresses for Ethereum Sepolia, Avalanche Fuji, Base Sepolia, and Polygon Amoy are pinned in `deployments/arc-testnet.json`.
 
+### Arc Starter Kit (standalone)
+
+For Arc builders who want a clean reference for **x402 pay-per-call + ERC-4337 session keys** without the Forum product surface, we maintain a separate starter-kit repo:
+
+- **[`arc-agent-console`](https://github.com/Ridwannurudeen/arc-agent-console)** — Next.js + wagmi/viem, Arc-focused docs, copy-paste examples per primitive ([`GETTING_STARTED.md`](https://github.com/Ridwannurudeen/arc-agent-console/blob/main/GETTING_STARTED.md), [`ARCHITECTURE.md`](https://github.com/Ridwannurudeen/arc-agent-console/blob/main/ARCHITECTURE.md), [`examples/`](https://github.com/Ridwannurudeen/arc-agent-console/tree/main/examples)).
+- Live demo: [arc-console.gudman.xyz](https://arc-console.gudman.xyz). It points at Forum's live primitives by default so a fresh fork has a real call target.
+
 ## Honest scope
 
 - **Arc testnet only.** Contracts are immutable and unaudited hackathon code.
