@@ -149,7 +149,7 @@ Chain: **Arc testnet `5042002`** · full metadata in [`deployments/arc-testnet.j
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Continuous-premium insurance pool for `SlashBondV1.1` |
 | `FeeRouterV1` | `0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59` | `createSplit` → permissionless `pay` → `claim` across splits |
 | `CovenantVaultV2` | `0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5` | Vault-custodied strategy deployment (governor-approved adapters) |
-| `IdleStrategyAdapter` | `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343` | Allowlist-free zero-yield `StrategyAdapter` proving the deploy/recall path |
+| `IdleStrategyAdapter` | `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343` | Allowlist-free zero-yield `StrategyAdapter` proving the deploy/recall path today. Its real-yield sister `UsycStrategyAdapter` ([`src/UsycStrategyAdapter.sol`](src/UsycStrategyAdapter.sol)) is code-complete against Hashnote's `ITeller.buy/sell` on Arc-native **USYC** (Circle's tokenized U.S. Treasury fund: token `0xe9185F0c…db86C`, Teller `0x9fdF14c5…DC105A`); the adapter custodies USDC + USYC on the vault's behalf and is gated only by the adapter address's **Circle Entitlements** allowlist (`0xcc205224…26113`) — one Circle Support request away from real Treasury yield on the same interface. See [`docs/yield-adapter.md`](docs/yield-adapter.md). |
 | `RiskKernelV3` | `0x554cdad3cac1f640b39816193310166afc2bde06` | Persistent monotonic drawdown peak + on-chain NAV circuit breaker (`PAUSE_NAV`) |
 
 </details>
