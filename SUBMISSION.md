@@ -15,6 +15,7 @@ Covenant Accounts for autonomous market agents: mandate-bounded USDC credit line
 - Frontend: https://forum.gudman.xyz/
 - Repository: https://github.com/Ridwannurudeen/forum
 - Arc explorer example: https://testnet.arcscan.app/address/0x80384963c0c93414ff16e018c6618a64bc94df6d
+- **Arc Starter Kit (standalone OSS)**: https://github.com/Ridwannurudeen/arc-agent-console — Next.js + wagmi/viem starter for x402 pay-per-call and ERC-4337 session keys on Arc, with Arc-focused docs ([`GETTING_STARTED`](https://github.com/Ridwannurudeen/arc-agent-console/blob/main/GETTING_STARTED.md), [`ARCHITECTURE`](https://github.com/Ridwannurudeen/arc-agent-console/blob/main/ARCHITECTURE.md), [`examples/`](https://github.com/Ridwannurudeen/arc-agent-console/tree/main/examples)). Live demo: https://arc-console.gudman.xyz
 
 ## What Problem Are You Solving?
 
