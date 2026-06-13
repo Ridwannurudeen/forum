@@ -9,11 +9,12 @@
 [![CI](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml/badge.svg)](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Live demo](https://img.shields.io/badge/demo-forum.gudman.xyz-4cf0c2)](https://forum.gudman.xyz/)
+[![Demo video](https://img.shields.io/badge/demo%20video-YouTube-ff0000)](https://youtu.be/MWoIUsXddtE)
 ![Arc testnet](https://img.shields.io/badge/Arc%20testnet-5042002-9bb8ff)
 ![Built with Foundry](https://img.shields.io/badge/built%20with-Foundry-orange)
 ![Agora Agents](https://img.shields.io/badge/Agora%20Agents-Canteen%20%C3%97%20Circle%20%C3%97%20Arc-f6c76b)
 
-[**Live demo**](https://forum.gudman.xyz/) · [Architecture](#architecture) · [Quickstart](#quickstart) · [Contracts](#live-on-arc-testnet) · [Proofs](#verifiable-proofs)
+[**Live demo**](https://forum.gudman.xyz/) · [**Demo video**](https://youtu.be/MWoIUsXddtE) · [Architecture](#architecture) · [Quickstart](#quickstart) · [Contracts](#live-on-arc-testnet) · [Proofs](#verifiable-proofs)
 
 </div>
 
