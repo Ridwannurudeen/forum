@@ -1,0 +1,70 @@
+{
+  "_comment": "SCAFFOLD — not yet deployed. Fill every empty string from the DeployPolicyVault broadcast, then flip frontend/policy.html CONFIG.deployed to true and copy the addresses across.",
+  "chainId": 5042,
+  "rpc": "https://rpc.mainnet.arc.io",
+  "explorer": "https://explorer.arc.io",
+  "deployer": "",
+  "deployedAt": "",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "usdcDecimals": 6,
+  "nativeDecimals": 18,
+  "_decimalsNote": "On Arc the native gas unit is 18-decimal while the USDC ERC-20 interface is 6-decimal. They are the same balance, 1e12 apart. Never render a treasury balance from eth_getBalance.",
+  "gas": {
+    "baseFeeFloorGwei": 20,
+    "usedGasPriceGwei": 21,
+    "_floorNote": "Transactions below the 20 Gwei floor are silently dropped with no receipt. If no receipt arrives, check the nonce before re-broadcasting."
+  },
+  "contracts": {
+    "TrackRecordV2": {
+      "address": "",
+      "txHash": "",
+      "block": ""
+    },
+    "PolicyVault": {
+      "address": "",
+      "txHash": "",
+      "block": "",
+      "owner": "",
+      "agent": "",
+      "botId": "",
+      "botSigner": "",
+      "_signerNote": "botSigner is fixed at registerBot and has no setter. setAgent rotates caller authority only. Verify botSigner equals the signing key BEFORE the owner grants any allowance.",
+      "payeeCoolingSec": 86400,
+      "epochSec": 2592000,
+      "maxEpochBudget": "1000000000",
+      "categories": [],
+      "payees": [],
+      "ownerAllowance": "",
+      "allowanceTxHash": "",
+      "firstPaymentTxHash": "",
+      "firstPaymentRecordSeq": null
+    }
+  },
+  "verification": {
+    "verifier": "blockscout",
+    "verifierUrl": "https://explorer.arc.io/api/",
+    "status": "pending",
+    "_note": "explorer.arc.io/api is behind a Cloudflare challenge (HTTP 403 to non-browser clients), so forge verify-contract may be refused for reasons unrelated to the contract. Fallbacks in order: sourcify, the Blockscout web form (a human browser passes the challenge), or ship unverified with the standard-json-input and compiler settings recorded here.",
+    "compiler": "0.8.30",
+    "optimizer": true,
+    "optimizerRuns": 200
+  },
+  "notDeployed": [
+    "CovenantVault", "CovenantVaultV2", "CovenantVaultV3", "CovenantVaultFactory",
+    "CovenantVaultFactoryV2", "RiskKernel", "RiskKernelV2", "RiskKernelV3",
+    "SlashBond", "SlashMarket", "SlashInsurance", "CapitalRouter", "FeeRouterV1",
+    "CovenantInbox", "AgentPool", "UsycStrategyAdapter", "IdleStrategyAdapter",
+    "BuilderCodeRegistry", "KeeperConfig", "TrackRecord", "FeeDistributor",
+    "PolicyVaultFactory"
+  ],
+  "notClaimed": {
+    "threeWayMatch": "No order, delivery or receipt attestation in this deploy. The vault enforces who, how much and how often — not whether the work was done.",
+    "vetoQueue": "No delay queue and no per-payment human approval. A payment inside policy settles immediately.",
+    "standingOrders": "Not in this deploy.",
+    "cctp": "No destination leg. TokenMessengerV2 is live on 5042 but PolicyVault does not call it. Payees must be on Arc.",
+    "factory": "One vault, one owner, one agent. No multi-business tier and no self-serve deployment.",
+    "recordsAreNotPayments": "Every payment publishes a record in the same transaction, but TrackRecordV2.publish is permissionless, so a record alone is not a payment. Paid events are the payment ledger.",
+    "audit": "Unaudited. Capped pilot.",
+    "arcSpecificBehaviour": "Arc's runtime blocklist is covered by a mock in the test suite. forge test runs a stock EVM and forge script's dry run does too, so Arc-specific reverts only surface on broadcast."
+  }
+}
