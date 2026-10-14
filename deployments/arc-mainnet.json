@@ -65,10 +65,14 @@
     }
   },
   "verification": {
-    "verifier": "blockscout",
-    "verifierUrl": "https://explorer.arc.io/api/",
-    "status": "pending",
-    "_note": "explorer.arc.io/api is behind a Cloudflare challenge (HTTP 403 to non-browser clients), so forge verify-contract may be refused for reasons unrelated to the contract. Fallbacks in order: sourcify, the Blockscout web form (a human browser passes the challenge), or ship unverified with the standard-json-input and compiler settings recorded here.",
+    "verifier": "sourcify",
+    "status": "exact_match",
+    "verifiedAt": "2026-10-14T07:11Z",
+    "lookup": [
+      "https://sourcify.dev/server/v2/contract/5042/0x730825299821D411146c503915553E37eBDc750c",
+      "https://sourcify.dev/server/v2/contract/5042/0xAACe70a50573cB077f65D601cD19103afC4aeF9d"
+    ],
+    "_note": "Both contracts are an exact match (creation and runtime bytecode) on Sourcify. Blockscout at explorer.arc.io/api was tried first and refused by a Cloudflare challenge before reaching the verifier, so the explorer itself may still show them as unverified.",
     "compiler": "0.8.30",
     "optimizer": true,
     "optimizerRuns": 200
