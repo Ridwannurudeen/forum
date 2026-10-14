@@ -1,6 +1,7 @@
 # Forum — Circle Developer Grant Proposal
 
 > **Program:** Circle Developer Grants (Arc) · **Submitted:** June 2026
+> **Status, 2026-10-14:** this June proposal is kept as written apart from factual corrections. Since then, PolicyVault went live on Arc mainnet as an unaudited, capped pilot — see the README and [`docs/DELTA.md`](docs/DELTA.md). The Covenant stack below is still testnet-only.
 > **Project:** Forum — credit and accountability rails for the agentic economy on Arc
 > **Live:** https://forum.gudman.xyz · **Repo:** https://github.com/Ridwannurudeen/forum
 > **Companion OSS:** https://github.com/Ridwannurudeen/arc-agent-console (live: https://arc-console.gudman.xyz)
@@ -10,7 +11,7 @@
 
 ## One paragraph
 
-Capital cannot trust an AI agent with a wallet, so the agentic economy on Arc has a missing layer: enforceable mandates between money and the agents that spend it. Forum ships that layer as **Covenant Accounts** — USDC vaults where an agent pulls *bounded* credit under an on-chain mandate, publishes recomputable signed receipts every cycle, and gets paused **and** slashed by anyone, permissionlessly, in a single transaction the moment the mandate breaks. Nineteen contracts are live on Arc testnet today with an autonomous keeper, a real Polymarket V2 mainnet fill anchored on Arc, CCTP V2 wired in two ways, and TS/Python SDKs. This grant funds the path from audited testnet protocol to **day-one Arc mainnet infrastructure**.
+Capital cannot trust an AI agent with a wallet, so the agentic economy on Arc has a missing layer: enforceable mandates between money and the agents that spend it. Forum ships that layer as **Covenant Accounts** — USDC vaults where an agent pulls *bounded* credit under an on-chain mandate, publishes recomputable signed receipts every cycle, and gets paused **and** slashed by anyone, permissionlessly, in a single transaction the moment the mandate breaks. Nineteen contracts are live on Arc testnet today with an autonomous keeper, a real Polymarket V2 mainnet fill anchored on Arc, CCTP V2 wired in two ways, and TS/Python SDKs. This grant funds the path from testnet protocol, through an audit, to **Arc mainnet infrastructure**.
 
 ## The problem
 
@@ -44,11 +45,11 @@ Circle's Agent Wallets enforce spend policy at the wallet layer; Forum is the **
 
 ## Traction — what's shipped (all verifiable)
 
-- **19 contracts live** on Arc testnet, deployed and exercised May 11–26, 2026; CI green ([badge](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml)) across keeper vitest + 22 forge test suites.
-- **Autonomous enforcement proven organically**: tx `0x2c8e79a5…305d13` — a single permissionless `enforce()` call paused the live vault and slashed 1.25 USDC from the bond after the keeper missed its receipt window. The rule fired with no human in the loop. **Two caveats, stated because they are checkable on-chain:** the `enforce()` call came from the keeper's own kernel nudge rather than a third party, and `SlashBondV1_1` was configured with `recipient == operator`, so the slash moved the operator's own USDC back to the operator — the mechanism is real, the economic penalty was not. Cumulative on-chain today: `totalSlashed()` 4.910909 USDC, leaving `bondBalance()` 0.089091 of the original 5.00. [Proof page](https://forum.gudman.xyz/#/proof).
+- **19 contracts live** on Arc testnet, deployed and exercised May 11–26, 2026; CI green ([badge](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml)) across keeper vitest + 23 forge test suites.
+- **Autonomous enforcement fired on-chain**: tx `0x2c8e79a5…305d13` — a single permissionless `enforce()` call paused the live vault and slashed 1.25 USDC from the bond after the keeper missed its receipt window. The rule fired with no human in the loop. **Two caveats, stated because they are checkable on-chain:** the `enforce()` call came from the keeper's own kernel nudge rather than a third party, and `SlashBondV1_1` was configured with `recipient == operator`, so the slash moved the operator's own USDC back to the operator — the mechanism is real, the economic penalty was not. Cumulative on-chain today: `totalSlashed()` 4.910909 USDC, leaving `bondBalance()` 0.089091 of the original 5.00. [Proof page](https://forum.gudman.xyz/#/proof).
 - **Real Polymarket V2 mainnet fill** settled on Polygon and anchored to `TrackRecordV2` on Arc, with builder attribution confirmed by Polymarket's API — [`/api/proof`](https://forum.gudman.xyz/api/proof), [`docs/phase-3-live-fill-proof.md`](docs/phase-3-live-fill-proof.md).
 - **18+ bots indexed across 3 external operators** on the AgentScore leaderboard; receipts recomputable by anyone (`keeper/scripts/verify-receipt.mjs`).
-- **Live since May**: frontend, 10+ endpoint indexer API, self-serve vault factory, in-browser CCTP bridge — all running continuously at forum.gudman.xyz.
+- **Live since May**: frontend, 10+ endpoint indexer API, self-serve vault factory, in-browser CCTP bridge at forum.gudman.xyz. The indexer behind the API has not polled since 2026-07-15 (`/api/health` reports `stale: true`), so the testnet dashboard is a snapshot.
 - **Ecosystem contribution already shipped**: the [arc-agent-console](https://github.com/Ridwannurudeen/arc-agent-console) starter kit (x402 + session keys on Arc, Arc-focused docs, copy-paste examples) is maintained as standalone OSS so any Arc team can fork it.
 
 ## Honest gaps → funded milestones
@@ -63,7 +64,7 @@ We document our limitations publicly ([README → Honest scope](README.md#honest
 ### M2 — Full Circle-stack activation
 - **USYC live yield**: out of reach for now — the adapter's `ITeller` interface does not match the deployed contract, and USYC access requires non-US institutional status under Regulation S plus a $100,000 minimum.
 - **CCTP V2 end-to-end on record**: complete and document a full source-chain → Arc → vault-deposit transfer through the in-browser bridge.
-- *Acceptance:* a vault position showing USYC yield; a published CCTP transfer proof with tx hashes on both chains.
+- *Acceptance:* a published CCTP transfer proof with tx hashes on both chains.
 
 ### M3 — Arc mainnet launch
 - Deploy the audited Covenant stack to **Arc mainnet at or near day one**; migrate keeper, indexer, and frontend; mainnet deployment manifest published like `deployments/arc-testnet.json`.
@@ -90,7 +91,7 @@ Solo builder with proven shipping velocity: 202 commits / 50 merged PRs in 15 da
 |---|---|
 | Live product | https://forum.gudman.xyz |
 | Repo | https://github.com/Ridwannurudeen/forum |
-| Deployment manifest | [`deployments/arc-testnet.json`](deployments/arc-testnet.json) |
+| Deployment manifests | [`deployments/arc-testnet.json`](deployments/arc-testnet.json) · mainnet PolicyVault [`deployments/arc-mainnet.json`](deployments/arc-mainnet.json) |
 | Proofs | [`/#/proof`](https://forum.gudman.xyz/#/proof) · [`/api/proof`](https://forum.gudman.xyz/api/proof) |
 | Arc explorer (live vault) | https://testnet.arcscan.app/address/0x80384963c0c93414ff16e018c6618a64bc94df6d |
 | Starter kit (OSS) | https://github.com/Ridwannurudeen/arc-agent-console · https://arc-console.gudman.xyz |

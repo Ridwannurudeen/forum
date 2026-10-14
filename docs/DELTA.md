@@ -15,8 +15,8 @@ git diff --stat tameion-start..HEAD
 | `test/PolicyVault.t.sol` | 709 | 38 tests against a **real** `TrackRecordV2`, not a mock |
 | `script/DeployPolicyVault.s.sol` | 33 | Deploy for Arc mainnet 5042, with `registerBot` before the vault |
 | `keeper/scripts/policy-keeper.mjs` | 209 | The agent side: preflight `canPay`, build the record from chain state, sign, pay |
-| `frontend/policy.html` | 324 | The live page. Every number read from chain in the browser; no indexer |
-| `deployments/arc-mainnet.json` | 70 | The mainnet manifest, including what is deliberately **not** deployed and **not** claimed |
+| `frontend/policy.html` | 343 | The live page. Every number read from chain in the browser; no indexer |
+| `deployments/arc-mainnet.json` | 99 | The mainnet manifest, including what is deliberately **not** deployed and **not** claimed |
 
 ## Changed
 

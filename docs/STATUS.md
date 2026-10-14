@@ -5,8 +5,13 @@ demonstration of the mechanics** of an agent capital-control layer on Arc. It is
 **not** yet a complete, adopted, multi-party product. We'd rather call that out
 ourselves than have a judge find it.
 
+> **2026-10-14:** this page covers the Covenant stack on Arc testnet. The only mainnet
+> deployment is PolicyVault, an unaudited capped pilot — its status is in
+> [`DELTA.md`](DELTA.md) and [`deployments/arc-mainnet.json`](../deployments/arc-mainnet.json).
+
 Verified on Arc testnet (chainId 5042002). Operator/deployer for all first-party
-activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api
+activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api/health (the
+indexer has not polled since 2026-07-15)
 
 ## ✅ Genuinely real (verified on-chain)
 
