@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://rpc.mainnet.arc.io https://rpc.testnet.arc.io https://rpc.testnet.arc.network https://esm.sh; object-src 'none'; base-uri 'self'"
+/>
+<title>Forum PolicyVault — live on Arc</title>
+<style>
+  :root {
+    --ink: #0d0f14; --paper: #f7f7f4; --muted: #6b7280; --line: #e3e3dd;
+    --accent: #4c3bcf; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e8e8e3; --paper: #0d0f14; --muted: #9aa0ab; --line: #272b33;
+      --accent: #9b8cff; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 16px 80px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em;
+       color: var(--muted); margin: 36px 0 10px; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .banner {
+    border: 1px solid var(--line); border-left: 3px solid var(--warn);
+    padding: 12px 14px; margin: 18px 0 26px; font-size: 0.9rem;
+  }
+  .banner b { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line);
+           vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; width: 36%; }
+  .mono { font-family: var(--mono); font-size: 0.85rem; word-break: break-all; }
+  a { color: var(--accent); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .card { border: 1px solid var(--line); padding: 14px; margin-bottom: 10px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input, select, button {
+    font: inherit; padding: 7px 9px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink);
+  }
+  button { cursor: pointer; border-color: var(--accent); color: var(--accent); }
+  .verdict { margin-top: 10px; font-size: 0.92rem; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 0.82rem;
+           border-top: 1px solid var(--line); padding-top: 14px; }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Forum PolicyVault</h1>
+  <p class="sub">A non-custodial spend policy for an AI agent, live on Arc. Every number on this page
+  is read from the chain in your browser.</p>
+
+  <div class="banner">
+    <b>Unaudited, capped pilot.</b> The contract holds no funds — it moves USDC directly from the
+    owner's wallet under an allowance, so <span class="mono">approve(0)</span> revokes it instantly.
+    <b>The allowance is the real cap.</b> The in-contract budgets are bucketed (UTC-midnight days,
+    30-day epochs anchored at deploy), so twice a cap is reachable across a boundary by design.
+  </div>
+
+  <h2>Deployment</h2>
+  <table><tbody>
+    <tr><th>Network</th><td id="net" class="mono">…</td></tr>
+    <tr><th>Head block</th><td id="block" class="mono">…</td></tr>
+    <tr><th>PolicyVault</th><td id="vaultAddr" class="mono">…</td></tr>
+    <tr><th>TrackRecordV2</th><td id="trAddr" class="mono">…</td></tr>
+    <tr><th>Owner</th><td id="owner" class="mono">…</td></tr>
+    <tr><th>Agent (calls pay)</th><td id="agent" class="mono">…</td></tr>
+    <tr><th>Record signer (immutable)</th><td id="signer" class="mono">…</td></tr>
+    <tr><th>State</th><td id="paused" class="mono">…</td></tr>
+  </tbody></table>
+
+  <h2>Spending capacity</h2>
+  <table><tbody>
+    <tr><th>Owner spendable now</th><td id="spendable" class="mono">…</td></tr>
+    <tr><th>Total paid</th><td id="totalPaid" class="mono">…</td></tr>
+    <tr><th>Payments</th><td id="payCount" class="mono">…</td></tr>
+  </tbody></table>
+
+  <h2>Categories</h2>
+  <div id="categories"><p class="empty">loading…</p></div>
+
+  <h2>Payees</h2>
+  <p class="sub" style="margin-top:-4px">A payee is not payable for 24 hours after registration. The
+  cooling period is a constant in the contract — nobody can shorten it.</p>
+  <div id="payees"><p class="empty">loading…</p></div>
+
+  <h2>Can this vault pay me?</h2>
+  <div class="card">
+    <div class="row">
+      <select id="qPayee"></select>
+      <select id="qCategory"></select>
+      <input id="qAmount" type="text" inputmode="decimal" placeholder="amount in USDC" size="14" />
+      <button id="qGo">Check</button>
+    </div>
+    <div class="verdict" id="qOut">Pick a payee, a category and an amount.</div>
+  </div>
+
+  <h2>Payments</h2>
+  <p class="sub" style="margin-top:-4px"><code>Paid</code> events are the payment ledger. Records are
+  the agent's signed claims — every payment has one, but publishing a record is permissionless, so a
+  record alone is not a payment.</p>
+  <div id="payments"><p class="empty">loading…</p></div>
+
+  <footer>
+    Source: <a href="https://github.com/Ridwannurudeen/forum">github.com/Ridwannurudeen/forum</a> ·
+    The rest of the Forum stack is an archived testnet demo and is not deployed here.
+  </footer>
+</div>
+
+<script type="module">
+import { createPublicClient, http, formatUnits, parseUnits, keccak256, stringToBytes }
+  from "https://esm.sh/viem@2.50.4";
+
+// ---------------------------------------------------------------------------
+// Fill these in from deployments/arc-mainnet.json after the deploy, and flip
+// `deployed` to true. botId is read from the vault, not configured here.
+// ---------------------------------------------------------------------------
+const CONFIG = {
+  deployed: true,
+  rpc: "https://rpc.mainnet.arc.io",
+  explorer: "https://explorer.arc.io",
+  vault: "0xAACe70a50573cB077f65D601cD19103afC4aeF9d",
+  trackRecord: "0x730825299821D411146c503915553E37eBDc750c",
+  deployBlock: 25883057n,
+  categories: [{ label: "contractors" }],
+  payees: [{ label: "payee-alpha" }],
+};
+
+const ZERO_ADDRESS = "0x" + "0".repeat(40);
+const LOG_WINDOW = 10_000n;
+
+const VAULT_ABI = [
+  { type:"function", name:"owner", stateMutability:"view", inputs:[], outputs:[{type:"address"}] },
+  { type:"function", name:"agent", stateMutability:"view", inputs:[], outputs:[{type:"address"}] },
+  { type:"function", name:"botId", stateMutability:"view", inputs:[], outputs:[{type:"bytes32"}] },
+  { type:"function", name:"paused", stateMutability:"view", inputs:[], outputs:[{type:"bool"}] },
+  { type:"function", name:"totalPaidUsdc", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
+  { type:"function", name:"paymentCount", stateMutability:"view", inputs:[], outputs:[{type:"uint64"}] },
+  { type:"function", name:"ownerSpendable", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
+  { type:"function", name:"categories", stateMutability:"view", inputs:[{type:"bytes32"}],
+    outputs:[{name:"epochBudget",type:"uint128"},{name:"perTxCap",type:"uint128"},
+             {name:"perDayCap",type:"uint128"},{name:"exists",type:"bool"}] },
+  { type:"function", name:"payees", stateMutability:"view", inputs:[{type:"bytes32"}],
+    outputs:[{name:"account",type:"address"},{name:"registeredAt",type:"uint64"},
+             {name:"dailyCap",type:"uint128"},{name:"active",type:"bool"}] },
+  { type:"function", name:"remainingEpochBudget", stateMutability:"view", inputs:[{type:"bytes32"}], outputs:[{type:"uint128"}] },
+  { type:"function", name:"remainingDayCap", stateMutability:"view", inputs:[{type:"bytes32"}], outputs:[{type:"uint128"}] },
+  { type:"function", name:"remainingPayeeDayCap", stateMutability:"view", inputs:[{type:"bytes32"}], outputs:[{type:"uint128"}] },
+  { type:"function", name:"payeePayableFrom", stateMutability:"view", inputs:[{type:"bytes32"}], outputs:[{type:"uint64"}] },
+  { type:"function", name:"canPay", stateMutability:"view",
+    inputs:[{type:"bytes32"},{type:"bytes32"},{type:"uint128"}],
+    outputs:[{name:"ok",type:"bool"},{name:"code",type:"uint8"}] },
+  { type:"event", name:"Paid", inputs:[
+      {name:"payeeId",type:"bytes32",indexed:true},
+      {name:"categoryId",type:"bytes32",indexed:true},
+      {name:"account",type:"address",indexed:true},
+      {name:"amount",type:"uint128"},
+      {name:"recordMeta",type:"bytes32"},
+      {name:"recordSeq",type:"uint64"},
+      {name:"paymentIndex",type:"uint64"} ] },
+];
+
+const TR_ABI = [
+  { type:"function", name:"botSigner", stateMutability:"view", inputs:[{type:"bytes32"}], outputs:[{type:"address"}] },
+];
+
+const CODES = {
+  0:"ok", 1:"the vault is paused", 2:"payee not registered", 3:"payee deactivated",
+  4:"payee still inside the 24h cooling period", 5:"category does not exist",
+  6:"over the per-transaction cap", 7:"over this payee's daily cap",
+  8:"over the category's daily cap", 9:"over the category's 30-day budget",
+  10:"the owner's allowance or balance is short", 11:"the record bot is not registered",
+};
+
+const id = (label) => keccak256(stringToBytes(label));
+const usdc = (v) => `${formatUnits(v, 6)} USDC`;
+const el = (s) => document.querySelector(s);
+const short = (a) => `${a.slice(0,10)}…${a.slice(-8)}`;
+const link = (a, kind="address") =>
+  `<a href="${CONFIG.explorer}/${kind}/${a}" target="_blank" rel="noopener">${short(a)}</a>`;
+
+const client = createPublicClient({ transport: http(CONFIG.rpc) });
+const read = (name, args=[]) =>
+  client.readContract({ address: CONFIG.vault, abi: VAULT_ABI, functionName: name, args });
+
+function coolingText(payableFrom, now) {
+  const left = Number(payableFrom) - now;
+  if (left <= 0) return `<span class="ok">payable</span>`;
+  const h = Math.floor(left/3600), m = Math.floor((left%3600)/60);
+  return `<span class="warn">cooling — ${h}h ${m}m left</span>`;
+}
+
+async function main() {
+  if (!CONFIG.deployed) {
+    el("#net").innerHTML =
+      `<span class="warn">not deployed yet — fill CONFIG from deployments/arc-mainnet.json</span>`;
+    return;
+  }
+
+  const [chainId, block] = await Promise.all([client.getChainId(), client.getBlockNumber()]);
+  el("#net").textContent = `Arc · chain ${chainId}`;
+  el("#block").textContent = block.toString();
+  el("#vaultAddr").innerHTML = link(CONFIG.vault);
+  el("#trAddr").innerHTML = link(CONFIG.trackRecord);
+
+  const [owner, agent, botId, paused, totalPaid, payCount, spendable] = await Promise.all([
+    read("owner"), read("agent"), read("botId"), read("paused"),
+    read("totalPaidUsdc"), read("paymentCount"), read("ownerSpendable"),
+  ]);
+  const signer = await client.readContract({
+    address: CONFIG.trackRecord, abi: TR_ABI, functionName: "botSigner", args: [botId],
+  });
+
+  el("#owner").innerHTML = link(owner);
+  el("#agent").innerHTML = link(agent);
+  el("#signer").innerHTML = link(signer) +
+    (signer.toLowerCase() === agent.toLowerCase()
+      ? ` <span class="ok">matches the agent</span>`
+      : ` <span class="bad">does not match the agent — pay() will revert</span>`);
+  el("#paused").innerHTML = paused
+    ? `<span class="bad">PAUSED</span>` : `<span class="ok">active</span>`;
+  el("#spendable").textContent = usdc(spendable);
+  el("#totalPaid").textContent = usdc(totalPaid);
+  el("#payCount").textContent = payCount.toString();
+
+  // categories
+  const cats = [];
+  for (const c of CONFIG.categories) {
+    const cid = id(c.label);
+    const [cfg, remEpoch, remDay] = await Promise.all([
+      read("categories", [cid]), read("remainingEpochBudget", [cid]), read("remainingDayCap", [cid]),
+    ]);
+    if (!cfg[3]) continue;
+    cats.push({ ...c, cid });
+    el("#categories").insertAdjacentHTML("beforeend", `
+      <div class="card"><b>${c.label}</b>
+        <table><tbody>
+          <tr><th>Per transaction</th><td class="mono">${usdc(cfg[1])}</td></tr>
+          <tr><th>Per day</th><td class="mono">${usdc(cfg[2])} · ${usdc(remDay)} left today</td></tr>
+          <tr><th>Per 30 days</th><td class="mono">${usdc(cfg[0])} · ${usdc(remEpoch)} left</td></tr>
+        </tbody></table>
+      </div>`);
+  }
+  if (!cats.length) el("#categories").innerHTML = `<p class="empty">no categories configured</p>`;
+  else el("#categories").querySelector(".empty")?.remove();
+
+  // payees
+  const now = Math.floor(Date.now()/1000);
+  const pays = [];
+  for (const p of CONFIG.payees) {
+    const pid = id(p.label);
+    const [info, payableFrom, remPayee] = await Promise.all([
+      read("payees", [pid]), read("payeePayableFrom", [pid]), read("remainingPayeeDayCap", [pid]),
+    ]);
+    if (info[0] === ZERO_ADDRESS) continue;
+    pays.push({ ...p, pid });
+    el("#payees").insertAdjacentHTML("beforeend", `
+      <div class="card"><b>${p.label}</b>
+        <table><tbody>
+          <tr><th>Address</th><td class="mono">${link(info[0])}</td></tr>
+          <tr><th>Status</th><td>${info[3] ? coolingText(payableFrom, now) : `<span class="bad">deactivated</span>`}</td></tr>
+          <tr><th>Daily cap</th><td class="mono">${usdc(info[2])} · ${usdc(remPayee)} left today</td></tr>
+        </tbody></table>
+      </div>`);
+  }
+  if (!pays.length) el("#payees").innerHTML = `<p class="empty">no payees registered</p>`;
+  else el("#payees").querySelector(".empty")?.remove();
+
+  // can-pay widget
+  for (const p of pays) el("#qPayee").insertAdjacentHTML("beforeend", `<option value="${p.pid}">${p.label}</option>`);
+  for (const c of cats) el("#qCategory").insertAdjacentHTML("beforeend", `<option value="${c.cid}">${c.label}</option>`);
+  el("#qGo").addEventListener("click", async () => {
+    const out = el("#qOut");
+    try {
+      const amt = parseUnits(el("#qAmount").value.trim() || "0", 6);
+      const [ok, code] = await read("canPay", [el("#qPayee").value, el("#qCategory").value, amt]);
+      out.innerHTML = ok
+        ? `<span class="ok">Yes — this payment is inside policy right now.</span>`
+        : `<span class="bad">No — code ${code}: ${CODES[code] ?? "unknown"}.</span>`;
+    } catch (e) {
+      out.innerHTML = `<span class="bad">read failed: ${String(e.message || e)}</span>`;
+    }
+  });
+
+  // payments, straight from Paid events. The RPC caps eth_getLogs at 10,000
+  // blocks and Arc makes about two a second, so scan in windows.
+  const paidEvent = VAULT_ABI.find((x) => x.type === "event" && x.name === "Paid");
+  const ranges = [];
+  for (let from = CONFIG.deployBlock; payCount > 0n && from <= block; from += LOG_WINDOW) {
+    const to = from + LOG_WINDOW - 1n;
+    ranges.push([from, to < block ? to : block]);
+  }
+  const logs = [];
+  for (let i = 0; i < ranges.length; i += 8) {
+    const batch = await Promise.all(ranges.slice(i, i + 8).map(([fromBlock, toBlock]) =>
+      client.getLogs({ address: CONFIG.vault, event: paidEvent, fromBlock, toBlock })));
+    logs.push(...batch.flat());
+  }
+  if (!logs.length) {
+    el("#payments").innerHTML = `<p class="empty">no payments yet</p>`;
+  } else {
+    el("#payments").innerHTML = `<table><thead><tr>
+      <th style="width:auto">#</th><th style="width:auto">Amount</th>
+      <th style="width:auto">To</th><th style="width:auto">Record</th><th style="width:auto">Tx</th>
+      </tr></thead><tbody>` +
+      logs.map((l) => `<tr>
+        <td class="mono">${l.args.paymentIndex}</td>
+        <td class="mono">${usdc(l.args.amount)}</td>
+        <td class="mono">${link(l.args.account)}</td>
+        <td class="mono">seq ${l.args.recordSeq}</td>
+        <td class="mono">${link(l.transactionHash, "tx")}</td>
+      </tr>`).join("") + `</tbody></table>`;
+  }
+}
+
+main().catch((e) => {
+  el("#net").innerHTML = `<span class="bad">read failed: ${String(e.message || e)}</span>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+{
+  "_comment": "Deployed 2026-10-14. Every value below was read back from chain after the broadcast.",
+  "chainId": 5042,
+  "rpc": "https://rpc.mainnet.arc.io",
+  "explorer": "https://explorer.arc.io",
+  "deployer": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+  "deployedAt": "2026-10-14T06:58:41Z",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "usdcDecimals": 6,
+  "nativeDecimals": 18,
+  "_decimalsNote": "On Arc the native gas unit is 18-decimal while the USDC ERC-20 interface is 6-decimal. They are the same balance, 1e12 apart. Never render a treasury balance from eth_getBalance.",
+  "gas": {
+    "baseFeeFloorGwei": 20,
+    "usedGasPriceGwei": 21,
+    "_floorNote": "Transactions below the 20 Gwei floor are silently dropped with no receipt. If no receipt arrives, check the nonce before re-broadcasting."
+  },
+  "contracts": {
+    "TrackRecordV2": {
+      "address": "0x730825299821D411146c503915553E37eBDc750c",
+      "txHash": "0xa910f2671a30b7232af7b229bc33a3e79f5f3cadd88e8a341582296cf42e0f77",
+      "block": 25883049,
+      "registerBotTxHash": "0x6bd5346f830fac0346b39be6a7bb985ca2b199a7d9ca1ce22e24d1ed9ce580f9",
+      "registerBotBlock": 25883053
+    },
+    "PolicyVault": {
+      "address": "0xAACe70a50573cB077f65D601cD19103afC4aeF9d",
+      "txHash": "0x5bdd8c480ff29c6dec19a05ef9ad82edbf9fef18dde33f936e82352a733e7905",
+      "block": 25883057,
+      "owner": "0x9cFf811681B932381AeF425f56a3d945027FF181",
+      "agent": "0x9bfe154F8b57Ee0412E46eC26b24081641C55275",
+      "botId": "0x9cf1c24c67335c0e741cbb22d6606abf74719b3e75a367cc849315778c612ee5",
+      "botSigner": "0x9bfe154F8b57Ee0412E46eC26b24081641C55275",
+      "_signerNote": "botSigner is fixed at registerBot and has no setter. setAgent rotates caller authority only. Verify botSigner equals the signing key BEFORE the owner grants any allowance.",
+      "payeeCoolingSec": 86400,
+      "epochSec": 2592000,
+      "maxEpochBudget": "1000000000",
+      "categories": [
+        {
+          "label": "contractors",
+          "id": "0x1155b6af80f3974ff8b3e5d41020afc9fe049597a0ce289a3e680f7f784ea2e6",
+          "epochBudget": "50000000",
+          "perTxCap": "5000000",
+          "perDayCap": "10000000",
+          "txHash": "0xeb5242ac7fb7fefb8369778d44057bc86cf68515ec9cd72c1e945c97475fae88",
+          "block": 25883354
+        }
+      ],
+      "payees": [
+        {
+          "label": "payee-alpha",
+          "id": "0x73b0a938e9d7208ec488148a1c2bd7e1c155c51e7ba27536aba78c31bee8e404",
+          "account": "0x7631DDa4cE86B3Ad9291258DaA822A9f3A4a3128",
+          "dailyCap": "5000000",
+          "registeredAt": 1791961280,
+          "payableFrom": 1792047680,
+          "payableFromUtc": "2026-10-15T07:01:20Z",
+          "txHash": "0x5066a1193923786592fdce55cf48d9315bd0bb2f74f78f427025d83673339a5b",
+          "block": 25883373
+        }
+      ],
+      "ownerAllowance": "10000000",
+      "allowanceTxHash": "0xc7ea5c858522e4880d47d203154f0c71778e50d47a4f8ecc010ea1132b8999ed",
+      "firstPaymentTxHash": "",
+      "firstPaymentRecordSeq": null
+    }
+  },
+  "verification": {
+    "verifier": "sourcify",
+    "status": "exact_match",
+    "verifiedAt": "2026-10-14T07:11Z",
+    "lookup": [
+      "https://sourcify.dev/server/v2/contract/5042/0x730825299821D411146c503915553E37eBDc750c",
+      "https://sourcify.dev/server/v2/contract/5042/0xAACe70a50573cB077f65D601cD19103afC4aeF9d"
+    ],
+    "_note": "Both contracts are an exact match (creation and runtime bytecode) on Sourcify. Blockscout at explorer.arc.io/api was tried first and refused by a Cloudflare challenge before reaching the verifier, so the explorer itself may still show them as unverified.",
+    "compiler": "0.8.30",
+    "optimizer": true,
+    "optimizerRuns": 200
+  },
+  "notDeployed": [
+    "CovenantVault", "CovenantVaultV2", "CovenantVaultV3", "CovenantVaultFactory",
+    "CovenantVaultFactoryV2", "RiskKernel", "RiskKernelV2", "RiskKernelV3",
+    "SlashBond", "SlashMarket", "SlashInsurance", "CapitalRouter", "FeeRouterV1",
+    "CovenantInbox", "AgentPool", "UsycStrategyAdapter", "IdleStrategyAdapter",
+    "BuilderCodeRegistry", "KeeperConfig", "TrackRecord", "FeeDistributor",
+    "PolicyVaultFactory"
+  ],
+  "notClaimed": {
+    "threeWayMatch": "No order, delivery or receipt attestation in this deploy. The vault enforces who, how much and how often — not whether the work was done.",
+    "vetoQueue": "No delay queue and no per-payment human approval. A payment inside policy settles immediately.",
+    "standingOrders": "Not in this deploy.",
+    "cctp": "No destination leg. TokenMessengerV2 is live on 5042 but PolicyVault does not call it. Payees must be on Arc.",
+    "factory": "One vault, one owner, one agent. No multi-business tier and no self-serve deployment.",
+    "recordsAreNotPayments": "Every payment publishes a record in the same transaction, but TrackRecordV2.publish is permissionless, so a record alone is not a payment. Paid events are the payment ledger.",
+    "audit": "Unaudited. Capped pilot.",
+    "arcSpecificBehaviour": "Arc's runtime blocklist is covered by a mock in the test suite. forge test runs a stock EVM and forge script's dry run does too, so Arc-specific reverts only surface on broadcast."
+  },
+  "fundingTxHash": "0xdc4779d4ace88d01aa5d8ad8be39fb8a7043e356286a3f181b875f2d32464dd8"
+}

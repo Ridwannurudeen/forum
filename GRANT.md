@@ -37,7 +37,7 @@ Arc is not a deployment target for Forum; it is the control plane. Every balance
 - **Arc** — all mandate state, vault/bond/receipt commitments, enforcement; 19 contracts live.
 - **USDC** — vault capital, operator bonds, slashing, fee splits, insurance premiums.
 - **CCTP V2** — integrated two ways: an in-browser bridge ([`/#/console?t=bridge`](https://forum.gudman.xyz/#/console?t=bridge)) building the real `depositForBurn` → Iris attestation → `receiveMessage` flow into Arc Domain 26 from four source testnets, and a CLI helper (`keeper/scripts/cctp-bridge-and-deposit.mjs`). `CovenantInbox` is a deployed bridge-friendly deposit wrapper.
-- **USYC** — `UsycStrategyAdapter` is code-complete against the Hashnote Teller (`buy`/`sell`) for vault-custodied Treasury yield, verified on-chain to revert pending the **Circle Entitlements allowlist** — i.e., real Treasury yield on idle vault USDC is one allowlist approval away (a concrete ask of this grant relationship).
+- **USYC** — `UsycStrategyAdapter` is code-complete against the Hashnote Teller (`buy`/`sell`) for vault-custodied Treasury yield, but **not working**: it targets `ITeller.buy`/`sell`, which do not exist on the deployed Teller (only `deposit`/`redeem` do), and USYC is restricted to non-US institutions under Regulation S with a $100,000 minimum. Not shipped, and not an allowlist approval away.
 - **Gateway / Agent stack** — addressed in deployments metadata, targeted in M4 below.
 
 Circle's Agent Wallets enforce spend policy at the wallet layer; Forum is the **on-chain, permissionlessly-enforced** complement — policy that depositors and counterparties can verify and enforce themselves, with slashable collateral behind it.
@@ -45,7 +45,7 @@ Circle's Agent Wallets enforce spend policy at the wallet layer; Forum is the **
 ## Traction — what's shipped (all verifiable)
 
 - **19 contracts live** on Arc testnet, deployed and exercised May 11–26, 2026; CI green ([badge](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml)) across keeper vitest + 22 forge test suites.
-- **Autonomous enforcement proven organically**: tx `0x2c8e79a5…305d13` — a single permissionless `enforce()` call paused the live vault and slashed 1.25 USDC from the bond after the keeper missed its receipt window. Not a demo script; the keeper actually went stale. [Proof page](https://forum.gudman.xyz/#/proof).
+- **Autonomous enforcement proven organically**: tx `0x2c8e79a5…305d13` — a single permissionless `enforce()` call paused the live vault and slashed 1.25 USDC from the bond after the keeper missed its receipt window. The rule fired with no human in the loop. **Two caveats, stated because they are checkable on-chain:** the `enforce()` call came from the keeper's own kernel nudge rather than a third party, and `SlashBondV1_1` was configured with `recipient == operator`, so the slash moved the operator's own USDC back to the operator — the mechanism is real, the economic penalty was not. Cumulative on-chain today: `totalSlashed()` 4.910909 USDC, leaving `bondBalance()` 0.089091 of the original 5.00. [Proof page](https://forum.gudman.xyz/#/proof).
 - **Real Polymarket V2 mainnet fill** settled on Polygon and anchored to `TrackRecordV2` on Arc, with builder attribution confirmed by Polymarket's API — [`/api/proof`](https://forum.gudman.xyz/api/proof), [`docs/phase-3-live-fill-proof.md`](docs/phase-3-live-fill-proof.md).
 - **18+ bots indexed across 3 external operators** on the AgentScore leaderboard; receipts recomputable by anyone (`keeper/scripts/verify-receipt.mjs`).
 - **Live since May**: frontend, 10+ endpoint indexer API, self-serve vault factory, in-browser CCTP bridge — all running continuously at forum.gudman.xyz.
@@ -61,7 +61,7 @@ We document our limitations publicly ([README → Honest scope](README.md#honest
 - *Acceptance:* audit report published; venue-restricted vault live on testnet with funds provably never custodied by the operator.
 
 ### M2 — Full Circle-stack activation
-- **USYC live yield**: Entitlements allowlisting of `UsycStrategyAdapter` → idle vault USDC earning real Treasury yield, recomputable on-chain.
+- **USYC live yield**: out of reach for now — the adapter's `ITeller` interface does not match the deployed contract, and USYC access requires non-US institutional status under Regulation S plus a $100,000 minimum.
 - **CCTP V2 end-to-end on record**: complete and document a full source-chain → Arc → vault-deposit transfer through the in-browser bridge.
 - *Acceptance:* a vault position showing USYC yield; a published CCTP transfer proof with tx hashes on both chains.
 

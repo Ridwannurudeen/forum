@@ -20,6 +20,13 @@
 
 ---
 
+> **Live on Arc mainnet — PolicyVault.** A non-custodial spend policy for an AI agent: the agent proposes
+> a payment, the contract checks payee, category and caps, and moves USDC straight from the owner's
+> wallet under an allowance. Live page: https://forum.gudman.xyz/policy.html · vault
+> `0xAACe70a50573cB077f65D601cD19103afC4aeF9d` on chain 5042 · source `src/PolicyVault.sol` · what was built
+> and what is still open: [`docs/DELTA.md`](docs/DELTA.md). Unaudited, capped pilot. Everything below this
+> note is the earlier Covenant Accounts stack, which runs on Arc **testnet** and is not deployed to mainnet.
+
 Forum is **not** another prediction-market bot. It is the control and settlement layer that lets capital fund market-making agents *without* handing the agent an unrestricted wallet. Investors deposit USDC; an operator's agent pulls **bounded** credit under an on-chain mandate; every cycle publishes a recomputable, signed receipt; and **anyone** can pause the vault and slash the operator's bond — in a single transaction — the moment the mandate breaks.
 
 <div align="center">
@@ -150,7 +157,7 @@ Chain: **Arc testnet `5042002`** · full metadata in [`deployments/arc-testnet.j
 | `SlashInsurance` | `0x353e7fdfdae68967dedfd5ff9150e166d29ffd61` | Continuous-premium insurance pool for `SlashBondV1.1` |
 | `FeeRouterV1` | `0xeff9bc359e8f2a5eabce55af3f1bb24f98eabf59` | `createSplit` → permissionless `pay` → `claim` across splits |
 | `CovenantVaultV2` | `0x9e08cc6e3ba3026a61139fecd7ba98086a94abf5` | Vault-custodied strategy deployment (governor-approved adapters) |
-| `IdleStrategyAdapter` | `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343` | Allowlist-free zero-yield `StrategyAdapter` proving the deploy/recall path today. Its real-yield sister `UsycStrategyAdapter` ([`src/UsycStrategyAdapter.sol`](src/UsycStrategyAdapter.sol)) is code-complete against Hashnote's `ITeller.buy/sell` on Arc-native **USYC** (Circle's tokenized U.S. Treasury fund: token `0xe9185F0c…db86C`, Teller `0x9fdF14c5…DC105A`); the adapter custodies USDC + USYC on the vault's behalf and is gated only by the adapter address's **Circle Entitlements** allowlist (`0xcc205224…26113`) — one Circle Support request away from real Treasury yield on the same interface. See [`docs/yield-adapter.md`](docs/yield-adapter.md). |
+| `IdleStrategyAdapter` | `0xa47f32dfdfc199a2df34d96029273ca0e2c7d343` | Allowlist-free zero-yield `StrategyAdapter` proving the deploy/recall path today. Its real-yield sister `UsycStrategyAdapter` ([`src/UsycStrategyAdapter.sol`](src/UsycStrategyAdapter.sol)) is code-complete against Hashnote's `ITeller.buy/sell` on Arc-native **USYC** (Circle's tokenized U.S. Treasury fund: token `0xe9185F0c…db86C`, Teller `0x9fdF14c5…DC105A`); the adapter is **not working and not shipped**: it targets `ITeller.buy`/`sell`, which do not exist on the deployed Teller (only `deposit(uint256,address)` and `redeem(uint256,address,address)` do), and USYC itself is restricted to non-US institutions under Regulation S with a $100,000 minimum, so it is not a support request away. See [`docs/yield-adapter.md`](docs/yield-adapter.md). |
 | `RiskKernelV3` | `0x554cdad3cac1f640b39816193310166afc2bde06` | Persistent monotonic drawdown peak + on-chain NAV circuit breaker (`PAUSE_NAV`) |
 
 </details>
@@ -161,7 +168,7 @@ Chain: **Arc testnet `5042002`** · full metadata in [`deployments/arc-testnet.j
 <img src="docs/assets/screenshot-proof.png" alt="First autonomous slash, settled on-chain" width="80%" />
 </div>
 
-**First autonomous pause + slash** — tx `0x2c8e79a5…305d13` ([view on the live Proof page](https://forum.gudman.xyz/#/proof)). A single `RiskKernelV2.enforce(CovenantVaultV1.2)` call flipped the vault `ACTIVE → PAUSED` **and** slashed `1.25 USDC` from the bond in one transaction. The trigger was organic — the keeper missed its 30-minute receipt window.
+**First autonomous pause + slash** — tx `0x2c8e79a5…305d13` ([view on the live Proof page](https://forum.gudman.xyz/#/proof)). A single `RiskKernelV2.enforce(CovenantVaultV1.2)` call flipped the vault `ACTIVE → PAUSED` **and** slashed `1.25 USDC` from the bond in one transaction. The trigger was a missed 30-minute receipt window. The rule fired with no human in the loop. **Two caveats, stated because they are checkable on-chain:** the `enforce()` call came from the keeper's own kernel nudge rather than a third party, and `SlashBondV1_1` was configured with `recipient == operator`, so the slash moved the operator's own USDC back to the operator — the mechanism is real, the economic penalty was not. Cumulative on-chain today: `totalSlashed()` 4.910909 USDC, leaving `bondBalance()` 0.089091 of the original 5.00.
 
 **Recomputable receipt** — sample [`/receipts/201c8909dca1/000014.json`](https://forum.gudman.xyz/receipts/201c8909dca1/000014.json). The canonical JSON hash matches `TrackRecordV2.recordAt(bot, 13).evidenceHash` exactly. Verify it yourself:
 

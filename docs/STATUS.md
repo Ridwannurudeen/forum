@@ -16,8 +16,12 @@ activity: `0x13585c…30770`. Live API: https://forum.gudman.xyz/api
   (`operatorOutstanding = 1 USDC`; live idle/assets vary as router and risk
   events settle). See `keeper/scripts/demo-credit-cycle.mjs`.
 - **Autonomous risk control.** `RiskKernelV2.enforce()` is permissionless and
-  atomically pauses + slashes. One genuine historical slash (1.25 USDC; 4.33 USDC
-  cumulative on-chain). `SlashBondV1_1` internal and real token balances agree.
+  atomically pauses + slashes. Fourteen slash events, all `PAUSE_STALE`,
+  every `enforce()` sent by the deployer's own keeper nudge and every slash paid
+  to `recipient == operator`, i.e. the operator paying itself. `totalSlashed()`
+  4.910909 USDC; `bondBalance()` 0.089091 of the original 5.00, so the bond is
+  effectively exhausted and `CovenantVaultV3.pullCredit` now reverts for any real
+  budget. `SlashBondV1_1` internal and real token balances agree.
 - **Recomputable receipts.** `keeper/src/receipt.ts` `verifyReceipt` recomputes
   realized + unrealized PnL from fills/inventory/book marks (not just a hash).
   `keeper/scripts/verify-receipt.mjs` on the real-fill receipt returns `pnl: valid`.
