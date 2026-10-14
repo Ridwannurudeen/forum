@@ -18,12 +18,13 @@ import {
   toHex,
   encodeAbiParameters,
   type Address,
+  type Chain,
   type Hex,
   type PublicClient,
   type WalletClient,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { ARC_TESTNET } from "./chain.js";
+import { arcChain } from "./chain.js";
 import { canonicalize, type Receipt } from "./receipt.js";
 
 const RECORD_TYPEHASH = keccak256(
@@ -115,8 +116,9 @@ const PUBLISH_V2_ABI = [
 ] as const;
 
 interface Deployment {
+  chainId: number;
   contracts: {
-    TrackRecordV2: { address: Address };
+    TrackRecordV2?: { address: Address };
   };
 }
 
@@ -135,6 +137,7 @@ export class ForumV2Bridge {
   readonly walletClient: WalletClient;
   readonly account: PrivateKeyAccount;
   readonly v2Address: Address;
+  readonly chain: Chain;
   readonly botId: Hex;
   private readonly receiptsDir: string;
   private readonly receiptsBaseUrl: string;
@@ -144,7 +147,18 @@ export class ForumV2Bridge {
     const dep = JSON.parse(
       readFileSync(opts.deploymentPath, "utf8"),
     ) as Deployment;
+    if (!dep.contracts.TrackRecordV2) {
+      throw new Error(`${opts.deploymentPath}: manifest has no TrackRecordV2`);
+    }
     this.v2Address = dep.contracts.TrackRecordV2.address;
+    // FORUM_CHAIN picks the network; the manifest must be for the same chain
+    // or every write would target addresses that do not exist there.
+    this.chain = arcChain();
+    if (dep.chainId !== this.chain.id) {
+      throw new Error(
+        `${opts.deploymentPath}: manifest chainId ${dep.chainId} does not match FORUM_CHAIN (${this.chain.id})`,
+      );
+    }
 
     const keyPath =
       opts.keyPath ?? join(homedir(), ".forum-keys", "deployer.key");
@@ -154,11 +168,11 @@ export class ForumV2Bridge {
     );
 
     this.publicClient = createPublicClient({
-      chain: ARC_TESTNET,
+      chain: this.chain,
       transport: http(),
     });
     this.walletClient = createWalletClient({
-      chain: ARC_TESTNET,
+      chain: this.chain,
       transport: http(),
       account: this.account,
     });
@@ -189,7 +203,7 @@ export class ForumV2Bridge {
       functionName: "registerBot",
       args: [this.botId, kind, this.account.address],
       account: this.account,
-      chain: ARC_TESTNET,
+      chain: this.chain,
     });
     await this.publicClient.waitForTransactionReceipt({ hash });
     return { alreadyRegistered: false, txHash: hash };
@@ -315,7 +329,7 @@ export class ForumV2Bridge {
         signature,
       ],
       account: this.account,
-      chain: ARC_TESTNET,
+      chain: this.chain,
     });
   }
 
@@ -401,7 +415,7 @@ export class ForumV2Bridge {
         signature,
       ],
       account: this.account,
-      chain: ARC_TESTNET,
+      chain: this.chain,
     });
     const rcpt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
