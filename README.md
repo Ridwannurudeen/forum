@@ -8,28 +8,28 @@
 
 [![CI](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml/badge.svg)](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Arc mainnet](https://img.shields.io/badge/Arc%20mainnet-PolicyVault-2ea44f)](https://forum.gudman.xyz/policy.html)
-[![Testnet demo](https://img.shields.io/badge/testnet%20demo-forum.gudman.xyz-4cf0c2)](https://forum.gudman.xyz/)
+[![Arc mainnet](https://img.shields.io/badge/Arc%20mainnet-5042-2ea44f)](https://forum.gudman.xyz/)
+[![Live](https://img.shields.io/badge/live-forum.gudman.xyz-4cf0c2)](https://forum.gudman.xyz/)
 [![Demo video](https://img.shields.io/badge/demo%20video-YouTube-ff0000)](https://youtu.be/MWoIUsXddtE)
-![Arc testnet](https://img.shields.io/badge/Arc%20testnet-5042002-9bb8ff)
 ![Built with Foundry](https://img.shields.io/badge/built%20with-Foundry-orange)
 ![Agora Agents](https://img.shields.io/badge/Agora%20Agents-Canteen%20%C3%97%20Circle%20%C3%97%20Arc-f6c76b)
 
-[**Mainnet: PolicyVault**](https://forum.gudman.xyz/policy.html) · [Testnet demo](https://forum.gudman.xyz/) · [**Demo video**](https://youtu.be/MWoIUsXddtE) · [Architecture](#architecture) · [Quickstart](#quickstart) · [Contracts](#live-on-arc-testnet) · [Proofs](#verifiable-proofs)
+[**Live on mainnet**](https://forum.gudman.xyz/) · [PolicyVault](https://forum.gudman.xyz/policy.html) · [**Demo video**](https://youtu.be/MWoIUsXddtE) · [Architecture](#architecture) · [Quickstart](#quickstart) · [Mainnet contracts](#live-on-arc-mainnet) · [Testnet history](#live-on-arc-testnet-may-2026-history) · [Proofs](#verifiable-proofs)
 
 </div>
 
 ---
 
-> **Live on Arc mainnet — PolicyVault.** A non-custodial spend policy for an AI agent: the agent proposes
-> a payment, the contract checks payee, category and caps, and moves USDC straight from the owner's
-> wallet under an allowance. Live page: https://forum.gudman.xyz/policy.html · vault
-> `0xAACe70a50573cB077f65D601cD19103afC4aeF9d` on chain 5042 · source `src/PolicyVault.sol` · what was built
-> and what is still open: [`docs/DELTA.md`](docs/DELTA.md). Unaudited, capped pilot. Everything below this
-> note is the earlier Covenant Accounts stack, which runs on Arc **testnet** and is not deployed to mainnet.
-> The same deployer key was used on both chains, so the two mainnet addresses equal the testnet
-> `TrackRecord` v1 and `BuilderCodeRegistry` addresses listed further down; they are different contracts
-> on different chains.
+> **Live on Arc mainnet (chain 5042).** The current generation of the Covenant stack — `RiskKernelV2`,
+> `CovenantVaultFactoryV2`, `CapitalRouter`, `FeeRouterV1`, one bonded Covenant Account
+> (`SlashBond` + `CovenantVaultV3`) and `TrackRecordV2` — runs on mainnet alongside **PolicyVault**, a
+> non-custodial spend policy for an AI agent ([live page](https://forum.gudman.xyz/policy.html)). Every
+> contract is a Sourcify exact match; addresses in [Live on Arc mainnet](#live-on-arc-mainnet) and
+> [`deployments/arc-mainnet.json`](deployments/arc-mainnet.json). **Unaudited, capped pilot:** the demo
+> account has a 1 USDC credit budget, a 2 USDC operator bond and 5 USDC deposited, and a slash pays the
+> depositor, not the operator. The May 2026 hackathon deployment on Arc testnet is kept below as history.
+> The same deployer key was used on both chains, so some mainnet addresses equal unrelated testnet
+> addresses at the same nonce; always read an address together with its chain.
 
 Forum is **not** another prediction-market bot. It is the control and settlement layer that lets capital fund market-making agents *without* handing the agent an unrestricted wallet. Investors deposit USDC; an operator's agent pulls **bounded** credit under an on-chain mandate; every cycle publishes a recomputable, signed receipt; and **anyone** can pause the vault and slash the operator's bond — in a single transaction — the moment the mandate breaks.
 
@@ -44,7 +44,8 @@ Forum is **not** another prediction-market bot. It is the control and settlement
 - [Why Forum](#why-forum)
 - [How a Covenant Account works](#how-a-covenant-account-works)
 - [Architecture](#architecture)
-- [Live on Arc testnet](#live-on-arc-testnet)
+- [Live on Arc mainnet](#live-on-arc-mainnet)
+- [Live on Arc testnet (May 2026 history)](#live-on-arc-testnet-may-2026-history)
 - [Verifiable proofs](#verifiable-proofs)
 - [Quickstart](#quickstart)
 - [SDKs](#sdks)
@@ -125,7 +126,23 @@ flowchart TB
 
 **Production hardening (V2/V3, live on Arc testnet).** `CovenantVaultV2` adds vault-custodied strategy deployment — the agent puts credit to work through governor-approved `StrategyAdapter`s and **never holds the funds itself** (vault→adapter), with realized yield recomputable on-chain from `RecalledFromStrategy` events ([`docs/yield-adapter.md`](docs/yield-adapter.md)). `RiskKernelV3` adds a persistent, un-spammable drawdown peak plus a receipt-independent on-chain NAV circuit breaker. Operator / governor / risk-attestor are distinct addresses ([`docs/security-roles.md`](docs/security-roles.md)). Credit is **bond-gated**: vaults deployed by `CovenantVaultFactoryV2` are `CovenantVaultV3`, which reverts `pullCredit` unless the operator's bond covers the budget — an account can't borrow more than it has staked.
 
-## Live on Arc testnet
+## Live on Arc mainnet
+
+Chain 5042, deployed 2026-10-14, every contract a Sourcify exact match. Full manifest with transaction
+hashes and blocks: [`deployments/arc-mainnet.json`](deployments/arc-mainnet.json).
+
+| Contract | Address | Role |
+|---|---|---|
+| `RiskKernelV2` | `0x0574257629e8221D560cF4AAce0F3cD7226bE2a0` | Permissionless pause + slash enforcement |
+| `CovenantVaultFactoryV2` | `0x33bb03F40aD46884cd56871D532980154Ef9e5Bf` | Self-serve, bond-gated `CovenantVaultV3` |
+| `CovenantVaultV3` | `0x8Ea637Dc3d4399c42c372D97DCb64a52b06A421E` | Demo Covenant Account: 1 USDC budget, receipts fresh within 6 h |
+| `SlashBond` | `0x142e68E47b9107604F7b7F67B7A032BBff262d5B` | 2 USDC operator bond; attestor = `RiskKernelV2`, recipient = the depositor |
+| `CapitalRouter` | `0xfF67e845b6d5561680df11C005B8eC8A5F72DaCD` | Allocator; strategy 100% to the demo account |
+| `FeeRouterV1` | `0x88E48f0ff21BDDe5385706dDa096ca3C60c54342` | Pull-pattern fee splits |
+| `TrackRecordV2` | `0x730825299821D411146c503915553E37eBDc750c` | Signed, hash-chained receipts |
+| `PolicyVault` | `0xAACe70a50573cB077f65D601cD19103afC4aeF9d` | Non-custodial spend policy ([live page](https://forum.gudman.xyz/policy.html)) |
+
+## Live on Arc testnet (May 2026 history)
 
 Chain: **Arc testnet `5042002`** · full metadata in [`deployments/arc-testnet.json`](deployments/arc-testnet.json).
 
@@ -251,7 +268,7 @@ A polled Arc-state cache lives at `https://forum.gudman.xyz/api/*` ([`keeper/scr
 
 Forum uses Arc as the USDC-native control plane: all mandate state lives on Arc, every balance (vault, bond, slash, fee split) is denominated in USDC, enforcement is one low-cost transaction, and receipt publication is cheap enough to run continuously.
 
-**Circle stack used directly:** Arc, USDC, and **CCTP V2**. CCTP is integrated two ways — an in-browser bridge at [`/#/console?t=bridge`](https://forum.gudman.xyz/#/console?t=bridge) (burn native USDC on a source testnet → Circle Iris attestation → mint on Arc Domain 26 → optional vault deposit) and a CLI helper (`keeper/scripts/cctp-bridge-and-deposit.mjs`, with `--simulate` / `--build-source` / `--redeem`). Source-domain addresses for Ethereum Sepolia, Avalanche Fuji, Base Sepolia, and Polygon Amoy are pinned in `deployments/arc-testnet.json`.
+**Circle stack used directly:** Arc, USDC, and **CCTP V2**. CCTP is integrated two ways — an in-browser bridge at [`/#/console?t=bridge`](https://forum.gudman.xyz/#/console?t=bridge) (burn native USDC on Ethereum, Avalanche, Base or Polygon → Circle Iris attestation → mint on Arc mainnet, Domain 26 → optional vault deposit; real funds) and a CLI helper (`keeper/scripts/cctp-bridge-and-deposit.mjs`, with `--simulate` / `--build-source` / `--redeem`). On mainnet it uses Circle's `TokenMessengerV2` `0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d` / `MessageTransmitterV2` `0x81D40F21F12A8F0E3252Bccb954D722d4c464B64` and production Iris; each source chain was checked for the contract, native USDC and an Iris fee quote to Arc. The CLI helper still targets the testnet domains.
 
 ### Arc Starter Kit (standalone)
 
@@ -262,12 +279,12 @@ For Arc builders who want a clean reference for **x402 pay-per-call + ERC-4337 s
 
 ## Honest scope
 
-- **The Covenant stack is Arc testnet only.** Those contracts are immutable and unaudited hackathon code. PolicyVault, described at the top, is the only mainnet deployment, and it is an unaudited, capped pilot.
+- **Unaudited.** The mainnet contracts are immutable and unaudited. Exposure is capped by the deployment itself: a 1 USDC credit budget, a 2 USDC bond and 5 USDC deposited in the demo account, and a 10 USDC allowance on PolicyVault. The May 2026 testnet contracts are hackathon code.
 - The reference keeper runs **paper-mode by default** (real market data, simulated fills). Real Polymarket V2 fills are proven separately ([`/api/proof`](https://forum.gudman.xyz/api/proof), [`docs/phase-3-live-fill-proof.md`](docs/phase-3-live-fill-proof.md)) with on-chain Polygon settlement and builder attribution confirmed by Polymarket's API.
 - Live execution is **operator-gated** (Polymarket geoblocks order submission and it needs the operator's keys) — exposed as an operator flow with verifiable proof, not a public trade button. Builder fee capture is currently **0 bps** on Forum's taker flow (a 0.1% maker rate is configured; a capturing taker rate is blocked by Polymarket's fee-update cooldown — a post-deadline step).
 - External bot adapters are not shipped yet; the template is.
 - The current vault transfers pulled credit to the operator wallet — the mandate bounds amount and state, but **venue restrictions are not enforced on-chain yet**.
-- The in-browser CCTP V2 bridge builds correct, address-verified transactions, but a full end-to-end transfer has not been recorded (needs source-chain testnet gas + USDC).
+- The in-browser CCTP V2 bridge builds correct, address-verified transactions, but a full end-to-end mainnet transfer has not been recorded yet (it needs real source-chain gas and USDC).
 
 ## License
 

@@ -12,18 +12,20 @@ import {
   toHex,
   encodeAbiParameters,
   type Address,
+  type Chain,
   type Hex,
   type PublicClient,
   type WalletClient,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { ARC_TESTNET } from "./chain.js";
+import { arcChain } from "./chain.js";
 
 interface Deployment {
+  chainId: number;
   contracts: {
     BuilderCodeRegistry: { address: Address };
     KeeperConfig: { address: Address };
-    TrackRecord: { address: Address };
+    TrackRecord?: { address: Address };
     FeeDistributor: { address: Address };
   };
 }
@@ -92,7 +94,7 @@ const RECORD_TYPEHASH = keccak256(
 );
 
 export interface ForumBridgeOptions {
-  deploymentPath: string; // forum/deployments/arc-testnet.json
+  deploymentPath: string; // forum/deployments/<FORUM_CHAIN>.json
   keyPath?: string; // default: ~/.forum-keys/deployer.key
   botLabel: string; // human-readable bot name (used to derive bot_id)
 }
@@ -101,7 +103,10 @@ export class ForumBridge {
   readonly publicClient: PublicClient;
   readonly walletClient: WalletClient;
   readonly account: PrivateKeyAccount;
-  readonly addresses: Deployment["contracts"];
+  readonly addresses: Deployment["contracts"] & {
+    TrackRecord: { address: Address };
+  };
+  readonly chain: Chain;
   readonly botId: Hex;
   private domainSeparator: Hex | null = null;
 
@@ -109,7 +114,20 @@ export class ForumBridge {
     const dep = JSON.parse(
       readFileSync(opts.deploymentPath, "utf8"),
     ) as Deployment;
-    this.addresses = dep.contracts;
+    // TrackRecord v1 exists on arc-testnet only; the v1 keeper has no mainnet
+    // counterpart, so fail here with a readable reason instead of a TypeError.
+    if (!dep.contracts.TrackRecord) {
+      throw new Error(
+        `${opts.deploymentPath}: manifest has no TrackRecord (v1) — ForumBridge needs the arc-testnet manifest`,
+      );
+    }
+    this.addresses = dep.contracts as ForumBridge["addresses"];
+    this.chain = arcChain();
+    if (dep.chainId !== this.chain.id) {
+      throw new Error(
+        `${opts.deploymentPath}: manifest chainId ${dep.chainId} does not match FORUM_CHAIN (${this.chain.id})`,
+      );
+    }
 
     const keyPath =
       opts.keyPath ?? join(homedir(), ".forum-keys", "deployer.key");
@@ -119,11 +137,11 @@ export class ForumBridge {
     );
 
     this.publicClient = createPublicClient({
-      chain: ARC_TESTNET,
+      chain: this.chain,
       transport: http(),
     });
     this.walletClient = createWalletClient({
-      chain: ARC_TESTNET,
+      chain: this.chain,
       transport: http(),
       account: this.account,
     });
@@ -153,7 +171,7 @@ export class ForumBridge {
       functionName: "registerBot",
       args: [this.botId, 0, this.account.address], // 0 = MAKER
       account: this.account,
-      chain: ARC_TESTNET,
+      chain: this.chain,
     });
     await this.publicClient.waitForTransactionReceipt({ hash });
     return { alreadyRegistered: false, txHash: hash };
@@ -214,7 +232,7 @@ export class ForumBridge {
         signature,
       ],
       account: this.account,
-      chain: ARC_TESTNET,
+      chain: this.chain,
     });
   }
 }

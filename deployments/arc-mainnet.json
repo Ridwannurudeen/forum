@@ -62,6 +62,66 @@
       "allowanceTxHash": "0xc7ea5c858522e4880d47d203154f0c71778e50d47a4f8ecc010ea1132b8999ed",
       "firstPaymentTxHash": "",
       "firstPaymentRecordSeq": null
+    },
+    "RiskKernelV2": {
+      "address": "0x0574257629e8221D560cF4AAce0F3cD7226bE2a0",
+      "txHash": "0xb7cfd86daf2f0a261b1c4a8600769bb8ac35f3788ed978aeff908fac43893f20",
+      "block": 25925050
+    },
+    "CovenantVaultFactoryV2": {
+      "address": "0x33bb03F40aD46884cd56871D532980154Ef9e5Bf",
+      "txHash": "0x87f68393072158a387395b1475d62d5fd4bbd59a244eabf171fc8ef9c7c1690f",
+      "block": 25925053
+    },
+    "CapitalRouter": {
+      "address": "0xfF67e845b6d5561680df11C005B8eC8A5F72DaCD",
+      "txHash": "0x93f424e6ce882d3fc558b59f6d83318aab436d05757b9873b09675a667bf8ad0",
+      "block": 25925056,
+      "strategist": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "strategy": {
+        "vaults": [
+          "0x8Ea637Dc3d4399c42c372D97DCb64a52b06A421E"
+        ],
+        "weightsBps": [
+          10000
+        ],
+        "txHash": "0x58ea6ae89ce654532115dc2ea3ca86a10448cbe06fd49ea1c9f113b267ed3df7"
+      }
+    },
+    "FeeRouterV1": {
+      "address": "0x88E48f0ff21BDDe5385706dDa096ca3C60c54342",
+      "txHash": "0xdf4913e90d7bf81f3ee271a695c2da5a6c70cb87c6637e28322db3c511594d71",
+      "block": 25925062
+    },
+    "SlashBond": {
+      "address": "0x142e68E47b9107604F7b7F67B7A032BBff262d5B",
+      "txHash": "0x8bd8a394a90901f7f5517c3664d1e5440bc798f9728b474f6f5d97c639d83056",
+      "block": 25925229,
+      "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "attestor": "0x0574257629e8221D560cF4AAce0F3cD7226bE2a0",
+      "recipient": "0x9cFf811681B932381AeF425f56a3d945027FF181",
+      "botId": "0x6d27b97652b8c084877881f89e54dc8b0858d2971f7bb558c7b4ff67b342d598",
+      "label": "forum-agora-mind-mainnet-v1",
+      "unbondDelaySec": 86400,
+      "bondUsdc": "2000000",
+      "bondTxHash": "0xf7b1038b2915f2db90280941d30ecc4a4a3f13f7bd69e3cbcc4c75c8da6c639e"
+    },
+    "CovenantVaultV3": {
+      "address": "0x8Ea637Dc3d4399c42c372D97DCb64a52b06A421E",
+      "txHash": "0xcf3f4d83609a1234edcfd4ec6a3b00499eaaafa76790f9f19ec675234184d76a",
+      "block": 25925232,
+      "createdVia": "CovenantVaultFactoryV2.createVault",
+      "botId": "0x6d27b97652b8c084877881f89e54dc8b0858d2971f7bb558c7b4ff67b342d598",
+      "budgetUsdc": "1000000",
+      "maxDrawdownBps": 500,
+      "receiptFreshnessSec": 21600,
+      "perfFeeBps": 2000,
+      "expiry": 0,
+      "seedDeposit": {
+        "depositor": "0x9cFf811681B932381AeF425f56a3d945027FF181",
+        "amountUsdc": "5000000",
+        "txHash": "0x223923544e675a9909ea58356f94b198cc6b2301f390917895e96450e690e10f"
+      }
     }
   },
   "verification": {
@@ -70,19 +130,35 @@
     "verifiedAt": "2026-10-14T07:11Z",
     "lookup": [
       "https://sourcify.dev/server/v2/contract/5042/0x730825299821D411146c503915553E37eBDc750c",
-      "https://sourcify.dev/server/v2/contract/5042/0xAACe70a50573cB077f65D601cD19103afC4aeF9d"
+      "https://sourcify.dev/server/v2/contract/5042/0xAACe70a50573cB077f65D601cD19103afC4aeF9d",
+      "https://sourcify.dev/server/v2/contract/5042/0x0574257629e8221D560cF4AAce0F3cD7226bE2a0",
+      "https://sourcify.dev/server/v2/contract/5042/0x33bb03F40aD46884cd56871D532980154Ef9e5Bf",
+      "https://sourcify.dev/server/v2/contract/5042/0xfF67e845b6d5561680df11C005B8eC8A5F72DaCD",
+      "https://sourcify.dev/server/v2/contract/5042/0x88E48f0ff21BDDe5385706dDa096ca3C60c54342",
+      "https://sourcify.dev/server/v2/contract/5042/0x142e68E47b9107604F7b7F67B7A032BBff262d5B",
+      "https://sourcify.dev/server/v2/contract/5042/0x8Ea637Dc3d4399c42c372D97DCb64a52b06A421E"
     ],
-    "_note": "Both contracts are an exact match (creation and runtime bytecode) on Sourcify. Blockscout at explorer.arc.io/api was tried first and refused by a Cloudflare challenge before reaching the verifier, so the explorer itself may still show them as unverified.",
+    "_note": "All contracts are an exact match (creation and runtime bytecode) on Sourcify. Blockscout at explorer.arc.io/api refuses non-browser clients behind a Cloudflare challenge, so the explorer itself may still show them as unverified.",
     "compiler": "0.8.30",
     "optimizer": true,
     "optimizerRuns": 200
   },
   "notDeployed": [
-    "CovenantVault", "CovenantVaultV2", "CovenantVaultV3", "CovenantVaultFactory",
-    "CovenantVaultFactoryV2", "RiskKernel", "RiskKernelV2", "RiskKernelV3",
-    "SlashBond", "SlashMarket", "SlashInsurance", "CapitalRouter", "FeeRouterV1",
-    "CovenantInbox", "AgentPool", "UsycStrategyAdapter", "IdleStrategyAdapter",
-    "BuilderCodeRegistry", "KeeperConfig", "TrackRecord", "FeeDistributor",
+    "CovenantVault",
+    "CovenantVaultV2",
+    "CovenantVaultFactory",
+    "RiskKernel",
+    "RiskKernelV3",
+    "SlashMarket",
+    "SlashInsurance",
+    "CovenantInbox",
+    "AgentPool",
+    "UsycStrategyAdapter",
+    "IdleStrategyAdapter",
+    "BuilderCodeRegistry",
+    "KeeperConfig",
+    "TrackRecord",
+    "FeeDistributor",
     "PolicyVaultFactory"
   ],
   "notClaimed": {
@@ -95,5 +171,7 @@
     "audit": "Unaudited. Capped pilot.",
     "arcSpecificBehaviour": "Arc's runtime blocklist is covered by a mock in the test suite. forge test runs a stock EVM and forge script's dry run does too, so Arc-specific reverts only surface on broadcast."
   },
-  "fundingTxHash": "0xdc4779d4ace88d01aa5d8ad8be39fb8a7043e356286a3f181b875f2d32464dd8"
+  "fundingTxHash": "0xdc4779d4ace88d01aa5d8ad8be39fb8a7043e356286a3f181b875f2d32464dd8",
+  "deployerTopUpTxHash": "0x50dc31db3f9e2b6b65e35e78af5ff17207522c4381e4be6b5a0240562ee904b6",
+  "_addressCollisionNote": "The same deployer key was used on Arc testnet; CREATE addresses at equal nonces coincide with unrelated testnet contracts (e.g. RiskKernelV2 here == testnet FeeDistributor). Always key by contract name and chain."
 }

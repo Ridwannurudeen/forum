@@ -10,8 +10,8 @@ const { startStaticServer } = require("./static-server.cjs");
 // literal text and no script executes.
 //
 // All tests stub /api/* with page.route(); the page still loads viem from
-// esm.sh and may attempt the Arc testnet RPC, but those are non-load-bearing
-// for XSS coverage.
+// esm.sh (mocked below) and may attempt the Arc mainnet RPC, but those are
+// non-load-bearing for XSS coverage.
 
 const MALICIOUS_IMG = `<img src=x onerror="window.__xss_img=true">`;
 const MALICIOUS_SCRIPT_BREAKOUT = `</script><script>window.__xss=true</script>`;
@@ -134,7 +134,7 @@ async function installApiMocks(page) {
         }
         export function createPublicClient() {
           return {
-            chain: { id: 5042002 },
+            chain: { id: 5042 },
             getBlockNumber: async () => 1n,
             getLogs: async () => [],
             waitForTransactionReceipt: async () => ({ status: "success", gasUsed: 0n }),
@@ -356,7 +356,7 @@ test.describe("XSS regression", () => {
     expect(flags.__xss).toBeUndefined();
   });
 
-  test("e) bridge shows Rabby stale Arc-network guidance on invalid chain ID", async ({
+  test("e) bridge shows Rabby stale Arc-network guidance on invalid chain ID (mainnet 5042 / 0x13b2)", async ({
     page,
   }) => {
     await installApiMocks(page);
@@ -385,13 +385,13 @@ test.describe("XSS regression", () => {
           value: {
             request: async ({ method, params }: WalletRequest) => {
               if (method === "eth_requestAccounts") return [wallet];
-              if (method === "eth_chainId") return "0x14a34";
+              if (method === "eth_chainId") return "0x2105";
               if (method === "wallet_addEthereumChain") return null;
               if (method === "wallet_switchEthereumChain") {
                 const chainId = params?.[0]?.chainId;
-                if (chainId === "0x4cef52") {
+                if (chainId === "0x13b2") {
                   throw new Error(
-                    "[From https://rpc.testnet.arc.network] invalid chain ID",
+                    "[From https://rpc.mainnet.arc.io] invalid chain ID",
                   );
                 }
                 return null;
@@ -413,7 +413,48 @@ test.describe("XSS regression", () => {
     await expect(page.locator("#br-status")).toContainText(
       "Rabby is using a stale Arc network entry",
     );
-    await expect(page.locator("#br-status")).toContainText("5042002");
-    await expect(page.locator("#br-status")).toContainText("0x4cef52");
+    await expect(page.locator("#br-status")).toContainText("5042");
+    await expect(page.locator("#br-status")).toContainText("0x13b2");
+  });
+
+  test("f) CSP connect-src allows only mainnet hosts and no testnet host is contacted", async ({
+    page,
+  }) => {
+    await installApiMocks(page);
+    const requested = new Set<string>();
+    page.on("request", (req) => requested.add(new URL(req.url()).host));
+
+    await page.goto("/index.html#/console", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#recent-factory-vaults [data-vault]", {
+      state: "attached",
+      timeout: 30_000,
+    });
+
+    const csp = await page
+      .locator('meta[http-equiv="Content-Security-Policy"]')
+      .getAttribute("content");
+    const connectSrc = (csp || "")
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d.startsWith("connect-src"));
+    expect(connectSrc).toBe(
+      [
+        "connect-src 'self'",
+        "https://forum.gudman.xyz",
+        "https://rpc.mainnet.arc.io",
+        "https://rpc.blockdaemon.mainnet.arc.io",
+        "https://ethereum-rpc.publicnode.com",
+        "https://avalanche-c-chain-rpc.publicnode.com",
+        "https://base-rpc.publicnode.com",
+        "https://polygon-bor-rpc.publicnode.com",
+        "https://iris-api.circle.com",
+        "https://esm.sh",
+      ].join(" "),
+    );
+    expect(csp).not.toMatch(/testnet|sepolia|amoy|fuji|sandbox/i);
+
+    for (const host of requested) {
+      expect(host).not.toMatch(/testnet|sepolia|amoy|fuji|sandbox|arcscan/i);
+    }
   });
 });

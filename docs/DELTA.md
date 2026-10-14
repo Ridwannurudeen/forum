@@ -80,6 +80,32 @@ policy are in `deployments/arc-mainnet.json`; the live page is https://forum.gud
 | Policy | one category, 5 USDC per payment, 10 per day, 50 per 30 days; one payee capped at 5 per day |
 | Allowance | 10 USDC, which is the real ceiling on what the vault can ever move |
 
+## Covenant stack on mainnet (2026-10-14, afternoon)
+
+The current generation of the Covenant stack was ported the same day. Only what the live product uses was
+deployed — superseded versions (TrackRecord v1, CovenantVault v1/V1.1/V1.2/V2, RiskKernel v1/V3, SlashBond
+v1/V1.1, factory v1) were not.
+
+| | |
+|---|---|
+| `RiskKernelV2` | `0x0574257629e8221D560cF4AAce0F3cD7226bE2a0` |
+| `CovenantVaultFactoryV2` | `0x33bb03F40aD46884cd56871D532980154Ef9e5Bf` |
+| `CapitalRouter` | `0xfF67e845b6d5561680df11C005B8eC8A5F72DaCD` |
+| `FeeRouterV1` | `0x88E48f0ff21BDDe5385706dDa096ca3C60c54342` |
+| `SlashBond` | `0x142e68E47b9107604F7b7F67B7A032BBff262d5B` — 2 USDC, recipient = the depositor |
+| `CovenantVaultV3` | `0x8Ea637Dc3d4399c42c372D97DCb64a52b06A421E` — budget 1 USDC, 5 USDC deposited, receipts fresh within 6 h |
+
+New code: `script/DeployCovenantCore.s.sol`, `script/DeployCovenantAccount.s.sol`, and
+`test/CovenantMainnetFlow.t.sol` (6 tests: scripts wire the account to the core; the botId matches the
+keeper's derivation; zero records is ALLOW; under-bonded and foreign-attestor bonds block `pullCredit`;
+bond → deposit → signed record → `pullCredit` → stale → `enforce()` slashes 25% to the depositor). The keeper,
+indexer and timers select the chain by `FORUM_CHAIN` and pin every write to at least 21 gwei; the frontend
+reads one `NET` config keyed by contract name. All contracts are Sourcify exact matches.
+
+Two changes from the testnet configuration, both because the money is real: receipts must be fresh within
+6 hours instead of 30 minutes, so a short keeper outage cannot slash a real bond; and the slash pays the
+depositor instead of the operator, so enforcement is no longer the operator paying itself.
+
 ## Still open
 
 The first payment. The payee was registered at 07:01 UTC on 2026-10-14 and the 24-hour cooling period

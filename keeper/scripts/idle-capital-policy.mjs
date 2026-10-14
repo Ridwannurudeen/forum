@@ -17,13 +17,16 @@
 //   tsx keeper/scripts/idle-capital-policy.mjs --halt-on-violation
 //   tsx keeper/scripts/idle-capital-policy.mjs --out reports/idle.json
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createPublicClient, defineChain, http, parseAbi } from "viem";
+import { createPublicClient, http, parseAbi } from "viem";
+import { arcChain, forumChainName } from "../src/chain.ts";
+import { loadDeployment, vaultFactory } from "../src/forum-config.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-process.chdir(resolve(__dirname, "..", ".."));
+const REPO_ROOT = resolve(__dirname, "..", "..");
+process.chdir(REPO_ROOT);
 
 function arg(flag, dflt) {
   const i = process.argv.indexOf(flag);
@@ -33,14 +36,12 @@ const THRESHOLD_PCT = Number(arg("--threshold", "75"));
 const HALT_ON_VIOLATION = process.argv.includes("--halt-on-violation");
 const OUT_PATH = arg("--out", `reports/idle-${Math.floor(Date.now() / 1000)}.json`);
 
-const ARC = defineChain({
-  id: 5042002, name: "Arc Testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.ARC_RPC ?? "https://rpc.testnet.arc.network"] } },
-});
-const dep = JSON.parse(readFileSync("deployments/arc-testnet.json", "utf8"));
-const FACTORY = dep.contracts.CovenantVaultFactory?.address;
-if (!FACTORY) { console.error("CovenantVaultFactory not deployed"); process.exit(2); }
+// FORUM_CHAIN selects the network; ARC_RPC (then ARC_RPC_URL) overrides the RPC.
+const ARC = arcChain(process.env, process.env.ARC_RPC);
+const dep = loadDeployment(REPO_ROOT);
+// v1 factory on testnet, the bond-gated V2 factory on mainnet — same allVaults().
+const FACTORY = vaultFactory(dep);
+if (!FACTORY) { console.error("no CovenantVaultFactory / CovenantVaultFactoryV2 in manifest"); process.exit(2); }
 
 const FACTORY_ABI = parseAbi(["function allVaults() view returns (address[])"]);
 const VAULT_ABI = parseAbi([
@@ -54,7 +55,7 @@ const VAULT_ABI = parseAbi([
 const pub = createPublicClient({ chain: ARC, transport: http() });
 const STATE_NAMES = ["ACTIVE", "PAUSED", "EXPIRED"];
 
-console.log(`idle-capital-policy · threshold=${THRESHOLD_PCT}%${HALT_ON_VIOLATION ? " halt-on-violation" : ""}`);
+console.log(`idle-capital-policy · chain=${forumChainName()} (${ARC.id}) factory=${FACTORY} threshold=${THRESHOLD_PCT}%${HALT_ON_VIOLATION ? " halt-on-violation" : ""}`);
 
 const vaults = await pub.readContract({ address: FACTORY, abi: FACTORY_ABI, functionName: "allVaults" });
 console.log(`discovered ${vaults.length} vault(s) via factory`);

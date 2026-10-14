@@ -31,5 +31,6 @@ party.
 - The risk attestor should migrate from a trusted key to the permissionless
   on-chain rule (TrackRecordV2 + price/benchmark oracle) — see the roadmap.
 
-The current testnet demo runs all roles from the deployer wallet
-(`0x13585c…0770`); that is a deployment choice, not a code limitation.
+The testnet demo and the mainnet pilot run the operator, strategist and keeper roles from the
+deployer wallet (`0x13585c…0770`); that is a deployment choice, not a code limitation. On mainnet
+the bond's attestor is `RiskKernelV2` and its slash recipient is the depositor, not the operator.
