@@ -20,6 +20,13 @@
 
 ---
 
+> **Live on Arc mainnet — PolicyVault.** A non-custodial spend policy for an AI agent: the agent proposes
+> a payment, the contract checks payee, category and caps, and moves USDC straight from the owner's
+> wallet under an allowance. Live page: https://forum.gudman.xyz/policy.html · vault
+> `0xAACe70a50573cB077f65D601cD19103afC4aeF9d` on chain 5042 · source `src/PolicyVault.sol` · what was built
+> and what is still open: [`docs/DELTA.md`](docs/DELTA.md). Unaudited, capped pilot. Everything below this
+> note is the earlier Covenant Accounts stack, which runs on Arc **testnet** and is not deployed to mainnet.
+
 Forum is **not** another prediction-market bot. It is the control and settlement layer that lets capital fund market-making agents *without* handing the agent an unrestricted wallet. Investors deposit USDC; an operator's agent pulls **bounded** credit under an on-chain mandate; every cycle publishes a recomputable, signed receipt; and **anyone** can pause the vault and slash the operator's bond — in a single transaction — the moment the mandate breaks.
 
 <div align="center">

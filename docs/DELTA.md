@@ -68,7 +68,21 @@ transfer. Five hardening items were raised and all five were implemented before 
    deploy rather than a dead vault found a day later.
 5. `registerPayee` rejects the vault's own address, which would otherwise strand funds.
 
+## Deployed
+
+Live on Arc mainnet (chain 5042) since 2026-10-14. Addresses, transaction hashes and the configured
+policy are in `deployments/arc-mainnet.json`; the live page is https://forum.gudman.xyz/policy.html.
+
+| | |
+|---|---|
+| `PolicyVault` | `0xAACe70a50573cB077f65D601cD19103afC4aeF9d` |
+| `TrackRecordV2` | `0x730825299821D411146c503915553E37eBDc750c` |
+| Policy | one category, 5 USDC per payment, 10 per day, 50 per 30 days; one payee capped at 5 per day |
+| Allowance | 10 USDC, which is the real ceiling on what the vault can ever move |
+
 ## Still open
 
-Deployment itself. The deployer holds nothing on 5042, so the mainnet addresses, the first payment,
-and the `policy.html` config are the remaining steps.
+The first payment. The payee was registered at 07:01 UTC on 2026-10-14 and the 24-hour cooling period
+is a contract constant, so the earliest it can be paid is 07:01 UTC on 2026-10-15. Until then `canPay`
+returns `(false, 4)`, which is the policy working. The contract is unaudited and the pilot is capped by
+the allowance.
