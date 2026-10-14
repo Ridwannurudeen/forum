@@ -1,7 +1,7 @@
 # Forum — Circle Developer Grant Proposal
 
 > **Program:** Circle Developer Grants (Arc) · **Submitted:** June 2026
-> **Status, 2026-10-14:** this June proposal is kept as written apart from factual corrections. Since then, PolicyVault went live on Arc mainnet as an unaudited, capped pilot — see the README and [`docs/DELTA.md`](docs/DELTA.md). The Covenant stack below is still testnet-only.
+> **Status, 2026-10-14:** this June proposal is kept as written apart from factual corrections. Since then, PolicyVault and the current generation of the Covenant stack (RiskKernelV2, CovenantVaultFactoryV2, CapitalRouter, FeeRouterV1, one bonded Covenant Account) went live on Arc mainnet as an unaudited, capped pilot — see the README and [`docs/DELTA.md`](docs/DELTA.md). M3 below assumed an audit first; the mainnet deployment happened without one, capped at single-digit USDC instead.
 > **Project:** Forum — credit and accountability rails for the agentic economy on Arc
 > **Live:** https://forum.gudman.xyz · **Repo:** https://github.com/Ridwannurudeen/forum
 > **Companion OSS:** https://github.com/Ridwannurudeen/arc-agent-console (live: https://arc-console.gudman.xyz)
