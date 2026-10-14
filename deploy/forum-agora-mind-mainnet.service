@@ -1,0 +1,29 @@
+[Unit]
+Description=Forum AgoraMind keeper (Arc MAINNET) - AI-driven, receipt-backed, TrackRecordV2
+After=network-online.target
+Wants=network-online.target
+# Never run alongside the testnet AgoraMind unit: both derive their botId from
+# the same deployer key and would publish two bots to mainnet.
+Conflicts=forum-agora-mind.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/forum/keeper
+# Network selection (FORUM_CHAIN=arc-mainnet, FORUM_DEPLOYMENTS, ARC_RPC_URL).
+# See deploy/forum-mainnet.env.example. Required here: with the file absent the
+# keeper would default to arc-testnet under a mainnet label.
+EnvironmentFile=/opt/forum/forum.env
+# Operator creates this file (mode 600) with ANTHROPIC_API_KEY and optional
+# ANTHROPIC_MODEL (default claude-sonnet-4-6). Leading '-' = optional: if absent,
+# the keeper falls back to the deterministic mock-v1 provider. NEVER commit the key.
+EnvironmentFile=-/root/.forum-keys/agora.env
+ExecStart=/opt/forum/keeper/node_modules/.bin/tsx /opt/forum/keeper/scripts/agora-mind-keeper.mjs --markets 3 --interval 60 --publish-every 60 --label forum-agora-mind-mainnet-v1 --receipts-dir /opt/forum/web/receipts --receipts-base-url https://forum.gudman.xyz/receipts --auto-pause-on-verifier-failure --llm-on-publish-only
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forum-agora-mind-mainnet
+
+[Install]
+WantedBy=multi-user.target

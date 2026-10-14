@@ -20,6 +20,13 @@
 //
 // Persistence: keeps a single JSON snapshot on disk. Reloads on boot.
 // Polling interval: 30s. Log fetch chunk: 9500 blocks (matches Arc RPC cap).
+// Catch-up is bounded per poll and the cursor is persisted per chunk; RPC
+// failures back off exponentially (capped) instead of hammering the same range.
+//
+// Network: FORUM_CHAIN (arc-testnet default | arc-mainnet) selects the chain,
+// FORUM_DEPLOYMENTS the manifest (default deployments/<FORUM_CHAIN>.json), and
+// FORUM_INDEXER_RPC / ARC_RPC_URL override the RPC. Contracts the manifest
+// lacks (the v1 stack is testnet-only) switch their features off.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
@@ -27,7 +34,6 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import {
   createPublicClient,
-  defineChain,
   http,
   parseAbi,
   parseAbiItem,
@@ -35,6 +41,13 @@ import {
   toHex,
 } from "viem";
 import { computeAgentScoreV1 as scoreFnV1 } from "../src/agent-score.ts";
+import { arcChain, forumChainName } from "../src/chain.ts";
+import {
+  deploymentsPath,
+  indexerContracts,
+  irisApiBase,
+  loadDeployment,
+} from "../src/forum-config.ts";
 import {
   clampedLimit,
   recordTs as recordTsPure,
@@ -56,51 +69,35 @@ const PORT = Number(process.env.FORUM_INDEXER_PORT || 3060);
 const STATE_PATH =
   process.env.FORUM_INDEXER_STATE || "/opt/forum/indexer-state.json";
 const POLL_MS = Number(process.env.FORUM_INDEXER_POLL_MS || 30_000);
-const LOG_CHUNK = 9500n;
-const VERSION = "forum-indexer/0.15.0"; // + CCTP attestation proxy (GET /api/cctp/attestation)
+const LOG_CHUNK = 9500n; // Arc RPC getLogs range cap
+// One poll indexes at most this many blocks; the cursor is persisted after
+// every LOG_CHUNK sweep inside it, so a restart mid-catch-up resumes there.
+const MAX_RANGE_PER_POLL = 5n * LOG_CHUNK;
+const MAX_BACKOFF_MS = 10 * 60_000;
+const VERSION = "forum-indexer/0.16.0"; // + FORUM_CHAIN / FORUM_DEPLOYMENTS, bounded backoff + chunked cursor
 
-const ARC = defineChain({
-  id: 5042002,
-  name: "Arc Testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: {
-    default: {
-      http: [
-        process.env.FORUM_INDEXER_RPC || "https://rpc.testnet.arc.network",
-      ],
-    },
-  },
-});
-
-const deployment = JSON.parse(
-  readFileSync("deployments/arc-testnet.json", "utf8"),
-);
-const TR_V1 = deployment.contracts.TrackRecord.address;
-const TR_V2 = deployment.contracts.TrackRecordV2.address;
-const KERNEL_V2 = deployment.contracts.RiskKernelV2.address;
-const VAULTS = {
-  v1: deployment.contracts.CovenantVault.address,
-  v1_1: deployment.contracts.CovenantVaultV1_1?.address,
-  v1_2: deployment.contracts.CovenantVaultV1_2?.address,
-};
-const BOND_V11 = deployment.contracts.SlashBondV1_1?.address;
-const FACTORY = deployment.contracts.CovenantVaultFactory?.address;
-const FEE_ROUTER = deployment.contracts.FeeRouterV1?.address;
-const CAPITAL_ROUTER = deployment.contracts.CapitalRouter?.address;
-const CAPITAL_ROUTER_DEPLOY_BLOCK = deployment.contracts.CapitalRouter?.block
-  ? BigInt(deployment.contracts.CapitalRouter.block)
-  : null;
-const FACTORY_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactory?.block
-  ? BigInt(deployment.contracts.CovenantVaultFactory.block)
-  : null;
-const FACTORY_V2 = deployment.contracts.CovenantVaultFactoryV2?.address;
-const FACTORY_V2_DEPLOY_BLOCK = deployment.contracts.CovenantVaultFactoryV2?.block
-  ? BigInt(deployment.contracts.CovenantVaultFactoryV2.block)
-  : null;
-const DEPLOY_BLOCK = BigInt(deployment.contracts.BuilderCodeRegistry.block);
-const TR_V2_DEPLOY_BLOCK = deployment.contracts.TrackRecordV2?.block
-  ? BigInt(deployment.contracts.TrackRecordV2.block)
-  : DEPLOY_BLOCK;
+const CHAIN_NAME = forumChainName();
+const ARC = arcChain(process.env, process.env.FORUM_INDEXER_RPC);
+const DEPLOYMENTS_PATH = deploymentsPath(REPO_ROOT);
+const deployment = loadDeployment(REPO_ROOT);
+const contracts = indexerContracts(deployment);
+// Legacy (testnet-only) contracts are undefined on mainnet; every feature that
+// reads one checks for it first.
+const TR_V1 = contracts.trackRecordV1;
+const TR_V2 = contracts.trackRecordV2;
+const KERNEL_V2 = contracts.riskKernelV2;
+const VAULTS = contracts.vaults; // { v1, v1_1, v1_2, v3 } — only the keys the manifest has
+const BOND = contracts.bond; // { address, label } — SlashBondV1_1 on testnet, SlashBond on mainnet
+const FACTORY = contracts.factory;
+const FEE_ROUTER = contracts.feeRouter;
+const CAPITAL_ROUTER = contracts.capitalRouter;
+const CAPITAL_ROUTER_DEPLOY_BLOCK = contracts.capitalRouterDeployBlock ?? null;
+const FACTORY_DEPLOY_BLOCK = contracts.factoryDeployBlock ?? null;
+const FACTORY_V2 = contracts.factoryV2;
+const FACTORY_V2_DEPLOY_BLOCK = contracts.factoryV2DeployBlock ?? null;
+const DEPLOY_BLOCK = contracts.initialCursor;
+const TR_V2_DEPLOY_BLOCK = contracts.trackRecordV2DeployBlock;
+const IRIS_API = irisApiBase(CHAIN_NAME);
 
 // ---- ABIs ------------------------------------------------------------------
 
@@ -342,6 +339,7 @@ async function indexBots(fromBlock, toBlock) {
     [TR_V1, "v1"],
     [TR_V2, "v2"],
   ]) {
+    if (!address) continue;
     const logs = await getLogsChunked({
       address,
       event: BOT_REGISTERED_EVENT,
@@ -388,6 +386,7 @@ async function refreshBotStats() {
         // Bots persisted before v0.6.0 have no `version` field; default to v1.
         const version = state.bots[botId].version || "v1";
         const address = version === "v2" ? TR_V2 : TR_V1;
+        if (!address) return;
         const recordAtAbi =
           version === "v2" ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
         const count = await pub.readContract({
@@ -612,31 +611,36 @@ async function refreshVaults() {
   for (const [label, addr] of Object.entries(VAULTS)) {
     if (addr) await refreshOneVault(addr, label);
   }
-  // Factory-discovered vaults
+  // Factory-discovered vaults. A hard-coded vault that a factory created (the
+  // mainnet CovenantVaultV3 came from FactoryV2) keeps its hard-coded label.
+  const hardcoded = new Set(
+    Object.values(VAULTS).map((a) => a.toLowerCase()),
+  );
   for (let i = 0; i < state.factoryVaults.length; i++) {
     const fv = state.factoryVaults[i];
+    if (hardcoded.has(fv.vault.toLowerCase())) continue;
     await refreshOneVault(fv.vault, `factory/${i + 1}`);
   }
 }
 
 async function refreshBonds() {
   const now = Math.floor(Date.now() / 1000);
-  if (!BOND_V11) return;
+  if (!BOND) return;
   try {
     const [bal, slashed] = await Promise.all([
       pub.readContract({
-        address: BOND_V11,
+        address: BOND.address,
         abi: BOND_ABI,
         functionName: "bondBalance",
       }),
       pub.readContract({
-        address: BOND_V11,
+        address: BOND.address,
         abi: BOND_ABI,
         functionName: "totalSlashed",
       }),
     ]);
-    state.bonds[BOND_V11] = {
-      label: "SlashBondV1.1",
+    state.bonds[BOND.address] = {
+      label: BOND.label,
       bondBalanceMicros: bal.toString(),
       totalSlashedMicros: slashed.toString(),
       lastUpdate: now,
@@ -723,6 +727,7 @@ async function indexRouterEvents(fromBlock, toBlock) {
 }
 
 async function indexSlashEvents(fromBlock, toBlock) {
+  if (!KERNEL_V2) return;
   const logs = await getLogsChunked({
     address: KERNEL_V2,
     event: ENFORCED_EVENT,
@@ -744,20 +749,28 @@ async function indexSlashEvents(fromBlock, toBlock) {
   state.slashEvents = state.slashEvents.slice(0, 200);
 }
 
-let polling = false;
+/** One poll. Returns true on success so the loop can reset its backoff. */
 async function pollOnce() {
-  if (polling) return;
-  polling = true;
   try {
     const block = await pub.getBlockNumber();
     const fromBlock = BigInt(state.cursor.lastBlock);
-    const toBlock = block;
-    if (toBlock > fromBlock) {
-      await indexBots(fromBlock, toBlock);
-      await indexSlashEvents(fromBlock, toBlock);
-      await indexFactoryVaults(fromBlock, toBlock);
-      await indexRouterEvents(fromBlock, toBlock);
-      state.cursor.lastBlock = toBlock.toString();
+    const toBlock =
+      block - fromBlock > MAX_RANGE_PER_POLL
+        ? fromBlock + MAX_RANGE_PER_POLL
+        : block;
+    // Sweep in LOG_CHUNK pieces and persist the cursor after each one, so a
+    // failure (or restart) half-way through a catch-up resumes from the last
+    // completed chunk instead of re-fetching the whole range.
+    for (let start = fromBlock; toBlock > fromBlock && start <= toBlock; ) {
+      const end =
+        start + LOG_CHUNK - 1n > toBlock ? toBlock : start + LOG_CHUNK - 1n;
+      await indexBots(start, end);
+      await indexSlashEvents(start, end);
+      await indexFactoryVaults(start, end);
+      await indexRouterEvents(start, end);
+      state.cursor.lastBlock = end.toString();
+      persist();
+      start = end + 1n;
     }
     await refreshBotStats();
     await refreshVaults();
@@ -766,13 +779,30 @@ async function pollOnce() {
     state.lastPollAt = Math.floor(Date.now() / 1000);
     persist();
     console.log(
-      `[indexer] poll OK block=${block} bots=${Object.keys(state.bots).length} vaults=${Object.keys(state.vaults).length} slashes=${state.slashEvents.length}`,
+      `[indexer] poll OK block=${block} cursor=${state.cursor.lastBlock}${toBlock < block ? ` (catching up, ${block - toBlock} behind)` : ""} bots=${Object.keys(state.bots).length} vaults=${Object.keys(state.vaults).length} slashes=${state.slashEvents.length}`,
     );
+    return true;
   } catch (e) {
     console.error("[indexer] poll failed:", e.message);
-  } finally {
-    polling = false;
+    return false;
   }
+}
+
+// Serial poll loop with bounded exponential backoff on failure (RPC rate
+// limits were previously retried every POLL_MS against the identical range).
+let consecutiveFailures = 0;
+async function pollLoop() {
+  const ok = await pollOnce();
+  consecutiveFailures = ok ? 0 : consecutiveFailures + 1;
+  const delay = ok
+    ? POLL_MS
+    : Math.min(POLL_MS * 2 ** consecutiveFailures, MAX_BACKOFF_MS);
+  if (!ok) {
+    console.error(
+      `[indexer] backing off ${delay}ms after ${consecutiveFailures} consecutive failure(s)`,
+    );
+  }
+  setTimeout(pollLoop, delay);
 }
 
 // ---- HTTP ------------------------------------------------------------------
@@ -910,10 +940,11 @@ const server = createServer((req, res) => {
       ? Math.floor(Date.now() / 1000) - state.lastPollAt
       : null;
 
-  // CCTP attestation proxy: relay Circle's Iris API server-side so the browser
-  // polls same-origin. Some client networks/extensions can't reach
-  // iris-api-sandbox.circle.com directly, which silently stalls the bridge at
-  // the attestation step even though the burn is already attested.
+  // CCTP attestation proxy: relay Circle's Iris API (production on mainnet,
+  // sandbox on testnet) server-side so the browser polls same-origin. Some
+  // client networks/extensions can't reach iris-api*.circle.com directly,
+  // which silently stalls the bridge at the attestation step even though the
+  // burn is already attested.
   if (path === "/cctp/attestation") {
     const domain = url.searchParams.get("domain") || "";
     const tx = url.searchParams.get("tx") || "";
@@ -923,7 +954,7 @@ const server = createServer((req, res) => {
     (async () => {
       try {
         const r = await fetch(
-          `https://iris-api-sandbox.circle.com/v2/messages/${domain}?transactionHash=${tx}`,
+          `${IRIS_API}/v2/messages/${domain}?transactionHash=${tx}`,
         );
         const body = r.ok ? await r.json().catch(() => null) : null;
         const m =
@@ -973,9 +1004,10 @@ const server = createServer((req, res) => {
     const limit = clampedLimit(url.searchParams.get("limit"), 50, 200);
     // Dispatch reads to the contract the bot is registered against. Unknown
     // bots default to V1 to preserve pre-v0.6.0 behavior (returns empty list
-    // rather than a misleading error if the bot really only exists in V2).
+    // rather than a misleading error if the bot really only exists in V2) —
+    // except where V1 was never deployed (mainnet), where V2 is the only choice.
     const known = state.bots[botId];
-    const version = known?.version || "v1";
+    const version = known?.version || (TR_V1 ? "v1" : "v2");
     const address = version === "v2" ? TR_V2 : TR_V1;
     const recordAtAbi = version === "v2" ? RECORD_AT_V2_ABI : RECORD_AT_V1_ABI;
     // Live read — not cached
@@ -1235,11 +1267,14 @@ const server = createServer((req, res) => {
     // joins it to the (already-indexed) FeeRouterV1 split + per-recipient
     // claimable totals. Result shape matches the script's JSON output one for
     // one so existing tooling stays compatible.
+    // The v1 factory is testnet-only; on mainnet the bond-gated V2 factory is
+    // the set to walk (same allVaults() surface).
+    const statementFactory = FACTORY ?? FACTORY_V2;
     (async () => {
       try {
-        const allVaults = FACTORY
+        const allVaults = statementFactory
           ? await pub.readContract({
-              address: FACTORY,
+              address: statementFactory,
               abi: FACTORY_ALL_VAULTS_ABI,
               functionName: "allVaults",
             })
@@ -1349,9 +1384,9 @@ const server = createServer((req, res) => {
 
         jsonReply(res, 200, {
           generatedAt: Math.floor(Date.now() / 1000),
-          chain: "arc-testnet",
-          chainId: 5042002,
-          factory: FACTORY ?? null,
+          chain: CHAIN_NAME,
+          chainId: ARC.id,
+          factory: statementFactory ?? null,
           feeRouter: FEE_ROUTER ?? null,
           vaultCount: allVaults.length,
           totalOperatorClaimableMicros: totalAccrued.toString(),
@@ -1534,6 +1569,15 @@ const server = createServer((req, res) => {
 async function routerBackfillIfNeeded() {
   if (!CAPITAL_ROUTER || !CAPITAL_ROUTER_DEPLOY_BLOCK) return;
   if (state.router.backfilledAt) return;
+  // A fresh index (mainnet's first boot) starts below the router's deploy
+  // block, so the forward poll walk counts every router event itself; a
+  // backfill on top would double the counters (activity is deduped, the
+  // counts are not).
+  if (BigInt(state.cursor.lastBlock) <= CAPITAL_ROUTER_DEPLOY_BLOCK) {
+    state.router.backfilledAt = Math.floor(Date.now() / 1000);
+    persist();
+    return;
+  }
   try {
     const block = await pub.getBlockNumber();
     // Reset to fresh-zero counters before backfill so a partially-counted
@@ -1590,10 +1634,9 @@ async function v2BackfillIfNeeded() {
 
 server.listen(PORT, "127.0.0.1", async () => {
   console.log(
-    `[indexer] listening on 127.0.0.1:${PORT} state=${STATE_PATH} poll=${POLL_MS}ms`,
+    `[indexer] listening on 127.0.0.1:${PORT} chain=${CHAIN_NAME} (${ARC.id}) rpc=${ARC.rpcUrls.default.http[0]} manifest=${DEPLOYMENTS_PATH} state=${STATE_PATH} poll=${POLL_MS}ms`,
   );
   await v2BackfillIfNeeded();
   await routerBackfillIfNeeded();
-  pollOnce(); // immediate
-  setInterval(pollOnce, POLL_MS);
+  pollLoop();
 });

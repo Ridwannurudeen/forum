@@ -13,7 +13,7 @@
 
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { keccak256, toHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +29,9 @@ const { MockLlmProvider, AnthropicProvider, reasoningHash } = await import(
   fileUrl("keeper/src/agora-mind.ts")
 );
 const { buildReceipt, receiptHash } = await import(fileUrl("keeper/src/receipt.ts"));
+const { defaultCovenantVault, deploymentsPath, loadDeployment } = await import(
+  fileUrl("keeper/src/forum-config.ts")
+);
 
 function parseArgs() {
   const a = process.argv.slice(2);
@@ -102,12 +105,14 @@ async function main() {
   for (const m of markets)
     console.log(`  ${m.slug} liq=$${m.liquidity.toFixed(0)}`);
 
+  // FORUM_CHAIN / FORUM_DEPLOYMENTS / ARC_RPC_URL select the network.
   const bridge = new ForumV2Bridge({
-    deploymentPath: `${REPO_ROOT}/deployments/arc-testnet.json`,
+    deploymentPath: deploymentsPath(REPO_ROOT),
     botLabel: args.label,
     receiptsDir: args.receiptsDir,
     receiptsBaseUrl: args.receiptsBaseUrl,
   });
+  console.log("  chain:           ", bridge.chain.name, bridge.chain.id);
   console.log("  signer:          ", bridge.account.address);
   console.log("  botId:           ", bridge.botId);
 
@@ -128,20 +133,16 @@ async function main() {
   // ----------------------------------------------------------------------
   // Covenant Account integration — only quote/publish while vault is ACTIVE.
   // ----------------------------------------------------------------------
-  const deployment = JSON.parse(
-    readFileSync(`${REPO_ROOT}/deployments/arc-testnet.json`, "utf8"),
-  );
+  const deployment = loadDeployment(REPO_ROOT);
   const vaultOverride = (() => {
     const a = process.argv.slice(2);
     const i = a.indexOf("--vault");
     return i >= 0 && a[i + 1] ? a[i + 1] : "";
   })();
+  // Default vault: CovenantVaultV3 (mainnet), else V1.2 / V1 (testnet).
   const covenantAddr = /^0x[0-9a-fA-F]{40}$/.test(vaultOverride)
     ? vaultOverride
-    : (
-        deployment.contracts?.CovenantVaultV1_2 ??
-        deployment.contracts?.CovenantVault
-      )?.address;
+    : defaultCovenantVault(deployment);
   if (/^0x[0-9a-fA-F]{40}$/.test(vaultOverride)) {
     console.log("  vault override:  ", covenantAddr);
   }

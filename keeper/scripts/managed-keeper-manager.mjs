@@ -38,11 +38,12 @@ import {
   toHex,
   createPublicClient,
   createWalletClient,
-  defineChain,
   http,
   parseAbi,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { arcChain } from "../src/chain.ts";
+import { loadDeployment } from "../src/forum-config.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -84,18 +85,10 @@ const MAX_AUTO_BOND_TOTAL_USDC = Number(
 );
 let autoBondedTotalUsdc = 0;
 
-const ARC = defineChain({
-  id: 5042002,
-  name: "Arc Testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
-});
-const USDC = JSON.parse(
-  readFileSync(
-    resolve(KEEPER_ROOT, "..", "deployments", "arc-testnet.json"),
-    "utf8",
-  ),
-).usdc;
+// FORUM_CHAIN / FORUM_DEPLOYMENTS / ARC_RPC_URL select the network; the same
+// env reaches the spawned keeper (env: process.env), so both agree.
+const ARC = arcChain();
+const USDC = loadDeployment(resolve(KEEPER_ROOT, "..")).usdc;
 const usdcAbi = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
   "function balanceOf(address) view returns (uint256)",
@@ -411,6 +404,7 @@ async function cycle() {
 
 async function main() {
   console.log("managed-keeper-manager");
+  console.log("  chain:       ", ARC.name, ARC.id);
   console.log("  operator:    ", FORUM_MANAGED_OPERATOR);
   console.log("  maxManaged:  ", MAX_MANAGED);
   console.log("  cycleSec:    ", CYCLE_SEC);

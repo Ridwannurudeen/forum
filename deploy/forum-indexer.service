@@ -12,6 +12,10 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=FORUM_INDEXER_PORT=3060
 Environment=FORUM_INDEXER_STATE=/opt/forum/indexer-state.json
+# Optional network switch (FORUM_CHAIN, FORUM_DEPLOYMENTS, ARC_RPC_URL,
+# FORUM_INDEXER_STATE). Absent = testnet defaults above; present = its values
+# override the Environment= lines. See deploy/forum-mainnet.env.example.
+EnvironmentFile=-/opt/forum/forum.env
 StandardOutput=journal
 StandardError=journal
 

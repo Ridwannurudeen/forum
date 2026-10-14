@@ -11,23 +11,25 @@
 //
 // Run anytime; designed for a daily/weekly cron.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPublicClient, defineChain, http, parseAbi } from 'viem';
+import { createPublicClient, http, parseAbi } from 'viem';
+import { arcChain, forumChainName } from '../src/chain.ts';
+import { loadDeployment, vaultFactory } from '../src/forum-config.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-process.chdir(resolve(__dirname, '..', '..'));
+const REPO_ROOT = resolve(__dirname, '..', '..');
+process.chdir(REPO_ROOT);
 
-const ARC = defineChain({
-  id: 5042002, name: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
-});
-const d = JSON.parse(readFileSync('deployments/arc-testnet.json', 'utf8'));
-const FACTORY = d.contracts.CovenantVaultFactory?.address;
+// FORUM_CHAIN selects the network; ARC_RPC (then ARC_RPC_URL) overrides the RPC.
+const CHAIN_NAME = forumChainName();
+const ARC = arcChain(process.env, process.env.ARC_RPC);
+const d = loadDeployment(REPO_ROOT);
+// v1 factory on testnet, the bond-gated V2 factory on mainnet — same allVaults().
+const FACTORY = vaultFactory(d);
 const FEE_ROUTER = d.contracts.FeeRouterV1?.address;
-if (!FACTORY) { console.error('CovenantVaultFactory not deployed'); process.exit(1); }
+if (!FACTORY) { console.error('no CovenantVaultFactory / CovenantVaultFactoryV2 in manifest'); process.exit(1); }
 
 const FACTORY_ABI = parseAbi([
   'function allVaults() view returns (address[])',
@@ -46,7 +48,7 @@ const pub = createPublicClient({ chain: ARC, transport: http() });
 
 const STATE_NAMES = ['ACTIVE', 'PAUSED'];
 
-console.log(`fee-reconcile · factory=${FACTORY} feeRouter=${FEE_ROUTER ?? '(not deployed)'}`);
+console.log(`fee-reconcile · chain=${CHAIN_NAME} (${ARC.id}) factory=${FACTORY} feeRouter=${FEE_ROUTER ?? '(not deployed)'}`);
 
 const vaults = await pub.readContract({
   address: FACTORY, abi: FACTORY_ABI, functionName: 'allVaults',
@@ -118,8 +120,8 @@ const totalAccruedAcrossVaults = vaultReports.reduce(
 
 const report = {
   generatedAt: Math.floor(Date.now() / 1000),
-  chain: 'arc-testnet',
-  chainId: 5042002,
+  chain: CHAIN_NAME,
+  chainId: ARC.id,
   factory: FACTORY,
   feeRouter: FEE_ROUTER ?? null,
   vaultCount: vaults.length,

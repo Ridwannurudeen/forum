@@ -1,0 +1,51 @@
+{
+  "_comment": "Arc mainnet V2 stack as deployed 2026-10-14 (addresses + creation blocks read back from chain). Test fixture only; deployments/arc-mainnet.json is the source of truth.",
+  "chainId": 5042,
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "contracts": {
+    "TrackRecordV2": {
+      "address": "0x730825299821D411146c503915553E37eBDc750c",
+      "txHash": "0xa910f2671a30b7232af7b229bc33a3e79f5f3cadd88e8a341582296cf42e0f77",
+      "block": 25883049
+    },
+    "PolicyVault": {
+      "address": "0xAACe70a50573cB077f65D601cD19103afC4aeF9d",
+      "txHash": "0x5bdd8c480ff29c6dec19a05ef9ad82edbf9fef18dde33f936e82352a733e7905",
+      "block": 25883057
+    },
+    "RiskKernelV2": {
+      "address": "0x0574257629e8221D560cF4AAce0F3cD7226bE2a0",
+      "block": 25925050
+    },
+    "CovenantVaultFactoryV2": {
+      "address": "0x33bb03F40aD46884cd56871D532980154Ef9e5Bf",
+      "block": 25925053
+    },
+    "CapitalRouter": {
+      "address": "0xfF67e845b6d5561680df11C005B8eC8A5F72DaCD",
+      "block": 25925056
+    },
+    "FeeRouterV1": {
+      "address": "0x88E48f0ff21BDDe5385706dDa096ca3C60c54342",
+      "block": 25925062
+    },
+    "SlashBond": {
+      "address": "0x142e68E47b9107604F7b7F67B7A032BBff262d5B",
+      "txHash": "0x8bd8a394a90901f7f5517c3664d1e5440bc798f9728b474f6f5d97c639d83056",
+      "block": 25925229,
+      "operator": "0x13585c6004fbA9D7D49219a6435B68348fD30770",
+      "attestor": "0x0574257629e8221D560cF4AAce0F3cD7226bE2a0",
+      "recipient": "0x9cFf811681B932381AeF425f56a3d945027FF181",
+      "botId": "0x6d27b97652b8c084877881f89e54dc8b0858d2971f7bb558c7b4ff67b342d598",
+      "label": "forum-agora-mind-mainnet-v1"
+    },
+    "CovenantVaultV3": {
+      "address": "0x8Ea637Dc3d4399c42c372D97DCb64a52b06A421E",
+      "txHash": "0xcf3f4d83609a1234edcfd4ec6a3b00499eaaafa76790f9f19ec675234184d76a",
+      "block": 25925232,
+      "botId": "0x6d27b97652b8c084877881f89e54dc8b0858d2971f7bb558c7b4ff67b342d598",
+      "budgetUsdc": 1000000,
+      "receiptFreshnessSec": 21600
+    }
+  }
+}

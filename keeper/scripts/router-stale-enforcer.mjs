@@ -28,27 +28,28 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import {
-  createPublicClient, createWalletClient, defineChain, http, parseAbi,
+  createPublicClient, createWalletClient, http, parseAbi,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { arcChain, forumChainName } from "../src/chain.ts";
+import { loadDeployment } from "../src/forum-config.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-process.chdir(resolve(__dirname, "..", ".."));
+const REPO_ROOT = resolve(__dirname, "..", "..");
+process.chdir(REPO_ROOT);
 
 const execute = process.argv.includes("--execute");
 const KEY_PATH = process.env.FORUM_DEPLOYER_KEY ?? join(homedir(), ".forum-keys", "deployer.key");
 
-const ARC = defineChain({
-  id: 5042002, name: "Arc Testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.ARC_RPC ?? "https://rpc.testnet.arc.network"] } },
-});
+// FORUM_CHAIN selects the network; ARC_RPC (then ARC_RPC_URL) overrides the RPC.
+const ARC = arcChain(process.env, process.env.ARC_RPC);
 
-const dep = JSON.parse(readFileSync("deployments/arc-testnet.json", "utf8"));
+const dep = loadDeployment(REPO_ROOT);
 const CAPITAL_ROUTER = dep.contracts.CapitalRouter?.address;
 const TR_V2 = dep.contracts.TrackRecordV2.address;
-const KERNEL_V2 = dep.contracts.RiskKernelV2.address;
+const KERNEL_V2 = dep.contracts.RiskKernelV2?.address;
 if (!CAPITAL_ROUTER) { console.error("CapitalRouter not deployed"); process.exit(1); }
+if (!KERNEL_V2) { console.error("RiskKernelV2 not deployed"); process.exit(1); }
 
 const ROUTER_ABI = parseAbi([
   "function targetVaultCount() view returns (uint256)",
@@ -90,6 +91,7 @@ if (execute) {
   console.log(`signer: ${account.address}`);
 }
 
+console.log(`chain:  ${forumChainName()} (${ARC.id})`);
 console.log(`router: ${CAPITAL_ROUTER}`);
 console.log(`mode:   ${execute ? "EXECUTE" : "DRY-RUN (pass --execute to broadcast)"}`);
 

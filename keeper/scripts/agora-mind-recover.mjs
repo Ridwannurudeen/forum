@@ -10,7 +10,13 @@
 // resumes its normal loop on next tick.
 //
 // Safe to re-run. Idempotent at the on-chain level.
-// Run as: tsx keeper/scripts/agora-mind-recover.mjs
+// Run as: tsx keeper/scripts/agora-mind-recover.mjs [--label L] [--unit U]
+//
+// FORUM_CHAIN / FORUM_DEPLOYMENTS / ARC_RPC_URL select the network. The bot
+// label and the systemd unit default to the chain's AgoraMind deployment
+// (deploy/forum-agora-mind.service on testnet,
+// deploy/forum-agora-mind-mainnet.service on mainnet) and must match the
+// running keeper, or the recovery receipt lands on a different bot.
 
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -18,26 +24,48 @@ import { keccak256, toHex } from "viem";
 import { execSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-process.chdir(resolve(__dirname, "..", ".."));
+const REPO_ROOT = resolve(__dirname, "..", "..");
+process.chdir(REPO_ROOT);
 
 const fileUrl = (p) => pathToFileURL(resolve(p)).href;
 const { ForumV2Bridge } = await import(fileUrl("keeper/src/forum-v2.ts"));
 const { buildReceipt } = await import(fileUrl("keeper/src/receipt.ts"));
+const { forumChainName } = await import(fileUrl("keeper/src/chain.ts"));
+const { defaultCovenantVault, deploymentsPath, loadDeployment } = await import(
+  fileUrl("keeper/src/forum-config.ts")
+);
 
-const LABEL = "forum-agora-mind-prod-v1";
+const argv = process.argv.slice(2);
+const arg = (flag, dflt) => {
+  const i = argv.indexOf(flag);
+  return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt;
+};
+const MAINNET = forumChainName() === "arc-mainnet";
+const LABEL = arg("--label", MAINNET ? "forum-agora-mind-mainnet-v1" : "forum-agora-mind-prod-v1");
+const UNIT = arg("--unit", MAINNET ? "forum-agora-mind-mainnet" : "forum-agora-mind");
 const RECEIPTS_DIR = "/opt/forum/web/receipts";
 const RECEIPTS_BASE = "https://forum.gudman.xyz/receipts";
 
+const dep = loadDeployment(REPO_ROOT);
+const VAULT = defaultCovenantVault(dep);
+const KERNEL = dep.contracts.RiskKernelV2?.address;
+if (!VAULT || !KERNEL) {
+  console.error("manifest lacks a CovenantVault (V3 / V1_2 / V1) or RiskKernelV2 — nothing to recover");
+  process.exit(1);
+}
+
 // Stop the keeper so a seq collision doesn't happen mid-recovery.
-console.log("stopping forum-agora-mind ...");
-try { execSync("systemctl stop forum-agora-mind", { stdio: "inherit" }); } catch (e) { /* ok if not installed */ }
+console.log(`stopping ${UNIT} ...`);
+try { execSync(`systemctl stop ${UNIT}`, { stdio: "inherit" }); } catch (e) { /* ok if not installed */ }
 
 const bridge = new ForumV2Bridge({
-  deploymentPath: `${process.cwd()}/deployments/arc-testnet.json`,
+  deploymentPath: deploymentsPath(REPO_ROOT),
   botLabel: LABEL,
   receiptsDir: RECEIPTS_DIR,
   receiptsBaseUrl: RECEIPTS_BASE,
 });
+console.log("chain:", bridge.chain.name, bridge.chain.id);
+console.log("label:", LABEL);
 console.log("botId:", bridge.botId);
 
 const seq = (await bridge.lastSeq()) + 1;
@@ -68,9 +96,6 @@ const { txHash } = await bridge.publishRecordAwait({
 console.log(`PUBLISH-V2 tx=${txHash}`);
 
 // Now nudge the kernel to re-evaluate.
-const dep = JSON.parse((await import("node:fs")).readFileSync(`${process.cwd()}/deployments/arc-testnet.json`, "utf8"));
-const VAULT = dep.contracts.CovenantVaultV1_2.address;
-const KERNEL = dep.contracts.RiskKernelV2.address;
 const ENFORCE_ABI = [{ type: "function", name: "enforce", stateMutability: "nonpayable", inputs: [{ name: "vault", type: "address" }], outputs: [] }];
 console.log(`calling RiskKernelV2.enforce(${VAULT}) ...`);
 const enforceHash = await bridge.walletClient.writeContract({
@@ -84,8 +109,8 @@ const STATE_ABI = [{ type: "function", name: "state", stateMutability: "view", i
 const newState = await bridge.publicClient.readContract({ address: VAULT, abi: STATE_ABI, functionName: "state" });
 console.log(`vault state after: ${newState} (${["ACTIVE","PAUSED","EXPIRED"][Number(newState)] || "?"})`);
 
-console.log("restarting forum-agora-mind ...");
-try { execSync("systemctl start forum-agora-mind", { stdio: "inherit" }); } catch (e) { console.error("restart failed (manual: systemctl start forum-agora-mind):", e.message); }
+console.log(`restarting ${UNIT} ...`);
+try { execSync(`systemctl start ${UNIT}`, { stdio: "inherit" }); } catch (e) { console.error(`restart failed (manual: systemctl start ${UNIT}):`, e.message); }
 
 if (Number(newState) === 0) {
   console.log("\nRECOVERY OK — vault is ACTIVE. Keeper will resume on next tick.");

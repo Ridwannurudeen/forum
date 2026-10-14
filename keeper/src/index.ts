@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { PolymarketReader } from "./polymarket.js";
 import { DEFAULT_QUOTER_CONFIG } from "./quoter.js";
 import { ForumBridge } from "./forum.js";
+import { deploymentsPath } from "./forum-config.js";
 import { runLoop } from "./loop.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -68,7 +69,7 @@ async function main(): Promise<void> {
   }
 
   const bridge = new ForumBridge({
-    deploymentPath: `${REPO_ROOT}/deployments/arc-testnet.json`,
+    deploymentPath: deploymentsPath(REPO_ROOT),
     botLabel: args.label,
   });
   console.log(`  account:      ${bridge.account.address}`);
