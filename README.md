@@ -8,13 +8,14 @@
 
 [![CI](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml/badge.svg)](https://github.com/Ridwannurudeen/forum/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Live demo](https://img.shields.io/badge/demo-forum.gudman.xyz-4cf0c2)](https://forum.gudman.xyz/)
+[![Arc mainnet](https://img.shields.io/badge/Arc%20mainnet-PolicyVault-2ea44f)](https://forum.gudman.xyz/policy.html)
+[![Testnet demo](https://img.shields.io/badge/testnet%20demo-forum.gudman.xyz-4cf0c2)](https://forum.gudman.xyz/)
 [![Demo video](https://img.shields.io/badge/demo%20video-YouTube-ff0000)](https://youtu.be/MWoIUsXddtE)
 ![Arc testnet](https://img.shields.io/badge/Arc%20testnet-5042002-9bb8ff)
 ![Built with Foundry](https://img.shields.io/badge/built%20with-Foundry-orange)
 ![Agora Agents](https://img.shields.io/badge/Agora%20Agents-Canteen%20%C3%97%20Circle%20%C3%97%20Arc-f6c76b)
 
-[**Live demo**](https://forum.gudman.xyz/) · [**Demo video**](https://youtu.be/MWoIUsXddtE) · [Architecture](#architecture) · [Quickstart](#quickstart) · [Contracts](#live-on-arc-testnet) · [Proofs](#verifiable-proofs)
+[**Mainnet: PolicyVault**](https://forum.gudman.xyz/policy.html) · [Testnet demo](https://forum.gudman.xyz/) · [**Demo video**](https://youtu.be/MWoIUsXddtE) · [Architecture](#architecture) · [Quickstart](#quickstart) · [Contracts](#live-on-arc-testnet) · [Proofs](#verifiable-proofs)
 
 </div>
 
@@ -26,6 +27,9 @@
 > `0xAACe70a50573cB077f65D601cD19103afC4aeF9d` on chain 5042 · source `src/PolicyVault.sol` · what was built
 > and what is still open: [`docs/DELTA.md`](docs/DELTA.md). Unaudited, capped pilot. Everything below this
 > note is the earlier Covenant Accounts stack, which runs on Arc **testnet** and is not deployed to mainnet.
+> The same deployer key was used on both chains, so the two mainnet addresses equal the testnet
+> `TrackRecord` v1 and `BuilderCodeRegistry` addresses listed further down; they are different contracts
+> on different chains.
 
 Forum is **not** another prediction-market bot. It is the control and settlement layer that lets capital fund market-making agents *without* handing the agent an unrestricted wallet. Investors deposit USDC; an operator's agent pulls **bounded** credit under an on-chain mandate; every cycle publishes a recomputable, signed receipt; and **anyone** can pause the vault and slash the operator's bond — in a single transaction — the moment the mandate breaks.
 
@@ -258,7 +262,7 @@ For Arc builders who want a clean reference for **x402 pay-per-call + ERC-4337 s
 
 ## Honest scope
 
-- **Arc testnet only.** Contracts are immutable and unaudited hackathon code.
+- **The Covenant stack is Arc testnet only.** Those contracts are immutable and unaudited hackathon code. PolicyVault, described at the top, is the only mainnet deployment, and it is an unaudited, capped pilot.
 - The reference keeper runs **paper-mode by default** (real market data, simulated fills). Real Polymarket V2 fills are proven separately ([`/api/proof`](https://forum.gudman.xyz/api/proof), [`docs/phase-3-live-fill-proof.md`](docs/phase-3-live-fill-proof.md)) with on-chain Polygon settlement and builder attribution confirmed by Polymarket's API.
 - Live execution is **operator-gated** (Polymarket geoblocks order submission and it needs the operator's keys) — exposed as an operator flow with verifiable proof, not a public trade button. Builder fee capture is currently **0 bps** on Forum's taker flow (a 0.1% maker rate is configured; a capturing taker rate is blocked by Polymarket's fee-update cooldown — a post-deadline step).
 - External bot adapters are not shipped yet; the template is.

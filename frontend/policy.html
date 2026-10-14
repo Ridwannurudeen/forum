@@ -179,7 +179,7 @@ const TR_ABI = [
 const CODES = {
   0:"ok", 1:"the vault is paused", 2:"payee not registered", 3:"payee deactivated",
   4:"payee still inside the 24h cooling period", 5:"category does not exist",
-  6:"over the per-transaction cap", 7:"over this payee's daily cap",
+  6:"zero amount, or over the per-transaction cap", 7:"over this payee's daily cap",
   8:"over the category's daily cap", 9:"over the category's 30-day budget",
   10:"the owner's allowance or balance is short", 11:"the record bot is not registered",
 };
@@ -228,7 +228,7 @@ async function main() {
   el("#signer").innerHTML = link(signer) +
     (signer.toLowerCase() === agent.toLowerCase()
       ? ` <span class="ok">matches the agent</span>`
-      : ` <span class="bad">does not match the agent — pay() will revert</span>`);
+      : ` <span class="warn">differs from the agent — payments still need records signed by this key</span>`);
   el("#paused").innerHTML = paused
     ? `<span class="bad">PAUSED</span>` : `<span class="ok">active</span>`;
   el("#spendable").textContent = usdc(spendable);
@@ -290,12 +290,14 @@ async function main() {
         ? `<span class="ok">Yes — this payment is inside policy right now.</span>`
         : `<span class="bad">No — code ${code}: ${CODES[code] ?? "unknown"}.</span>`;
     } catch (e) {
-      out.innerHTML = `<span class="bad">read failed: ${String(e.message || e)}</span>`;
+      out.innerHTML = `<span class="bad"></span>`;
+      out.firstChild.textContent = `read failed: ${String(e.message || e)}`;
     }
   });
 
   // payments, straight from Paid events. The RPC caps eth_getLogs at 10,000
-  // blocks and Arc makes about two a second, so scan in windows.
+  // blocks and Arc makes about two a second, so scan in windows. A failure here
+  // stays in this section; the policy reads above are already rendered.
   const paidEvent = VAULT_ABI.find((x) => x.type === "event" && x.name === "Paid");
   const ranges = [];
   for (let from = CONFIG.deployBlock; payCount > 0n && from <= block; from += LOG_WINDOW) {
@@ -303,10 +305,17 @@ async function main() {
     ranges.push([from, to < block ? to : block]);
   }
   const logs = [];
-  for (let i = 0; i < ranges.length; i += 8) {
-    const batch = await Promise.all(ranges.slice(i, i + 8).map(([fromBlock, toBlock]) =>
-      client.getLogs({ address: CONFIG.vault, event: paidEvent, fromBlock, toBlock })));
-    logs.push(...batch.flat());
+  try {
+    for (let i = 0; i < ranges.length; i += 8) {
+      const batch = await Promise.all(ranges.slice(i, i + 8).map(([fromBlock, toBlock]) =>
+        client.getLogs({ address: CONFIG.vault, event: paidEvent, fromBlock, toBlock })));
+      logs.push(...batch.flat());
+    }
+  } catch {
+    el("#payments").innerHTML =
+      `<p class="empty">The vault reports ${payCount} payment(s), but the public RPC refused the event history ` +
+      `(it rate-limits). Reload in a minute, or open the vault on the explorer: ${link(CONFIG.vault)}.</p>`;
+    return;
   }
   if (!logs.length) {
     el("#payments").innerHTML = `<p class="empty">no payments yet</p>`;
@@ -326,7 +335,8 @@ async function main() {
 }
 
 main().catch((e) => {
-  el("#net").innerHTML = `<span class="bad">read failed: ${String(e.message || e)}</span>`;
+  el("#net").innerHTML = `<span class="bad"></span>`;
+  el("#net").firstChild.textContent = `read failed: ${String(e.message || e)}`;
 });
 </script>
 </body>
